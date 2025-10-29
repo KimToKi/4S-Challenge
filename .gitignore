@@ -1,6 +1,67 @@
+# ==============================
+# 👾 LINE BOT PROJECT SETTINGS
+# ==============================
+
+# Node dependencies
 node_modules/
+
+# Environment files
 .env
 .env.local
-db.sqlite
-.DS_Store
+.env.*.local
 
+# Database (อย่าพุชไฟล์ฐานข้อมูลขึ้น GitHub)
+db.sqlite
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server.err.log
+server.out.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Build artifacts
+dist/
+build/
+coverage/
+.cache/
+.next/
+out/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# VSCode and local settings
+.vscode/
+.idea/
+*.code-workspace
+
+# Render build cache
+.render/
+.vercel/
+.netlify/
+.envrc
+
+# Ignore test snapshots and lockfiles from alternate package managers
+__snapshots__/
+pnpm-lock.yaml
+yarn.lock
+
+# Backups
+*.old
+*.orig
+
+# ==========================================
+# ✨ END OF .gitignore
+# ==========================================
