@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Disneyland Challenge — Rules</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{
+      --bg:#f6f7fc; --ink:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e5e7eb;
+      --primary:#1d4ed8; --purple:#6d28d9; --gold:#f59e0b; --row:#f8fafc; --row2:#f1f5f9; --hover:#eef2ff;
+      --good:#065f46; --bad:#7f1d1d; --chip:#f1f5f9; --chipb:#e5e7eb;
+    }
+    html,body{height:100%}
+    body{font-family:sans-serif;background:radial-gradient(1200px 600px at 10% -10%, #e0e7ff 0, transparent 60%),radial-gradient(900px 500px at 110% -20%, #fae8ff 0, transparent 55%),var(--bg);margin:0;color:var(--ink)}
+    .wrap{max-width:980px;margin:0 auto;padding:28px}
+    .hero{background:linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%);color:#fff;border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(29,78,216,0.25)}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand .emoji{font-size:26px}
+    .brand .title{font-size:18px;font-weight:700;letter-spacing:.3px}
+    .brand .sub{font-size:12px;opacity:.9}
+    .actions a{background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.6);padding:8px 12px;border-radius:10px;text-decoration:none;font-weight:600}
+    .actions a:hover{background:#f1f5ff}
+    .card{margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.06)}
+    .card .head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .chip{background:var(--chip);border:1px solid var(--chipb);padding:2px 8px;border-radius:999px;font-size:12px;color:#334155}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{background:#0b1a4a;color:#fff;text-align:left;padding:12px 14px;position:sticky;top:0}
+    tbody td{padding:12px 14px;border-top:1px solid var(--border)}
+    tbody tr:nth-child(even){background:var(--row)}
+    tbody tr:nth-child(odd){background:var(--row2)}
+    tbody tr:hover{background:var(--hover)}
+    .score{font-weight:700;color:var(--good)}
+    .penalty{font-weight:700;color:var(--bad)}
+    code{background:#f1f5f9;border:1px solid #e5e7eb;border-radius:6px;padding:1px 6px}
+    .muted{color:var(--muted);font-size:12px;padding:12px 16px}
+  </style>
+  <meta name="color-scheme" content="light only">
+  <meta name="description" content="Disneyland Challenge Rules — Small win to SUCCESS">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="preconnect" href="/static" />
+  </head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="brand">
+        <div class="emoji">🏰</div>
+        <div>
+          <div class="title">Disneyland Challenge — Rules</div>
+          <div class="sub">Small win to SUCCESS · กติกาและคะแนน</div>
+        </div>
+      </div>
+      <div class="actions"><a href="/" aria-label="กลับ Top 10">🏆 Top 10</a></div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <div>⚡️ ระบบสะสมคะแนนรายเดือน · November · December · January</div>
+        <span class="chip">TOP10 มีรางวัล · รางวัลใหญ่จบ January</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th style="width:160px">คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th style="width:160px">คะแนน</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>/bm_product</code></td><td>ทำเคส BM หรือเล่าเคสสินค้า ถ่ายรูป รายงานลงกลุ่ม</td><td class="score">+1</td></tr>
+          <tr><td><code>/pack3</code></td><td>คนใหม่ฟังลิงก์จบ 3 Pack (ต่อ 1 คนที่ฟังจบ)</td><td class="score">+4/คน</td></tr>
+          <tr><td><code>/begin</code></td><td>พาคนใหม่เข้าระบบ Begin Onsite: คนที่ 1 +1, คนที่ 2 +2, คนที่ 3 +4, คนที่ 4 +8 … </td><td class="score">+1 → +2 → +4 → +8 …</td></tr>
+          <tr><td><code>/beyond_dec</code></td><td>พาคนใหม่เข้างาน Beyond เดือนธันวาคม: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2 ตามจำนวนคน)</td><td class="score">+2 / +4 / +8</td></tr>
+          <tr><td><code>/new_pride</code></td><td>เราเป็น New Pride หรือมีคนใหม่เข้างาน Pride: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2)</td><td class="score">+2 / +4 / +8</td></tr>
+          <tr><td><code>/new_member</code></td><td>ลูกค้าใหม่สมัครสมาชิกและซื้อของ 1,000 pv: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2)</td><td class="score">+2 / +4 / +8</td></tr>
+          <tr><td><code>/old_member</code></td><td>ลูกค้าเก่าซื้อของในเดือนนั้น</td><td class="score">+1</td></tr>
+          <tr><td><code>/sop</code></td><td>เดือนนี้เราซื้อ SOP หรือมี new member สมัครและซื้อ SOP</td><td class="score">+2</td></tr>
+          <tr>
+            <td><code>/plan_update</code></td>
+            <td>
+              ส่งความคืบหน้าอย่างน้อย 3 ครั้งต่อเดือน:
+              ครั้งที่ 1 = 1/3 (ส่งแผน), ครั้งที่ 2 = 2/3 (อัปเดตครั้งที่ 1) — ยังไม่ให้คะแนน,
+              ครั้งที่ 3 = 3/3 — ได้รับคะแนนส่วนนี้
+            </td>
+            <td>
+              ครบ 3/3 <span class="score">+4</span> · ไม่ครบตามเงื่อนไข หัก <span class="penalty">-10</span> ในวันสุดท้ายของเดือน
+            </td>
+          </tr>
+          <tr><td><code>/old_follow_up</code></td><td>โทรติดตามคนเก่า (จบ hm 4)</td><td class="score">+1/คน</td></tr>
+          <tr><td><code>/new_follow_up</code></td><td>โทรติดตามคนใหม่ (อยู่ในกระบวนการ bm–hm4)</td><td class="score">+2/คน</td></tr>
+          <tr><td><code>/connection+N</code></td><td>รู้จักเพื่อนใหม่/รายชื่อใหม่ ใส่จำนวนหลัง + เพื่อบันทึก</td><td class="score">+N</td></tr>
+          <tr><td><code>/use_product</code></td><td>ใช้สินค้า + ถ่ายรูปลงกลุ่ม</td><td class="score">+1</td></tr>
+          <tr><td><code>/link_30d</code></td><td>เช็คอินการส่งลิงก์ประจำวัน <b>ต้องแนบรูปหลักฐาน</b> (พิมพ์ <code>/link_30d</code> แล้วส่งรูปทันที)</td><td><span class="score">+4</span> ครบทุกวันในเดือน <span class="penalty">-1</span> ต่อวันที่ขาดส่ง <span class="score">+0</span> ถ้าเดือนนั้นไม่มีเช็คอินเลย</td></tr>
+          <tr><td><code>/book</code></td><td>อ่านหนังสือจบ 1 เล่ม</td><td><span class="score">+4</span> · ถ้าในเดือนไม่มีรายงานนี้ <span class="penalty">-4</span></td></tr>
+        </tbody>
+      </table>
+      <div class="muted">หมายเหตุ: คะแนนและอันดับยึดตามข้อมูลที่รายงานผ่านบอทในเดือนนั้นๆ</div>
+    </div>
+    <div class="card">
+      <div class="head"><div>🖼️ หลักฐานรูปภาพสำหรับคำสั่ง /link_30d</div></div>
+      <div class="muted" style="font-size:14px">
+        - พิมพ์ <code>/link_30d</code> แล้วส่งรูปหลักฐานทันทีในข้อความถัดไป<br>
+        - ถ้าพิมพ์คำสั่งแล้ว “ยังไม่ส่งรูป” บอทจะแจ้งเตือนให้ส่งรูปเพื่อบันทึกวันนี้ให้ครบ<br>
+        - ระบบกันการบันทึกซ้ำวันเดียวกัน หากทำครบแล้วจะมีข้อความแจ้งว่า “บันทึกไว้แล้ว”<br>
+        - การคิดคะแนนจะสรุปปลายเดือน: ครบทุกวัน +4, ขาดวันละ -1, ถ้าเดือนนั้นไม่มีเช็คอินเลย +0
+      </div>
+    </div>
+  <div class="card">
+      <div class="head"><div>📘 กติกา: /book</div></div>
+      <div class="muted" style="font-size:14px">
+        - พิมพ์ <code>/book</code> แล้วนับคะแนนทันที (ไม่ต้องพิมพ์ success/fail)<br>
+        - เดือนหนึ่งนับคะแนนได้สูงสุด 2 ครั้ง (ครั้งละ <span class="score">+4</span>)<br>
+        - หากในเดือนนั้นไม่มีการส่ง <code>/book</code> เลย จะถูกหัก <span class="penalty">-4</span> ในวันสุดท้ายของเดือน
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
+
