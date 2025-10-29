@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Disneyland Challenge — LINE Bot
 
 ระบบสะสมคะแนนรายเดือนสำหรับกลุ่ม LINE  
@@ -16,3 +17,6 @@
 - ใส่ `LINE_TARGET_ID` (หรือ `LINE_GROUP_ID`/`LINE_USER_ID`) ใน `.env` เพื่อให้บอทส่งประกาศไปยังห้อง/ผู้ใช้เป้าหมาย
 - ปรับเวลาได้ด้วย `WEEKLY_CRON` (ดีฟอลต์: จันทร์ 09:00) และ `WEEKLY_TZ` (ดีฟอลต์: Asia/Bangkok)
 - ทดสอบส่งแบบแมนนวลได้ หากตั้ง `ADMIN_KEY` แล้วเรียก `GET /admin/weekly-push?key=YOUR_KEY`
+=======
+# Disneyland-Challenge-
+>>>>>>> a9a5020fb403673af51a6bddfcaa25bb9b0fd924
