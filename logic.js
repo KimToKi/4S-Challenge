@@ -438,12 +438,12 @@ function isoWeekRangeUTC(yw) {
   return { startUtc: toSqlUtc(startLocal), endUtc: toSqlUtc(endLocal) };
 }
 
-async function reply(replyToken, text) {
-  if (!replyToken) return;
+async function replyMessages(replyToken, messages = []) {
+  if (!replyToken || !Array.isArray(messages) || messages.length === 0) return;
   try {
     await axios.post('https://api.line.me/v2/bot/message/reply', {
       replyToken,
-      messages: [{ type: 'text', text }]
+      messages
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
@@ -453,6 +453,11 @@ async function reply(replyToken, text) {
   } catch (err) {
     console.error('reply error', err?.response?.data || err.message);
   }
+}
+
+async function reply(replyToken, text) {
+  if (!text) return;
+  await replyMessages(replyToken, [{ type: 'text', text }]);
 }
 
 // Reply with extra inspiration and optional display name
@@ -974,8 +979,12 @@ async function handleEvent(evt) {
 
   // Simplified help: list commands only + Rules link (disabled; using unified help below)
   if (cmd === '/help' || cmd === '/rules' || cmd === '/rule') {
-    const base = (process.env.PUBLIC_BASE_URL || process.env.PUBLIC_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
-    const rulesUrl = `${base}/rules`;
+    const base = (process.env.PUBLIC_BASE_URL
+      || process.env.PUBLIC_URL
+      || process.env.BASE_URL
+      || 'https://disneyland-challenge.onrender.com').replace(/\/$/, '');
+    const imageUrl = `${base}/rules-image.png`;
+    const rulesUrl = (process.env.RULES_PAGE_URL || 'https://disneyland-challenge.onrender.com/rules');
     const cleanHelp = [
       '📚 คำสั่งที่ใช้ได้ (พิมพ์ตามนี้):',
       '/begin',
@@ -996,9 +1005,14 @@ async function handleEvent(evt) {
       '/score',
       '/rank',
       '',
-      `ดูรายละเอียดกติกา: ${rulesUrl}`
+      `อ่านกติกาเต็ม: ${rulesUrl}`
     ].join('\n');
-    await reply(evt.replyToken, cleanHelp);
+
+    const messages = [
+      { type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl },
+      { type: 'text', text: cleanHelp }
+    ];
+    await replyMessages(evt.replyToken, messages);
     return;
     const lines = [
       'คำสั่งที่ใช้ได้:',
