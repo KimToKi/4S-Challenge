@@ -137,7 +137,13 @@ async function dbQuery(sql, params = []) {
     const [userId, command, dateKey, monthKey] = params;
     const { error } = await supabase
       .from('pending')
-      .upsert({ user_id: userId, command, date_key: dateKey, month_key: monthKey }, {
+      .upsert({
+        user_id: userId,
+        command,
+        date_key: dateKey,
+        month_key: monthKey,
+        created_at: new Date().toISOString()
+      }, {
         onConflict: 'user_id,command,date_key'
       });
     if (error) throw wrapError(error, 'Failed to upsert pending entry');
@@ -929,6 +935,14 @@ async function clearPendingLinkToday(userId, command) {
   );
 }
 
+function pendingCreatedAt(row) {
+  if (!row) return 0;
+  const raw = row.created_at || row.createdAt || row.createdat || row.created_at_utc;
+  if (!raw) return 0;
+  const ts = new Date(raw).getTime();
+  return Number.isFinite(ts) ? ts : 0;
+}
+
 async function insertEvent(e) {
   await dbReady;
   const row = await dbGet(
@@ -1706,8 +1720,31 @@ async function handleImageEvent2_fixed(evt) {
   const mk = monthKey();
   const imageId = evt.message?.id || 'image';
 
-  // Handle /link_30d evidence if pending
-  const pendingLink = await getPendingLinkToday(userId, '/link_30d');
+  const [pendingLink, pendingBm] = await Promise.all([
+    getPendingLinkToday(userId, '/link_30d'),
+    getPendingLinkToday(userId, '/bm_product')
+  ]);
+
+  const linkTs = pendingCreatedAt(pendingLink);
+  const bmTs = pendingCreatedAt(pendingBm);
+  const handleBmFirst = pendingBm && bmTs >= linkTs;
+
+  if (handleBmFirst) {
+    const displayName2 = await safeGetDisplayName(userId, evt.source);
+    const pts = (await loadRule('/bm_product', '')) ?? 1;
+    await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
+    await clearPendingLinkToday(userId, '/bm_product');
+    const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await sumUserMonth(userId, mk);
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    await replyWithInspire(evt.replyToken, composed, displayName2);
+    return;
+  }
+
   if (pendingLink) {
     const already = await hasLink30dToday(userId);
     if (already) {
@@ -1721,8 +1758,6 @@ async function handleImageEvent2_fixed(evt) {
     return;
   }
 
-  // Handle /bm_product evidence if pending (awards immediately)
-  const pendingBm = await getPendingLinkToday(userId, '/bm_product');
   if (pendingBm) {
     const displayName2 = await safeGetDisplayName(userId, evt.source);
     const pts = (await loadRule('/bm_product', '')) ?? 1;
