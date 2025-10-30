@@ -548,9 +548,13 @@ function sumUserMonth(user_id, mk) {
 
 function getTop10(mk) {
   return new Promise((resolve) => {
-    db.all(`SELECT display_name, IFNULL(SUM(points),0) as points
+    db.all(`SELECT user_id,
+                   MAX(display_name) AS display_name,
+                   IFNULL(SUM(points),0) AS points
             FROM events WHERE month_key = ?
-            GROUP BY display_name ORDER BY points DESC, display_name LIMIT 10`, [mk], (err, rows) => {
+            GROUP BY user_id
+            ORDER BY points DESC, display_name
+            LIMIT 10`, [mk], (err, rows) => {
       if (err) return resolve([]);
       resolve(rows);
     });
@@ -559,9 +563,13 @@ function getTop10(mk) {
 
 function getTop10All() {
   return new Promise((resolve) => {
-    db.all(`SELECT display_name, IFNULL(SUM(points),0) as points
+    db.all(`SELECT user_id,
+                   MAX(display_name) AS display_name,
+                   IFNULL(SUM(points),0) AS points
             FROM events
-            GROUP BY display_name ORDER BY points DESC, display_name LIMIT 10`, [], (err, rows) => {
+            GROUP BY user_id
+            ORDER BY points DESC, display_name
+            LIMIT 10`, [], (err, rows) => {
       if (err) return resolve([]);
       resolve(rows);
     });
@@ -581,10 +589,14 @@ function getTop10Week(yw) {
   return new Promise((resolve) => {
     const range = isoWeekRangeUTC(yw);
     if (!range) return resolve([]);
-    db.all(`SELECT display_name, IFNULL(SUM(points),0) as points
+    db.all(`SELECT user_id,
+                   MAX(display_name) AS display_name,
+                   IFNULL(SUM(points),0) AS points
             FROM events
             WHERE timestamp >= ? AND timestamp < ?
-            GROUP BY display_name ORDER BY points DESC, display_name LIMIT 10`, [range.startUtc, range.endUtc], (err, rows) => {
+            GROUP BY user_id
+            ORDER BY points DESC, display_name
+            LIMIT 10`, [range.startUtc, range.endUtc], (err, rows) => {
       if (err) return resolve([]);
       resolve(rows);
     });
@@ -625,8 +637,9 @@ function daysInMonthKey(mk) {
 function distinctUsersWithLink30d(mk) {
   return new Promise((resolve) => {
     db.all(
-      `SELECT DISTINCT user_id, display_name
-       FROM events WHERE command = '/link_30d' COLLATE NOCASE AND month_key = ?`,
+      `SELECT user_id, MAX(display_name) AS display_name
+       FROM events WHERE command = '/link_30d' COLLATE NOCASE AND month_key = ?
+       GROUP BY user_id`,
       [mk],
       (err, rows) => resolve(err ? [] : rows || [])
     );
@@ -672,7 +685,9 @@ async function finalizeLink30dMonth(mk) {
 // ---- /book month-end settlement ----
 function distinctUsersInMonth(mk) {
   return new Promise((resolve) => {
-    db.all(`SELECT DISTINCT user_id, display_name FROM events WHERE month_key = ?`, [mk], (err, rows) => {
+    db.all(`SELECT user_id, MAX(display_name) AS display_name
+            FROM events WHERE month_key = ?
+            GROUP BY user_id`, [mk], (err, rows) => {
       if (err) return resolve([]);
       resolve(rows || []);
     });
