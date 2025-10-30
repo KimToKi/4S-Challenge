@@ -67,6 +67,9 @@ app.get('/weeks', weeksHandler);
 // Static pages
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'leaderboard.html')));
 app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, 'views', 'rules.html')));
+app.get('/rules-image.png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'rules.png'));
+});
 
 // Helper: format /link_30d monthly announcement with emojis
 function buildLink30dAnnouncement(monthKey, settled) {
