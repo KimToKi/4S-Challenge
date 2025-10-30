@@ -3,6 +3,40 @@ const axios = require('axios');
 const db = new sqlite3.Database('./db.sqlite');
 require('dotenv').config();
 
+const configuredTz = process.env.SCORE_TZ || process.env.APP_TZ || process.env.TZ || 'Asia/Bangkok';
+let activeTimeZone = configuredTz;
+let cachedDateFormatter;
+
+function getZonedDateParts(date = new Date()) {
+  if (!cachedDateFormatter) {
+    try {
+      cachedDateFormatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: activeTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch (err) {
+      activeTimeZone = 'UTC';
+      cachedDateFormatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: activeTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      console.warn(`Invalid timezone '${configuredTz}', falling back to UTC`);
+    }
+  }
+  const parts = cachedDateFormatter.formatToParts(date);
+  const map = {};
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      map[part.type] = part.value;
+    }
+  }
+  return map;
+}
+
 // ---------- Message helpers (Thai, cute & motivational) ----------
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -270,30 +304,67 @@ db.exec(`CREATE TABLE IF NOT EXISTS pending (
 );`);
 
 function localDateKey(d = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const parts = getZonedDateParts(d);
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function monthKey(date = new Date()) {
-  return date.toISOString().slice(0, 7);
+  const parts = getZonedDateParts(date);
+  return `${parts.year}-${parts.month}`;
 }
 
 // year-week key using Monday-based week number (aligns with SQLite %W)
 function weekKey(date = new Date()) {
-  // ISO-8601 week number in LOCAL time (Mon=week start)
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = (d.getDay() + 6) % 7; // Mon=0..Sun=6
-  d.setDate(d.getDate() - day + 3); // move to Thu
-  const weekYear = d.getFullYear();
-  const jan4 = new Date(weekYear, 0, 4);
-  const jan4Day = (jan4.getDay() + 6) % 7; // Mon=0..Sun=6
-  const week1Mon = new Date(weekYear, 0, 4 - jan4Day); // Monday of week 1
+  const parts = getZonedDateParts(date);
+  const year = Number(parts.year);
+  const month = Number(parts.month) - 1;
+  const day = Number(parts.day);
+  const d = new Date(Date.UTC(year, month, day));
+  const weekday = (d.getUTCDay() + 6) % 7; // Mon=0..Sun=6
+  d.setUTCDate(d.getUTCDate() - weekday + 3); // move to Thu
+  const weekYear = d.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
+  const jan4Day = (jan4.getUTCDay() + 6) % 7;
+  const week1Mon = new Date(Date.UTC(weekYear, 0, 4 - jan4Day));
   const week = 1 + Math.floor((d - week1Mon) / 604800000);
   const w = String(week).padStart(2, '0');
   return `${weekYear}-W${w}`;
 }
+
+const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+function reconcileEventMonthKeys() {
+  return new Promise((resolve) => {
+    db.all('SELECT id, timestamp, month_key FROM events', (err, rows) => {
+      if (err || !Array.isArray(rows) || rows.length === 0) return resolve();
+      const updates = [];
+      for (const row of rows) {
+        const ts = typeof row.timestamp === 'string' ? row.timestamp.trim() : '';
+        if (!ISO_TIMESTAMP_RE.test(ts)) continue;
+        const dt = new Date(ts.replace(' ', 'T') + 'Z');
+        if (Number.isNaN(dt.getTime())) continue;
+        const mk = monthKey(dt);
+        if (!mk || mk === row.month_key) continue;
+        updates.push(new Promise((res) => {
+          db.run('UPDATE events SET month_key = ? WHERE id = ?', [mk, row.id], (updateErr) => {
+            if (updateErr) console.warn('Failed to update month_key for event', row.id, updateErr.message);
+            res();
+          });
+        }));
+      }
+      Promise.all(updates).then(() => {
+        if (updates.length) {
+          console.log(`🗓️ Recomputed month_key for ${updates.length} legacy event(s) using ${activeTimeZone}`);
+        }
+        resolve();
+      });
+    });
+  });
+}
+
+reconcileEventMonthKeys().catch((err) => {
+  console.warn('Failed to reconcile month_key values:', err?.message || err);
+});
 
 function isoWeekRangeUTC(yw) {
   const m = /^([0-9]{4})-W([0-9]{2})$/.exec(yw || '');
