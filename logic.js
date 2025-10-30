@@ -820,10 +820,49 @@ async function finalizePlanUpdateMonth(mk) {
   return { month: mk, settled: results };
 }
 
+function safeQueryParams(req) {
+  if (req && typeof req.query === 'object' && req.query !== null) {
+    return req.query;
+  }
+  const rawUrl = req?.originalUrl || req?.url || '';
+  if (!rawUrl.includes('?')) return {};
+  try {
+    const host = req?.headers?.host || 'localhost';
+    const params = new URL(rawUrl, `http://${host}`).searchParams;
+    const out = {};
+    for (const [key, value] of params.entries()) {
+      if (out[key] === undefined) {
+        out[key] = value;
+      } else if (Array.isArray(out[key])) {
+        out[key].push(value);
+      } else {
+        out[key] = [out[key], value];
+      }
+    }
+    return out;
+  } catch (err) {
+    console.warn('Failed to parse query params:', err?.message || err);
+    return {};
+  }
+}
+
+function firstQueryValue(value) {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (entry === undefined || entry === null) continue;
+      return typeof entry === 'string' ? entry : String(entry);
+    }
+    return '';
+  }
+  if (value === undefined || value === null) return '';
+  return typeof value === 'string' ? value : String(value);
+}
+
 async function top10Handler(req, res) {
-  const ym = (req.query.ym || '').toLowerCase();
-  const yw = (req.query.yw || '').toUpperCase();
-  const scope = (req.query.scope || '').toLowerCase();
+  const query = safeQueryParams(req);
+  const ym = firstQueryValue(query.ym).toLowerCase();
+  const yw = firstQueryValue(query.yw).toUpperCase();
+  const scope = firstQueryValue(query.scope).toLowerCase();
   let rows = [];
   let meta = {};
 
