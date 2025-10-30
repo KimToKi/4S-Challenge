@@ -1,7 +1,55 @@
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const axios = require('axios');
-const db = new sqlite3.Database('./db.sqlite');
 require('dotenv').config();
+
+const connectionString = process.env.SUPABASE_DB_URL
+  || process.env.SUPABASE_POSTGRES_URL
+  || process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('Missing Supabase/Postgres connection string (set SUPABASE_DB_URL or DATABASE_URL)');
+}
+
+const pool = new Pool({
+  connectionString,
+  ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
+});
+
+async function dbQuery(sql, params = []) {
+  const client = await pool.connect();
+  try {
+    return await client.query(sql, params);
+  } finally {
+    client.release();
+  }
+}
+
+async function dbGet(sql, params = []) {
+  const { rows } = await dbQuery(sql, params);
+  return rows[0] || null;
+}
+
+async function dbAll(sql, params = []) {
+  const { rows } = await dbQuery(sql, params);
+  return rows;
+}
+
+async function dbRun(sql, params = []) {
+  await dbQuery(sql, params);
+}
+
+async function ensurePendingTable() {
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS pending (
+      user_id TEXT NOT NULL,
+      command TEXT NOT NULL,
+      date_key DATE NOT NULL,
+      month_key TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, command, date_key)
+    )
+  `);
+}
 
 const configuredTz = process.env.SCORE_TZ || process.env.APP_TZ || process.env.TZ || 'Asia/Bangkok';
 let activeTimeZone = configuredTz;
@@ -294,14 +342,9 @@ const msgPools = {
 };
 
 // Ensure table for pending actions (e.g., waiting for image)
-db.exec(`CREATE TABLE IF NOT EXISTS pending (
-  user_id TEXT,
-  command TEXT,
-  date_key TEXT,
-  month_key TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, command, date_key)
-);`);
+const dbReady = ensurePendingTable().catch((err) => {
+  console.error('Failed to ensure pending table:', err?.message || err);
+});
 
 function localDateKey(d = new Date()) {
   const parts = getZonedDateParts(d);
@@ -331,35 +374,43 @@ function weekKey(date = new Date()) {
   return `${weekYear}-W${w}`;
 }
 
-const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+function asDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+  const str = String(value).trim();
+  if (!str) return null;
+  if (!str.includes('T')) {
+    return new Date(`${str.replace(' ', 'T')}Z`);
+  }
+  return new Date(str);
+}
 
-function reconcileEventMonthKeys() {
-  return new Promise((resolve) => {
-    db.all('SELECT id, timestamp, month_key FROM events', (err, rows) => {
-      if (err || !Array.isArray(rows) || rows.length === 0) return resolve();
-      const updates = [];
-      for (const row of rows) {
-        const ts = typeof row.timestamp === 'string' ? row.timestamp.trim() : '';
-        if (!ISO_TIMESTAMP_RE.test(ts)) continue;
-        const dt = new Date(ts.replace(' ', 'T') + 'Z');
-        if (Number.isNaN(dt.getTime())) continue;
-        const mk = monthKey(dt);
-        if (!mk || mk === row.month_key) continue;
-        updates.push(new Promise((res) => {
-          db.run('UPDATE events SET month_key = ? WHERE id = ?', [mk, row.id], (updateErr) => {
-            if (updateErr) console.warn('Failed to update month_key for event', row.id, updateErr.message);
-            res();
-          });
-        }));
-      }
-      Promise.all(updates).then(() => {
-        if (updates.length) {
-          console.log(`🗓️ Recomputed month_key for ${updates.length} legacy event(s) using ${activeTimeZone}`);
-        }
-        resolve();
-      });
-    });
-  });
+async function reconcileEventMonthKeys() {
+  await dbReady;
+  let rows = [];
+  try {
+    rows = await dbAll('SELECT id, timestamp, month_key FROM events');
+  } catch (err) {
+    console.warn('Failed to load events for month_key reconciliation:', err?.message || err);
+    return;
+  }
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const updates = [];
+  for (const row of rows) {
+    const dt = asDate(row.timestamp);
+    if (!dt || Number.isNaN(dt.getTime())) continue;
+    const mk = monthKey(dt);
+    if (!mk || mk === row.month_key) continue;
+    updates.push(dbRun('UPDATE events SET month_key = $1 WHERE id = $2', [mk, row.id]).catch((err) => {
+      console.warn('Failed to update month_key for event', row.id, err?.message || err);
+    }));
+  }
+  await Promise.all(updates);
+  if (updates.length) {
+    console.log(`🗓️ Recomputed month_key for ${updates.length} legacy event(s) using ${activeTimeZone}`);
+  }
 }
 
 reconcileEventMonthKeys().catch((err) => {
@@ -383,7 +434,7 @@ function isoWeekRangeUTC(yw) {
   endLocal.setDate(startLocal.getDate() + 7);
 
   const toSqlUtc = (dt) => new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
-    .toISOString().slice(0, 19).replace('T', ' ');
+    .toISOString();
   return { startUtc: toSqlUtc(startLocal), endUtc: toSqlUtc(endLocal) };
 }
 
@@ -455,162 +506,180 @@ async function buildWeeklySummaryText() {
   }
   return lines.join('\n');
 }
-function loadRule(command, subtype) {
-  return new Promise((resolve) => {
-    db.get(
-      'SELECT points FROM score_rules WHERE command = ? COLLATE NOCASE AND subtype = ? COLLATE NOCASE',
-      [command, subtype || ''],
-      (err, row) => {
-        if (err) return resolve(null);
-        resolve(row ? row.points : null);
-      }
-    );
-  });
+async function loadRule(command, subtype) {
+  await dbReady;
+  const row = await dbGet(
+    'SELECT points FROM score_rules WHERE LOWER(command) = LOWER($1) AND LOWER(subtype) = LOWER($2)',
+    [command, subtype || '']
+  );
+  return row ? Number(row.points) : null;
 }
 
-function countUserCommandThisMonth(userId, command, mk) {
-  return new Promise((resolve) => {
-    db.get('SELECT COUNT(*) AS c FROM events WHERE user_id = ? AND command = ? COLLATE NOCASE AND month_key = ?', [userId, command, mk], (err, row) => {
-      if (err) return resolve(0);
-      resolve(row ? row.c : 0);
-    });
-  });
+async function countUserCommandThisMonth(userId, command, mk) {
+  await dbReady;
+  const row = await dbGet(
+    'SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND LOWER(command) = LOWER($2) AND month_key = $3',
+    [userId, command, mk]
+  );
+  return row ? Number(row.c) : 0;
 }
 
 // Check if user already submitted /link_30d today (local date)
-function hasLink30dToday(userId) {
-  return new Promise((resolve) => {
-    db.get(
-      `SELECT COUNT(*) AS c
-       FROM events
-       WHERE user_id = ? AND command = '/link_30d' COLLATE NOCASE
-         AND date(timestamp, 'localtime') = date('now','localtime')`,
-      [userId],
-      (err, row) => resolve(!err && row && row.c > 0)
-    );
+async function hasLink30dToday(userId) {
+  await dbReady;
+  const today = localDateKey();
+  const mk = monthKey();
+  const rows = await dbAll(
+    `SELECT timestamp FROM events
+       WHERE user_id = $1 AND LOWER(command) = LOWER('/link_30d') AND month_key = $2
+       ORDER BY timestamp DESC
+       LIMIT 20`,
+    [userId, mk]
+  );
+  return rows.some((row) => {
+    const dt = asDate(row.timestamp);
+    return dt && localDateKey(dt) === today;
   });
 }
 
 // Check if user already submitted /use_product today (local date)
-function hasUseProductToday(userId) {
-  return new Promise((resolve) => {
-    db.get(
-      `SELECT COUNT(*) AS c
-       FROM events
-       WHERE user_id = ? AND command = '/use_product' COLLATE NOCASE
-         AND date(timestamp, 'localtime') = date('now','localtime')`,
-      [userId],
-      (err, row) => resolve(!err && row && row.c > 0)
+async function hasUseProductToday(userId) {
+  await dbReady;
+  const today = localDateKey();
+  const mk = monthKey();
+  const rows = await dbAll(
+    `SELECT timestamp FROM events
+       WHERE user_id = $1 AND LOWER(command) = LOWER('/use_product') AND month_key = $2
+       ORDER BY timestamp DESC
+       LIMIT 20`,
+    [userId, mk]
+  );
+  return rows.some((row) => {
+    const dt = asDate(row.timestamp);
+    return dt && localDateKey(dt) === today;
+  });
+}
+
+async function setPendingLinkToday(userId, command, mk) {
+  await dbReady;
+  const dk = localDateKey();
+  try {
+    await dbRun(
+      `INSERT INTO pending (user_id, command, date_key, month_key)
+         VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, command, date_key)
+         DO UPDATE SET month_key = EXCLUDED.month_key, created_at = NOW()`,
+      [userId, command, dk, mk]
     );
-  });
+    return true;
+  } catch (err) {
+    console.warn('Failed to set pending entry:', err?.message || err);
+    return false;
+  }
 }
 
-function setPendingLinkToday(userId, command, mk) {
-  return new Promise((resolve) => {
-    const dk = localDateKey();
-    db.run(`INSERT OR IGNORE INTO pending (user_id, command, date_key, month_key) VALUES (?, ?, ?, ?)`,
-      [userId, command, dk, mk], (err) => resolve(!err));
-  });
+async function getPendingLinkToday(userId, command) {
+  await dbReady;
+  return await dbGet(
+    'SELECT * FROM pending WHERE user_id = $1 AND command = $2 AND date_key = $3',
+    [userId, command, localDateKey()]
+  );
 }
 
-function getPendingLinkToday(userId, command) {
-  return new Promise((resolve) => {
-    db.get(`SELECT * FROM pending WHERE user_id = ? AND command = ? AND date_key = ?`,
-      [userId, command, localDateKey()], (err, row) => resolve(row || null));
-  });
+async function clearPendingLinkToday(userId, command) {
+  await dbReady;
+  await dbRun(
+    'DELETE FROM pending WHERE user_id = $1 AND command = $2 AND date_key = $3',
+    [userId, command, localDateKey()]
+  );
 }
 
-function clearPendingLinkToday(userId, command) {
-  return new Promise((resolve) => {
-    db.run(`DELETE FROM pending WHERE user_id = ? AND command = ? AND date_key = ?`,
-      [userId, command, localDateKey()], () => resolve());
-  });
+async function insertEvent(e) {
+  await dbReady;
+  const row = await dbGet(
+    `INSERT INTO events (user_id, display_name, command, detail, points, month_key)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id`,
+    [e.user_id, e.display_name, e.command, e.detail, e.points, e.month_key]
+  );
+  return row ? row.id : null;
 }
 
-function insertEvent(e) {
-  return new Promise((resolve, reject) => {
-    const stmt = db.prepare('INSERT INTO events (user_id, display_name, command, detail, points, month_key) VALUES (?, ?, ?, ?, ?, ?)');
-    stmt.run([e.user_id, e.display_name, e.command, e.detail, e.points, e.month_key], function (err) {
-      if (err) return reject(err);
-      resolve(this.lastID);
-    });
-  });
+async function sumUserMonth(user_id, mk) {
+  await dbReady;
+  const row = await dbGet(
+    'SELECT COALESCE(SUM(points),0) as total FROM events WHERE user_id = $1 AND month_key = $2',
+    [user_id, mk]
+  );
+  return row ? Number(row.total) : 0;
 }
 
-function sumUserMonth(user_id, mk) {
-  return new Promise((resolve) => {
-    db.get('SELECT IFNULL(SUM(points),0) as total FROM events WHERE user_id = ? AND month_key = ?', [user_id, mk], (err, row) => {
-      if (err) return resolve(0);
-      resolve(row ? row.total : 0);
-    });
-  });
+async function getTop10(mk) {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT user_id,
+            MAX(display_name) AS display_name,
+            COALESCE(SUM(points),0) AS points
+     FROM events
+     WHERE month_key = $1
+     GROUP BY user_id
+     ORDER BY points DESC, display_name
+     LIMIT 10`,
+    [mk]
+  );
+  return rows.map((r) => ({ ...r, points: Number(r.points) }));
 }
 
-function getTop10(mk) {
-  return new Promise((resolve) => {
-    db.all(`SELECT user_id,
-                   MAX(display_name) AS display_name,
-                   IFNULL(SUM(points),0) AS points
-            FROM events WHERE month_key = ?
-            GROUP BY user_id
-            ORDER BY points DESC, display_name
-            LIMIT 10`, [mk], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows);
-    });
-  });
+async function getTop10All() {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT user_id,
+            MAX(display_name) AS display_name,
+            COALESCE(SUM(points),0) AS points
+     FROM events
+     GROUP BY user_id
+     ORDER BY points DESC, display_name
+     LIMIT 10`
+  );
+  return rows.map((r) => ({ ...r, points: Number(r.points) }));
 }
 
-function getTop10All() {
-  return new Promise((resolve) => {
-    db.all(`SELECT user_id,
-                   MAX(display_name) AS display_name,
-                   IFNULL(SUM(points),0) AS points
-            FROM events
-            GROUP BY user_id
-            ORDER BY points DESC, display_name
-            LIMIT 10`, [], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows);
-    });
-  });
+async function getDistinctMonths() {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT DISTINCT month_key AS mk FROM events WHERE month_key IS NOT NULL ORDER BY mk DESC`
+  );
+  return rows.map((r) => r.mk);
 }
 
-function getDistinctMonths() {
-  return new Promise((resolve) => {
-    db.all(`SELECT DISTINCT month_key as mk FROM events ORDER BY mk DESC`, [], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows.map(r => r.mk));
-    });
-  });
+async function getTop10Week(yw) {
+  await dbReady;
+  const range = isoWeekRangeUTC(yw);
+  if (!range) return [];
+  const rows = await dbAll(
+    `SELECT user_id,
+            MAX(display_name) AS display_name,
+            COALESCE(SUM(points),0) AS points
+     FROM events
+     WHERE "timestamp" >= $1 AND "timestamp" < $2
+     GROUP BY user_id
+     ORDER BY points DESC, display_name
+     LIMIT 10`,
+    [range.startUtc, range.endUtc]
+  );
+  return rows.map((r) => ({ ...r, points: Number(r.points) }));
 }
 
-function getTop10Week(yw) {
-  return new Promise((resolve) => {
-    const range = isoWeekRangeUTC(yw);
-    if (!range) return resolve([]);
-    db.all(`SELECT user_id,
-                   MAX(display_name) AS display_name,
-                   IFNULL(SUM(points),0) AS points
-            FROM events
-            WHERE timestamp >= ? AND timestamp < ?
-            GROUP BY user_id
-            ORDER BY points DESC, display_name
-            LIMIT 10`, [range.startUtc, range.endUtc], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows);
-    });
-  });
-}
-
-function getDistinctWeeks() {
-  return new Promise((resolve) => {
-    db.all(`SELECT DISTINCT (strftime('%Y', timestamp) || '-W' || printf('%02d', CAST(strftime('%W', timestamp) AS INTEGER))) as wk
-            FROM events ORDER BY wk DESC`, [], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows.map(r => r.wk));
-    });
-  });
+async function getDistinctWeeks() {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT DISTINCT TO_CHAR(timezone($1, "timestamp"), 'IYYY-"W"IW') AS wk
+     FROM events
+     WHERE "timestamp" IS NOT NULL
+     ORDER BY wk DESC`,
+    [activeTimeZone]
+  );
+  return rows.map((r) => r.wk);
 }
 
 async function monthsHandler(req, res) {
@@ -634,27 +703,25 @@ function daysInMonthKey(mk) {
   return new Date(y, m, 0).getDate();
 }
 
-function distinctUsersWithLink30d(mk) {
-  return new Promise((resolve) => {
-    db.all(
-      `SELECT user_id, MAX(display_name) AS display_name
-       FROM events WHERE command = '/link_30d' COLLATE NOCASE AND month_key = ?
-       GROUP BY user_id`,
-      [mk],
-      (err, rows) => resolve(err ? [] : rows || [])
-    );
-  });
+async function distinctUsersWithLink30d(mk) {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT user_id, MAX(display_name) AS display_name
+     FROM events WHERE LOWER(command) = LOWER('/link_30d') AND month_key = $1
+     GROUP BY user_id`,
+    [mk]
+  );
+  return rows || [];
 }
 
-function countLink30dDays(userId, mk) {
-  return new Promise((resolve) => {
-    db.get(
-      `SELECT COUNT(DISTINCT date(timestamp, 'localtime')) AS c
-       FROM events WHERE user_id = ? AND command = '/link_30d' COLLATE NOCASE AND month_key = ?`,
-      [userId, mk],
-      (err, row) => resolve(err ? 0 : (row?.c || 0))
-    );
-  });
+async function countLink30dDays(userId, mk) {
+  await dbReady;
+  const row = await dbGet(
+    `SELECT COUNT(DISTINCT TO_CHAR(timezone($3, "timestamp"), 'YYYY-MM-DD')) AS c
+     FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/link_30d') AND month_key = $2`,
+    [userId, mk, activeTimeZone]
+  );
+  return row ? Number(row.c) : 0;
 }
 
 async function finalizeLink30dMonth(mk) {
@@ -683,24 +750,24 @@ async function finalizeLink30dMonth(mk) {
 }
 
 // ---- /book month-end settlement ----
-function distinctUsersInMonth(mk) {
-  return new Promise((resolve) => {
-    db.all(`SELECT user_id, MAX(display_name) AS display_name
-            FROM events WHERE month_key = ?
-            GROUP BY user_id`, [mk], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows || []);
-    });
-  });
+async function distinctUsersInMonth(mk) {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT user_id, MAX(display_name) AS display_name
+     FROM events WHERE month_key = $1
+     GROUP BY user_id`,
+    [mk]
+  );
+  return rows || [];
 }
 
-function countBookInMonth(userId, mk) {
-  return new Promise((resolve) => {
-    db.get(`SELECT COUNT(*) AS c FROM events WHERE user_id = ? AND command = '/book' COLLATE NOCASE AND month_key = ?`, [userId, mk], (err, row) => {
-      if (err) return resolve(0);
-      resolve(row ? row.c : 0);
-    });
-  });
+async function countBookInMonth(userId, mk) {
+  await dbReady;
+  const row = await dbGet(
+    `SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/book') AND month_key = $2`,
+    [userId, mk]
+  );
+  return row ? Number(row.c) : 0;
 }
 
 async function finalizeBookMonth(mk) {
@@ -724,14 +791,13 @@ async function finalizeBookMonth(mk) {
 }
 
 // ---- /plan_update month-end settlement ----
-function countPlanUpdateInMonth(userId, mk) {
-  return new Promise((resolve) => {
-    db.get(
-      `SELECT COUNT(*) AS c FROM events WHERE user_id = ? AND command = '/plan_update' COLLATE NOCASE AND month_key = ?`,
-      [userId, mk],
-      (err, row) => resolve(err ? 0 : (row?.c || 0))
-    );
-  });
+async function countPlanUpdateInMonth(userId, mk) {
+  await dbReady;
+  const row = await dbGet(
+    `SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/plan_update') AND month_key = $2`,
+    [userId, mk]
+  );
+  return row ? Number(row.c) : 0;
 }
 
 async function finalizePlanUpdateMonth(mk) {

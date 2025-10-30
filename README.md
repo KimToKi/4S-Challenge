@@ -1,22 +1,36 @@
-<<<<<<< HEAD
 # Disneyland Challenge — LINE Bot
 
-ระบบสะสมคะแนนรายเดือนสำหรับกลุ่ม LINE  
-ใช้ Node.js + SQLite + webhook + leaderboard HTML
+ระบบสะสมคะแนนรายเดือนสำหรับกลุ่ม LINE ที่ทำงานร่วมกับฐานข้อมูล Supabase/Postgres
 
-## วิธีใช้งาน
-1. สร้างไฟล์ `.env` แล้วใส่ LINE_CHANNEL_ACCESS_TOKEN
-2. รัน:
+## การตั้งค่า
+1. สร้างไฟล์ `.env` และกำหนดตัวแปรสำคัญ:
+   ```env
+   LINE_CHANNEL_ACCESS_TOKEN=...
+   LINE_TARGET_ID=...
+   SUPABASE_DB_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
+   # หรือใช้ DATABASE_URL / SUPABASE_POSTGRES_URL
+   ```
+   > หมายเหตุ: เชื่อมต่อ TLS เป็นค่าเริ่มต้น หากใช้ฐานข้อมูลโลคอลให้ตั้งค่า `SUPABASE_DB_URL` เป็น connection string ที่ขึ้นต้นด้วย `postgres://localhost...`
+2. ติดตั้ง dependency แล้ว apply schema เข้าสู่ฐานข้อมูล Supabase:
    ```bash
    npm install
    npm run init-db
+   ```
+3. เริ่มเซิร์ฟเวอร์:
+   ```bash
    npm start
    ```
 
-### ตั้งค่าประกาศอันดับรายสัปดาห์ (Weekly Push)
-- ใส่ `LINE_TARGET_ID` (หรือ `LINE_GROUP_ID`/`LINE_USER_ID`) ใน `.env` เพื่อให้บอทส่งประกาศไปยังห้อง/ผู้ใช้เป้าหมาย
-- ปรับเวลาได้ด้วย `WEEKLY_CRON` (ดีฟอลต์: จันทร์ 09:00) และ `WEEKLY_TZ` (ดีฟอลต์: Asia/Bangkok)
-- ทดสอบส่งแบบแมนนวลได้ หากตั้ง `ADMIN_KEY` แล้วเรียก `GET /admin/weekly-push?key=YOUR_KEY`
-=======
-# Disneyland-Challenge-
->>>>>>> a9a5020fb403673af51a6bddfcaa25bb9b0fd924
+## งานที่สำคัญ
+- `logic.js` จัดการ webhook จาก LINE, บันทึกคะแนน และคำนวณอันดับผ่าน Supabase
+- `server.js` ให้บริการ webhook, leaderboard และ cron job
+- `schema.sql` ใช้กับ `npm run init-db` เพื่อสร้างตารางและกติกาคะแนนบน Supabase
+
+## ค่าปรับแต่งเพิ่มเติม
+- `WEEKLY_CRON` / `WEEKLY_TZ` : ตั้งเวลา push อันดับรายสัปดาห์ (ค่าเริ่มต้น จันทร์ 09:00 Asia/Bangkok)
+- `MONTHLY_CRON` / `MONTHLY_TZ` : ตั้งเวลา settlement รายเดือน (ค่าเริ่มต้นทุกวัน 23:55 Asia/Bangkok)
+- `ADMIN_KEY` : เปิด endpoint แอดมินสำหรับ trigger manual push/settlement
+
+## หมายเหตุ
+- ตัวโค้ดจะเชื่อมต่อ Supabase ทุกครั้งที่มีการบันทึกหรืออ่านข้อมูล จึงไม่ต้องมีไฟล์ `db.sqlite` ภายในเซิร์ฟเวอร์อีกต่อไป
+- หากใช้งานครั้งแรกแนะนำให้รัน `npm run init-db` เพื่อให้มี score rules พื้นฐานในฐานข้อมูล
