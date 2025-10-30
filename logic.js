@@ -845,6 +845,33 @@ async function top10Handler(req, res) {
 function calculateMultiplier(base, count) {
   return base * Math.pow(2, count);
 }
+function resolveEventUserId(evt) {
+  const candidates = [
+    evt?.source?.userId,
+    evt?.source?.senderId,
+    evt?.source?.sender?.userId,
+    evt?.source?.sender?.id,
+    evt?.source?.memberId,
+    evt?.source?.user?.userId,
+    evt?.source?.user?.id,
+    evt?.source?.user_id,
+    evt?.source?.uid
+  ];
+  for (const id of candidates) {
+    if (typeof id === 'string' && id.trim()) {
+      return id.trim();
+    }
+  }
+  return null;
+}
+
+function missingUserIdMessage(isGroupOrRoom) {
+  if (isGroupOrRoom) {
+    return 'ขออภัย ระบบไม่สามารถบันทึกคำสั่งได้เพราะไม่ได้รับ userId\nโปรดเพิ่มบอทเป็นเพื่อนหรือส่งคำสั่งผ่านห้องแชทส่วนตัว';
+  }
+  return 'ไม่สามารถตรวจสอบคะแนนได้ เพราะไม่ได้รับ userId';
+}
+
 async function handleEvent(evt) {
   const mk = monthKey();
   const text = (evt.message?.text || '').trim();
@@ -859,7 +886,7 @@ async function handleEvent(evt) {
   const cmd = (parts[0] || '').toLowerCase();
   const subtype = (parts[1] || '').toLowerCase();
   const detail = parts.slice(1).join(' ') || '(no-detail)';
-  const userId = evt.source?.userId;
+  const userId = resolveEventUserId(evt);
 
   if (cmd === '/groupid' || cmd === '/group_id') {
     if (sourceType === 'group' && evt.source?.groupId) {
@@ -874,20 +901,12 @@ async function handleEvent(evt) {
     return;
   }
 
-  // In group/room, if userId is missing (e.g., OpenChat privacy), skip replying to avoid noise
   if (!userId) {
-    if (isGroupOrRoom) return; // silent in groups
-    return await reply(evt.replyToken, `ไม่สามารถตรวจสอบคะแนนได้ เพราะไม่ได้รับ userId`);
+    await reply(evt.replyToken, missingUserIdMessage(isGroupOrRoom));
+    return;
   }
 
-  let displayName = 'คุณ';
-  try {
-    const profileRes = await axios.get(`https://api.line.me/v2/bot/profile/${userId}`, {
-      headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
-    });
-    displayName = profileRes.data.displayName || 'คุณ';
-  } catch {}
-  // Normalize display name if garbled or empty
+  let displayName = await safeGetDisplayName(userId, evt.source);
   if (!displayName || /[\uFFFD]/.test(displayName)) {
     displayName = 'คุณ';
   }
@@ -1226,10 +1245,10 @@ const insert = async (command, pts, msg) => {
 async function handleImageEvent(evt) {
   const sourceType = evt.source?.type;
   const isGroupOrRoom = sourceType === 'group' || sourceType === 'room';
-  const userId = evt.source?.userId;
+  const userId = resolveEventUserId(evt);
   if (!userId) {
-    if (isGroupOrRoom) return;
-    return await reply(evt.replyToken, 'ขออนุญาตไม่บันทึกภาพนี้ เพราะไม่มี userId');
+    await reply(evt.replyToken, missingUserIdMessage(isGroupOrRoom));
+    return;
   }
   const mk = monthKey();
   const already = await hasLink30dToday(userId);
@@ -1248,7 +1267,7 @@ async function handleImageEvent(evt) {
   }
   // Insert the /link_30d event with evidence ref (messageId)
   const imageId = evt.message?.id || 'image';
-  const displayName2 = await safeGetDisplayName(userId);
+  const displayName2 = await safeGetDisplayName(userId, evt.source);
   await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
   await clearPendingLinkToday(userId, '/link_30d');
   const quote = pick(cleanMsgPools.inspire);
@@ -1259,10 +1278,10 @@ async function handleImageEvent(evt) {
 async function handleImageEvent2(evt) {
   const sourceType = evt.source?.type;
   const isGroupOrRoom = sourceType === 'group' || sourceType === 'room';
-  const userId = evt.source?.userId;
+  const userId = resolveEventUserId(evt);
   if (!userId) {
-    if (isGroupOrRoom) return;
-    return await reply(evt.replyToken, 'ขออภัย ไม่สามารถบันทึกแต้มได้ เนื่องจากไม่พบ userId');
+    await reply(evt.replyToken, missingUserIdMessage(isGroupOrRoom));
+    return;
   }
   const mk = monthKey();
   const imageId = evt.message?.id || 'image';
@@ -1276,7 +1295,7 @@ async function handleImageEvent2(evt) {
       await reply(evt.replyToken, `�ѹ���ѹ�֡ /link_30d ������� �ͺคุณ�ҡ��Ѻ/��� ?\n� ${quote}`);
       return;
     }
-    const displayName2 = await safeGetDisplayName(userId);
+    const displayName2 = await safeGetDisplayName(userId, evt.source);
     await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
     await clearPendingLinkToday(userId, '/link_30d');
     const quote = pick(cleanMsgPools.inspire);
@@ -1287,7 +1306,7 @@ async function handleImageEvent2(evt) {
   // Handle /bm_product evidence if pending (awards immediately)
   const pendingBm = await getPendingLinkToday(userId, '/bm_product');
   if (pendingBm) {
-    const displayName2 = await safeGetDisplayName(userId);
+    const displayName2 = await safeGetDisplayName(userId, evt.source);
     const pts = await loadRule('/bm_product', '') ?? 1;
     await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
     await clearPendingLinkToday(userId, '/bm_product');
@@ -1323,10 +1342,10 @@ async function getDisplayName(uid) {
 async function handleImageEvent2_fixed(evt) {
   const sourceType = evt.source?.type;
   const isGroupOrRoom = sourceType === 'group' || sourceType === 'room';
-  const userId = evt.source?.userId;
+  const userId = resolveEventUserId(evt);
   if (!userId) {
-    if (isGroupOrRoom) return;
-    return await reply(evt.replyToken, 'ขออภัย ไม่สามารถบันทึกแต้มได้ เนื่องจากไม่พบ userId');
+    await reply(evt.replyToken, missingUserIdMessage(isGroupOrRoom));
+    return;
   }
   const mk = monthKey();
   const imageId = evt.message?.id || 'image';
@@ -1339,7 +1358,7 @@ async function handleImageEvent2_fixed(evt) {
       await reply(evt.replyToken, 'วันนี้ส่ง /link_30d ไปแล้วนะ ขอบคุณสำหรับรูป 🙂');
       return;
     }
-    const displayName2 = await safeGetDisplayName(userId);
+    const displayName2 = await safeGetDisplayName(userId, evt.source);
     await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
     await clearPendingLinkToday(userId, '/link_30d');
     await reply(evt.replyToken, pickMsg('link_received', { quote: pick(cleanMsgPools.inspire) }));
@@ -1349,7 +1368,7 @@ async function handleImageEvent2_fixed(evt) {
   // Handle /bm_product evidence if pending (awards immediately)
   const pendingBm = await getPendingLinkToday(userId, '/bm_product');
   if (pendingBm) {
-    const displayName2 = await safeGetDisplayName(userId);
+    const displayName2 = await safeGetDisplayName(userId, evt.source);
     const pts = (await loadRule('/bm_product', '')) ?? 1;
     await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
     await clearPendingLinkToday(userId, '/bm_product');
@@ -1370,16 +1389,34 @@ async function handleImageEvent2_fixed(evt) {
 }
 
 // Safe display name helper with clean Thai fallback
-async function safeGetDisplayName(uid) {
-  try {
-    const res = await axios.get(`https://api.line.me/v2/bot/profile/${uid}`, {
-      headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
-    });
-    const name = (res.data && res.data.displayName) ? String(res.data.displayName) : '';
-    return name || 'คุณ';
-  } catch {
-    return 'คุณ';
+async function safeGetDisplayName(uid, source = {}) {
+  if (!uid) return 'คุณ';
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) return 'คุณ';
+
+  const headers = { Authorization: `Bearer ${token}` };
+  const base = 'https://api.line.me/v2/bot';
+  const attempts = [];
+
+  if (source?.type === 'group' && source?.groupId) {
+    attempts.push(`${base}/group/${source.groupId}/member/${uid}`);
+  } else if (source?.type === 'room' && source?.roomId) {
+    attempts.push(`${base}/room/${source.roomId}/member/${uid}`);
   }
+
+  attempts.push(`${base}/profile/${uid}`);
+
+  for (const url of attempts) {
+    try {
+      const res = await axios.get(url, { headers });
+      const name = res?.data?.displayName;
+      if (typeof name === 'string' && name.trim()) {
+        return name.trim();
+      }
+    } catch (_) {}
+  }
+
+  return 'คุณ';
 }
 
 module.exports = { handleEvent, handleImageEvent: handleImageEvent2_fixed, top10Handler, getTop10, buildWeeklySummaryText, push, monthsHandler, weeksHandler, finalizeLink30dMonth, finalizeBookMonth, finalizePlanUpdateMonth };
