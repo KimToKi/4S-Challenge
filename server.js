@@ -12,6 +12,7 @@ const {
   monthsHandler,
   weeksHandler,
   finalizeLink30dMonth,
+  finalizeBookMonth,
   finalizePlanUpdateMonth
 } = require('./logic');
 
@@ -138,8 +139,20 @@ if (process.env.ADMIN_KEY) {
     }
   });
 
+  app.get('/admin/book-settle', async (req, res) => {
+    if (req.query.key !== process.env.ADMIN_KEY) return res.status(403).send('Forbidden');
+    try {
+      const ym = (req.query.ym || '').match(/^\d{4}-\d{2}$/) ? req.query.ym : new Date().toISOString().slice(0,7);
+      const result = await finalizeBookMonth(ym);
+      res.json(result);
+    } catch (e) {
+      res.status(500).send('Error');
+    }
+  });
+
   console.log('🔐 Admin endpoint: GET /admin/weekly-push?key=***');
   console.log('🔐 Admin endpoint: GET /admin/link30d-settle?key=***&ym=YYYY-MM&push=1');
+  console.log('🔐 Admin endpoint: GET /admin/book-settle?key=***&ym=YYYY-MM');
 }
 
 // Monthly settlement via cron (last day of month, 23:55 local time)
@@ -156,7 +169,19 @@ try {
       const mk = now.toISOString().slice(0,7);
       const result = await finalizeLink30dMonth(mk);
       // Also apply /plan_update month-end penalty for incomplete (count < 3)
-      try { await finalizePlanUpdateMonth(mk); } catch {}
+      try {
+        const book = await finalizeBookMonth(mk);
+        if (book?.settled?.length) {
+          console.log(`📚 Monthly book settle applied to ${book.settled.length} member(s)`);
+        }
+      } catch (err) {
+        console.error('Monthly book settle error:', err?.message);
+      }
+      try {
+        await finalizePlanUpdateMonth(mk);
+      } catch (err) {
+        console.error('Monthly plan_update settle error:', err?.message);
+      }
       const lines = buildLink30dAnnouncement(mk, result.settled);
       if (lines.length > 1) await push(lines.join('\n'));
       console.log(`📅 Monthly link_30d settled for ${mk}`);

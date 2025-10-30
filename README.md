@@ -30,6 +30,9 @@
 - `WEEKLY_CRON` / `WEEKLY_TZ` : ตั้งเวลา push อันดับรายสัปดาห์ (ค่าเริ่มต้น จันทร์ 09:00 Asia/Bangkok)
 - `MONTHLY_CRON` / `MONTHLY_TZ` : ตั้งเวลา settlement รายเดือน (ค่าเริ่มต้นทุกวัน 23:55 Asia/Bangkok)
 - `ADMIN_KEY` : เปิด endpoint แอดมินสำหรับ trigger manual push/settlement
+  - `/admin/weekly-push?key=...` : ส่งอันดับ Top 10 ปัจจุบันเข้า LINE ทันที
+  - `/admin/link30d-settle?key=...&ym=YYYY-MM&push=1` : สรุปคะแนน /link_30d และ (ถ้า `push=1`) ส่งข้อความเข้า LINE
+  - `/admin/book-settle?key=...&ym=YYYY-MM` : ตรวจสอบเดือนที่เลือกและบันทึกโทษ -4 ให้ผู้ที่ไม่มี `/book` ภายในเดือนนั้น
 
 ## หมายเหตุ
 - ตัวโค้ดจะเชื่อมต่อ Supabase ทุกครั้งที่มีการบันทึกหรืออ่านข้อมูล จึงไม่ต้องมีไฟล์ `db.sqlite` ภายในเซิร์ฟเวอร์อีกต่อไป
