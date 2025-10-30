@@ -1,27 +1,353 @@
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 require('dotenv').config();
 
-const connectionString = process.env.SUPABASE_DB_URL
-  || process.env.SUPABASE_POSTGRES_URL
-  || process.env.DATABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL
+  || process.env.SUPABASE_REST_URL
+  || process.env.SUPABASE_PROJECT_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  || process.env.SUPABASE_SERVICE_KEY
+  || process.env.SUPABASE_KEY
+  || process.env.SUPABASE_ANON_KEY;
 
-if (!connectionString) {
-  throw new Error('Missing Supabase/Postgres connection string (set SUPABASE_DB_URL or DATABASE_URL)');
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase configuration (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)');
 }
 
-const pool = new Pool({
-  connectionString,
-  ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
 });
 
-async function dbQuery(sql, params = []) {
-  const client = await pool.connect();
-  try {
-    return await client.query(sql, params);
-  } finally {
-    client.release();
+async function ensurePendingTable() {
+  // Schema is managed via Supabase migrations; nothing to do here.
+}
+
+function normalizeSql(sql) {
+  return sql.replace(/\s+/g, ' ').trim();
+}
+
+function escapeLike(value) {
+  return String(value ?? '').replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+function applyIlike(builder, column, value) {
+  if (value === null || value === undefined) {
+    return builder.is(column, null);
   }
+  const pattern = escapeLike(String(value));
+  return builder.ilike(column, pattern);
+}
+
+function aggregateEventsByUser(rows) {
+  const map = new Map();
+  for (const row of rows || []) {
+    const id = row.user_id;
+    if (!id) continue;
+    const current = map.get(id) || { user_id: id, display_name: '', points: 0 };
+    const displayName = row.display_name;
+    if (typeof displayName === 'string' && displayName && displayName > current.display_name) {
+      current.display_name = displayName;
+    }
+    const pts = Number(row.points) || 0;
+    current.points += pts;
+    map.set(id, current);
+  }
+  return Array.from(map.values());
+}
+
+async function dbQuery(sql, params = []) {
+  const normalized = normalizeSql(sql);
+  const lower = normalized.toLowerCase();
+
+  const wrapError = (error, context) => {
+    const message = error?.message || error?.error_description || String(error);
+    const err = new Error(`${context}: ${message}`);
+    err.original = error;
+    return err;
+  };
+
+  if (lower === 'select id, timestamp, month_key from events') {
+    const { data, error } = await supabase.from('events').select('id, timestamp, month_key');
+    if (error) throw wrapError(error, 'Failed to fetch events');
+    return { rows: data || [] };
+  }
+
+  if (lower === 'select points from score_rules where lower(command) = lower($1) and lower(subtype) = lower($2)') {
+    const command = params[0] ?? '';
+    const subtype = params[1] ?? '';
+    let query = supabase.from('score_rules').select('points');
+    query = applyIlike(query, 'command', command);
+    query = applyIlike(query, 'subtype', subtype || '');
+    query = query.limit(1);
+    const { data, error } = await query;
+    if (error) throw wrapError(error, 'Failed to load rule');
+    return { rows: data || [] };
+  }
+
+  if (lower === 'select count(*) as c from events where user_id = $1 and lower(command) = lower($2) and month_key = $3') {
+    const [userId, command, mk] = params;
+    let query = supabase
+      .from('events')
+      .select('id', { head: true, count: 'exact' })
+      .eq('user_id', userId)
+      .eq('month_key', mk);
+    query = applyIlike(query, 'command', command);
+    const { count, error } = await query;
+    if (error) throw wrapError(error, 'Failed to count events');
+    return { rows: [{ c: count || 0 }] };
+  }
+
+  if (lower.startsWith("select timestamp from events where user_id = $1 and lower(command) = lower('/link_30d')")) {
+    const [userId, mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('timestamp')
+      .eq('user_id', userId)
+      .eq('month_key', mk)
+      .ilike('command', '/link_30d')
+      .order('timestamp', { ascending: false })
+      .limit(20);
+    if (error) throw wrapError(error, 'Failed to load link_30d events');
+    return { rows: data || [] };
+  }
+
+  if (lower.startsWith("select timestamp from events where user_id = $1 and lower(command) = lower('/use_product')")) {
+    const [userId, mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('timestamp')
+      .eq('user_id', userId)
+      .eq('month_key', mk)
+      .ilike('command', '/use_product')
+      .order('timestamp', { ascending: false })
+      .limit(20);
+    if (error) throw wrapError(error, 'Failed to load use_product events');
+    return { rows: data || [] };
+  }
+
+  if (lower.startsWith('insert into pending (user_id, command, date_key, month_key) values')) {
+    const [userId, command, dateKey, monthKey] = params;
+    const { error } = await supabase
+      .from('pending')
+      .upsert({ user_id: userId, command, date_key: dateKey, month_key: monthKey }, {
+        onConflict: 'user_id,command,date_key'
+      });
+    if (error) throw wrapError(error, 'Failed to upsert pending entry');
+    return { rows: [] };
+  }
+
+  if (lower === 'select * from pending where user_id = $1 and command = $2 and date_key = $3') {
+    const [userId, command, dateKey] = params;
+    const { data, error } = await supabase
+      .from('pending')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('command', command)
+      .eq('date_key', dateKey)
+      .limit(1);
+    if (error) throw wrapError(error, 'Failed to load pending entry');
+    return { rows: data || [] };
+  }
+
+  if (lower === 'delete from pending where user_id = $1 and command = $2 and date_key = $3') {
+    const [userId, command, dateKey] = params;
+    const { error } = await supabase
+      .from('pending')
+      .delete()
+      .eq('user_id', userId)
+      .eq('command', command)
+      .eq('date_key', dateKey);
+    if (error) throw wrapError(error, 'Failed to clear pending entry');
+    return { rows: [] };
+  }
+
+  if (lower.startsWith('insert into events (user_id, display_name, command, detail, points, month_key) values')) {
+    const [userId, displayName, command, detail, points, monthKey] = params;
+    const payload = { user_id: userId, display_name: displayName, command, detail, points, month_key: monthKey };
+    const { data, error } = await supabase
+      .from('events')
+      .insert(payload)
+      .select('id')
+      .single();
+    if (error) throw wrapError(error, 'Failed to insert event');
+    return { rows: data ? [data] : [] };
+  }
+
+  if (lower === 'select coalesce(sum(points),0) as total from events where user_id = $1 and month_key = $2') {
+    const [userId, mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('points')
+      .eq('user_id', userId)
+      .eq('month_key', mk);
+    if (error) throw wrapError(error, 'Failed to sum points');
+    const total = (data || []).reduce((sum, row) => sum + Number(row.points || 0), 0);
+    return { rows: [{ total }] };
+  }
+
+  if (lower.startsWith('select user_id, max(display_name) as display_name, coalesce(sum(points),0) as points from events where month_key = $1')) {
+    const [mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('user_id, display_name, points')
+      .eq('month_key', mk);
+    if (error) throw wrapError(error, 'Failed to load monthly events');
+    const aggregated = aggregateEventsByUser(data).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    }).slice(0, 10);
+    return { rows: aggregated };
+  }
+
+  if (lower.startsWith('select user_id, max(display_name) as display_name, coalesce(sum(points),0) as points from events group by user_id')) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('user_id, display_name, points');
+    if (error) throw wrapError(error, 'Failed to load events');
+    const aggregated = aggregateEventsByUser(data).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    }).slice(0, 10);
+    return { rows: aggregated };
+  }
+
+  if (lower === 'select distinct month_key as mk from events where month_key is not null order by mk desc') {
+    const { data, error } = await supabase
+      .from('events')
+      .select('month_key')
+      .not('month_key', 'is', null);
+    if (error) throw wrapError(error, 'Failed to load months');
+    const unique = Array.from(new Set((data || []).map((row) => row.month_key).filter(Boolean)));
+    unique.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    return { rows: unique.map((mk) => ({ mk })) };
+  }
+
+  if (lower.startsWith('select user_id, max(display_name) as display_name, coalesce(sum(points),0) as points from events where "timestamp" >= $1 and "timestamp" < $2')) {
+    const [startUtc, endUtc] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('user_id, display_name, points, timestamp')
+      .gte('timestamp', startUtc)
+      .lt('timestamp', endUtc);
+    if (error) throw wrapError(error, 'Failed to load weekly events');
+    const aggregated = aggregateEventsByUser(data).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    }).slice(0, 10);
+    return { rows: aggregated };
+  }
+
+  if (lower.startsWith("select distinct to_char(timezone($1, \"timestamp\"),")) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('timestamp')
+      .not('timestamp', 'is', null);
+    if (error) throw wrapError(error, 'Failed to load weeks');
+    const set = new Set();
+    for (const row of data || []) {
+      const dt = asDate(row.timestamp);
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      set.add(weekKey(dt));
+    }
+    const weeks = Array.from(set);
+    weeks.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    return { rows: weeks.map((wk) => ({ wk })) };
+  }
+
+  if (lower.startsWith("select user_id, max(display_name) as display_name from events where lower(command) = lower('/link_30d')")) {
+    const [mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('user_id, display_name')
+      .eq('month_key', mk)
+      .ilike('command', '/link_30d');
+    if (error) throw wrapError(error, 'Failed to load link_30d users');
+    const map = new Map();
+    for (const row of data || []) {
+      const id = row.user_id;
+      if (!id) continue;
+      const name = row.display_name || '';
+      const existing = map.get(id) || '';
+      if (!existing || name > existing) {
+        map.set(id, name);
+      }
+    }
+    return { rows: Array.from(map.entries()).map(([user_id, display_name]) => ({ user_id, display_name })) };
+  }
+
+  if (lower.startsWith("select count(distinct to_char(timezone($3, \"timestamp\"), 'yyyy-mm-dd')) as c from events where user_id = $1 and lower(command) = lower('/link_30d')")) {
+    const [userId, mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('timestamp')
+      .eq('user_id', userId)
+      .eq('month_key', mk)
+      .ilike('command', '/link_30d');
+    if (error) throw wrapError(error, 'Failed to count link_30d days');
+    const set = new Set();
+    for (const row of data || []) {
+      const dt = asDate(row.timestamp);
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      set.add(localDateKey(dt));
+    }
+    return { rows: [{ c: set.size }] };
+  }
+
+  if (lower === 'select user_id, max(display_name) as display_name from events where month_key = $1 group by user_id') {
+    const [mk] = params;
+    const { data, error } = await supabase
+      .from('events')
+      .select('user_id, display_name')
+      .eq('month_key', mk);
+    if (error) throw wrapError(error, 'Failed to load month users');
+    const map = new Map();
+    for (const row of data || []) {
+      const id = row.user_id;
+      if (!id) continue;
+      const name = row.display_name || '';
+      const existing = map.get(id) || '';
+      if (!existing || name > existing) {
+        map.set(id, name);
+      }
+    }
+    return { rows: Array.from(map.entries()).map(([user_id, display_name]) => ({ user_id, display_name })) };
+  }
+
+  if (lower.startsWith("select count(*) as c from events where user_id = $1 and lower(command) = lower('/book')")) {
+    const [userId, mk] = params;
+    const { count, error } = await supabase
+      .from('events')
+      .select('id', { head: true, count: 'exact' })
+      .eq('user_id', userId)
+      .eq('month_key', mk)
+      .ilike('command', '/book');
+    if (error) throw wrapError(error, 'Failed to count /book events');
+    return { rows: [{ c: count || 0 }] };
+  }
+
+  if (lower.startsWith("select count(*) as c from events where user_id = $1 and lower(command) = lower('/plan_update')")) {
+    const [userId, mk] = params;
+    const { count, error } = await supabase
+      .from('events')
+      .select('id', { head: true, count: 'exact' })
+      .eq('user_id', userId)
+      .eq('month_key', mk)
+      .ilike('command', '/plan_update');
+    if (error) throw wrapError(error, 'Failed to count /plan_update events');
+    return { rows: [{ c: count || 0 }] };
+  }
+
+  if (lower.startsWith('update events set month_key = $1 where id = $2')) {
+    const [monthKey, id] = params;
+    const { error } = await supabase
+      .from('events')
+      .update({ month_key: monthKey })
+      .eq('id', id);
+    if (error) throw wrapError(error, 'Failed to update event month_key');
+    return { rows: [] };
+  }
+
+  throw new Error(`Unsupported SQL query: ${normalized}`);
 }
 
 async function dbGet(sql, params = []) {
@@ -36,19 +362,6 @@ async function dbAll(sql, params = []) {
 
 async function dbRun(sql, params = []) {
   await dbQuery(sql, params);
-}
-
-async function ensurePendingTable() {
-  await dbRun(`
-    CREATE TABLE IF NOT EXISTS pending (
-      user_id TEXT NOT NULL,
-      command TEXT NOT NULL,
-      date_key DATE NOT NULL,
-      month_key TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      PRIMARY KEY (user_id, command, date_key)
-    )
-  `);
 }
 
 const configuredTz = process.env.SCORE_TZ || process.env.APP_TZ || process.env.TZ || 'Asia/Bangkok';

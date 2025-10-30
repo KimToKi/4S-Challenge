@@ -1,37 +1,68 @@
-const fs = require('fs');
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-const connectionString = process.env.SUPABASE_DB_URL
-  || process.env.SUPABASE_POSTGRES_URL
-  || process.env.DATABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL
+  || process.env.SUPABASE_REST_URL
+  || process.env.SUPABASE_PROJECT_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  || process.env.SUPABASE_SERVICE_KEY
+  || process.env.SUPABASE_KEY
+  || process.env.SUPABASE_ANON_KEY;
 
-if (!connectionString) {
-  console.error('Missing Supabase/Postgres connection string (SUPABASE_DB_URL or DATABASE_URL)');
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase configuration (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)');
   process.exit(1);
 }
 
-const SQL = fs.readFileSync('./schema.sql', 'utf8');
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
+});
 
-async function applySchema() {
-  const pool = new Pool({
-    connectionString,
-    ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
-  });
-  const client = await pool.connect();
-  try {
-    await client.query(SQL);
-    console.log('✅ Supabase/Postgres schema applied.');
-  } catch (err) {
-    console.error('DB init error', err);
-    process.exitCode = 1;
-  } finally {
-    client.release();
-    await pool.end();
+async function ensureTable(table) {
+  const { error } = await supabase.from(table).select('*', { head: true, count: 'exact' });
+  if (error) {
+    if (/relation .* does not exist/i.test(error.message || '')) {
+      throw new Error(`Table "${table}" is missing. Apply schema.sql via the Supabase SQL editor or CLI, then re-run this script.`);
+    }
+    throw error;
   }
 }
 
-applySchema().catch((err) => {
-  console.error('Failed to run schema migration:', err?.message || err);
-  process.exit(1);
-});
+async function seedScoreRules() {
+  const rows = [
+    { command: '/bm_product', subtype: '', points: 1 },
+    { command: '/pack3', subtype: '', points: 4 },
+    { command: '/old_member', subtype: '', points: 1 },
+    { command: '/sop', subtype: '', points: 2 },
+    { command: '/plan_update', subtype: 'success', points: 4 },
+    { command: '/plan_update', subtype: 'fail', points: -10 },
+    { command: '/use_product', subtype: '', points: 1 },
+    { command: '/link_30d', subtype: 'success', points: 4 },
+    { command: '/link_30d', subtype: 'fail', points: -1 },
+    { command: '/link_30d', subtype: 'none', points: 0 },
+    { command: '/book', subtype: 'success', points: 4 },
+    { command: '/book', subtype: 'fail', points: -4 }
+  ];
+  const { error } = await supabase.from('score_rules').upsert(rows, { onConflict: 'command,subtype' });
+  if (error) throw error;
+}
+
+(async () => {
+  try {
+    await ensureTable('events');
+    await ensureTable('score_rules');
+    await ensureTable('pending');
+  } catch (err) {
+    console.error(err?.message || err);
+    console.error('Run the statements in schema.sql using Supabase SQL before running this initializer.');
+    process.exit(1);
+  }
+
+  try {
+    await seedScoreRules();
+    console.log('✅ Supabase tables verified and score rules seeded.');
+  } catch (err) {
+    console.error('Failed to seed score rules:', err?.message || err);
+    process.exit(1);
+  }
+})();
