@@ -1292,19 +1292,9 @@ async function handleEvent(evt) {
 
   // Simplified help: list commands only + Rules link (disabled; using unified help below)
   if (cmd === '/help' || cmd === '/rules' || cmd === '/rule') {
-    const base = (process.env.PUBLIC_BASE_URL
-      || process.env.PUBLIC_URL
-      || process.env.BASE_URL
-      || 'https://disneyland-challenge.onrender.com').replace(/\/$/, '');
-    const imageUrl = `${base}/rules-image.png`;
-    const messages = [
-      { type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl }
-    ];
-    await replyMessages(evt.replyToken, messages);
-    return;
     const lines = [
-      'คำสั่งที่ใช้ได้:',
-      '/begin onsite',
+      '📚 คำสั่งที่ใช้ได้ (พิมพ์ตามนี้):',
+      '/begin',
       '/beyond_dec',
       '/new_pride',
       '/new_member',
@@ -1320,9 +1310,10 @@ async function handleEvent(evt) {
       '/book',
       '/plan_update',
       '/score',
+      '/rule',
       '/rank',
       '',
-      `กติกาแบบเต็ม: ${rulesUrl}`
+      'อ่านกติกาเต็ม: https://disneyland-challenge.onrender.com/rules'
     ];
     await reply(evt.replyToken, lines.join('\n'));
     return;
