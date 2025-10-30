@@ -920,7 +920,7 @@ async function handleEvent(evt) {
     const rulesUrl = `${base}/rules`;
     const cleanHelp = [
       '📚 คำสั่งที่ใช้ได้ (พิมพ์ตามนี้):',
-      '/begin onsite',
+      '/begin',
       '/beyond_dec',
       '/new_pride',
       '/new_member',
