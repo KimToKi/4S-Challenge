@@ -319,11 +319,9 @@ function isoWeekRangeUTC(yw) {
 async function reply(replyToken, text) {
   if (!replyToken) return;
   try {
-    const quote = pick(cleanMsgPools.inspire) || '';
-    const finalText = quote ? `${text}\n✨ ${quote}` : text;
     await axios.post('https://api.line.me/v2/bot/message/reply', {
       replyToken,
-      messages: [{ type: 'text', text: finalText }]
+      messages: [{ type: 'text', text }]
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
@@ -338,9 +336,13 @@ async function reply(replyToken, text) {
 // Reply with extra inspiration and optional display name
 async function replyWithInspire(replyToken, text, displayName) {
   const quote = pick(cleanMsgPools.inspire) || '';
-  const namePart = displayName ? `\n✨ ${displayName}` : '\n✨';
-  const extra = quote ? `${namePart} ${quote}` : namePart;
-  await reply(replyToken, `${text}${extra}`);
+  if (!quote) {
+    await reply(replyToken, text);
+    return;
+  }
+  const namePart = displayName ? `✨ ${displayName}` : '✨';
+  const finalText = `${text}\n${namePart} ${quote}`;
+  await reply(replyToken, finalText);
 }
 
 // Push message to a specified LINE target (group/user)
@@ -727,9 +729,14 @@ async function handleEvent(evt) {
 
   // Local helpers for this event
   const total = async () => sumUserMonth(userId, mk);
-  const respond = async (msg, _pts) => {
-    // Single place to reply with extra inspiration and optional display name
-    await replyWithInspire(evt.replyToken, msg, displayName);
+  const respond = async (msg, pts) => {
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await total();
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    await replyWithInspire(evt.replyToken, composed, displayName);
   };
 
   // (deduped) getDisplayName is defined globally below
@@ -1120,7 +1127,13 @@ async function handleImageEvent2(evt) {
     await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
     await clearPendingLinkToday(userId, '/bm_product');
     const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
-    await reply(evt.replyToken, msg);
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await sumUserMonth(userId, mk);
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    await replyWithInspire(evt.replyToken, composed, displayName2);
     return;
   }
 
@@ -1176,7 +1189,13 @@ async function handleImageEvent2_fixed(evt) {
     await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
     await clearPendingLinkToday(userId, '/bm_product');
     const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
-    await reply(evt.replyToken, msg);
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await sumUserMonth(userId, mk);
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    await replyWithInspire(evt.replyToken, composed, displayName2);
     return;
   }
 
