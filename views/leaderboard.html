@@ -12,22 +12,25 @@
     }
     html,body{height:100%}
     body{font-family:sans-serif;background:radial-gradient(1200px 600px at 10% -10%, #e0e7ff 0, transparent 60%),radial-gradient(900px 500px at 110% -20%, #fae8ff 0, transparent 55%),var(--bg);margin:0;color:var(--ink)}
-    .wrap{max-width:980px;margin:0 auto;padding:28px}
-    .hero{background:linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%);color:#fff;border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(29,78,216,0.25)}
-    .brand{display:flex;align-items:center;gap:12px}
-    .brand .emoji{font-size:26px}
+    .wrap{max-width:980px;margin:0 auto;padding:24px 20px}
+    .hero{background:linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%);color:#fff;border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:18px;justify-content:space-between;box-shadow:0 6px 20px rgba(29,78,216,0.25)}
+    .brand{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+    .brand .emoji{font-size:26px;flex-shrink:0}
     .brand .title{font-size:18px;font-weight:700;letter-spacing:.3px}
     .brand .sub{font-size:12px;opacity:.9}
-    .actions a{background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.6);padding:8px 12px;border-radius:10px;text-decoration:none;font-weight:600}
+    .actions{flex-shrink:0}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;min-width:96px;background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.6);padding:8px 12px;border-radius:10px;text-decoration:none;font-weight:600}
     .actions a:hover{background:#f1f5ff}
-    .seg{margin-top:14px;display:inline-flex;background:#fff;border:1px solid var(--border);border-radius:999px;overflow:hidden;box-shadow:0 4px 12px rgba(15,23,42,0.06)}
-    .seg button{appearance:none;border:0;background:transparent;padding:8px 14px;font-weight:700;color:#334155;cursor:pointer}
+    .seg{margin-top:14px;display:inline-flex;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:999px;overflow:hidden;box-shadow:0 4px 12px rgba(15,23,42,0.06)}
+    .seg button{appearance:none;border:0;background:transparent;padding:8px 16px;font-weight:700;color:#334155;cursor:pointer;flex:1 0 auto}
     .seg button.active{background:#0b1a4a;color:#fff}
     .period{margin-top:8px;color:#334155;font-size:12px}
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .filters label{font-size:12px;color:#334155;display:inline-flex;align-items:center;gap:6px}
     .filters input{border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:#fff;color:#0f172a}
-    table{width:100%;border-collapse:separate;border-spacing:0;margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.06)}
+    .table-wrap{margin-top:16px;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:0 8px 24px rgba(15,23,42,0.06)}
+    .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    table{width:100%;min-width:520px;border-collapse:separate;border-spacing:0}
     thead th{background:#0b1a4a;color:#fff;text-align:left;padding:12px 14px;position:sticky;top:0}
     tbody td{padding:12px 14px;border-top:1px solid var(--border)}
     tbody tr:nth-child(even){background:var(--row)}
@@ -42,6 +45,34 @@
     .points{font-weight:700;color:#0b1a4a}
     .name{font-weight:600}
     .muted{color:var(--muted);font-size:12px;margin-top:8px}
+
+    @media (max-width:720px){
+      body{background:var(--bg)}
+      .wrap{padding:20px 16px}
+      .hero{flex-direction:column;align-items:flex-start;text-align:left;padding:18px}
+      .brand{width:100%;gap:10px}
+      .brand .title{font-size:17px}
+      .brand .sub{font-size:11px}
+      .actions{width:100%}
+      .actions a{width:100%;font-size:14px;padding:10px}
+      .seg{width:100%;border-radius:18px}
+      .seg button{flex:1 1 33%;font-size:14px}
+      .filters{flex-direction:column;align-items:flex-start}
+      .filters label{width:100%}
+      .filters input{width:100%;font-size:14px}
+      table{min-width:100%}
+      td.rank{width:72px}
+    }
+
+    @media (max-width:420px){
+      .hero{gap:12px}
+      .brand{flex-direction:row;align-items:flex-start}
+      .brand .emoji{font-size:24px}
+      .brand .title{font-size:16px}
+      .seg button{padding:10px 12px;font-size:13px}
+      thead th, tbody td{padding:10px 12px}
+      .badge{min-width:34px;height:30px}
+    }
   </style>
 </head>
 <body>
@@ -76,10 +107,14 @@
       </label>
     </div>
 
-    <table>
-      <thead><tr><th>Rank</th><th>Name</th><th>Points</th></tr></thead>
-      <tbody id="tbody"></tbody>
-    </table>
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Rank</th><th>Name</th><th>Points</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
     <div class="muted">อัปเดตทุกชั่วโมง</div>
   </div>
   <script>
