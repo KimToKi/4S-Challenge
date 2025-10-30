@@ -984,33 +984,8 @@ async function handleEvent(evt) {
       || process.env.BASE_URL
       || 'https://disneyland-challenge.onrender.com').replace(/\/$/, '');
     const imageUrl = `${base}/rules-image.png`;
-    const rulesUrl = (process.env.RULES_PAGE_URL || 'https://disneyland-challenge.onrender.com/rules');
-    const cleanHelp = [
-      '📚 คำสั่งที่ใช้ได้ (พิมพ์ตามนี้):',
-      '/begin',
-      '/beyond_dec',
-      '/new_pride',
-      '/new_member',
-      '/old_member',
-      '/sop',
-      '/pack3',
-      '/bm_product',
-      '/use_product <สิ่งที่ใช้>',
-      '/connection+N',
-      '/old_follow_up',
-      '/new_follow_up',
-      '/link_30d',
-      '/book',
-      '/plan_update',
-      '/score',
-      '/rank',
-      '',
-      `อ่านกติกาเต็ม: ${rulesUrl}`
-    ].join('\n');
-
     const messages = [
-      { type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl },
-      { type: 'text', text: cleanHelp }
+      { type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl }
     ];
     await replyMessages(evt.replyToken, messages);
     return;
