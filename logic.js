@@ -18,6 +18,14 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false }
 });
 
+function publicBaseUrl() {
+  const base = process.env.PUBLIC_BASE_URL
+    || process.env.PUBLIC_URL
+    || process.env.BASE_URL
+    || `http://localhost:${process.env.PORT || 3000}`;
+  return base.replace(/\/$/, '');
+}
+
 async function ensurePendingTable() {
   // Schema is managed via Supabase migrations; nothing to do here.
 }
@@ -773,6 +781,15 @@ async function reply(replyToken, text) {
   await replyMessages(replyToken, [{ type: 'text', text }]);
 }
 
+async function replyImage(replyToken, url) {
+  if (!url) return;
+  await replyMessages(replyToken, [{
+    type: 'image',
+    originalContentUrl: url,
+    previewImageUrl: url
+  }]);
+}
+
 // Reply with extra inspiration and optional display name
 async function replyWithInspire(replyToken, text, displayName) {
   const quote = pick(cleanMsgPools.inspire) || '';
@@ -1291,20 +1308,10 @@ async function handleEvent(evt) {
   }
 
   // Simplified help: list commands only + Rules link (disabled; using unified help below)
-  if (cmd === '/help' || cmd === '/rules' || cmd === '/rule') {
-    const base = (process.env.PUBLIC_BASE_URL
-      || process.env.PUBLIC_URL
-      || process.env.BASE_URL
-      || 'https://disneyland-challenge.onrender.com').replace(/\/$/, '');
-    const imageUrl = `${base}/rules-image.png`;
-    const messages = [
-      { type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl }
-    ];
-    await replyMessages(evt.replyToken, messages);
-    return;
+  if (cmd === '/help') {
     const lines = [
-      'คำสั่งที่ใช้ได้:',
-      '/begin onsite',
+      '📚 คำสั่งที่ใช้ได้ (พิมพ์ตามนี้):',
+      '/begin',
       '/beyond_dec',
       '/new_pride',
       '/new_member',
@@ -1320,11 +1327,19 @@ async function handleEvent(evt) {
       '/book',
       '/plan_update',
       '/score',
+      '/rule',
       '/rank',
       '',
-      `กติกาแบบเต็ม: ${rulesUrl}`
+      'อ่านกติกาเต็ม: https://disneyland-challenge.onrender.com/rules'
     ];
     await reply(evt.replyToken, lines.join('\n'));
+    return;
+  }
+
+  if (cmd === '/rules' || cmd === '/rule') {
+    const base = publicBaseUrl();
+    const imageUrl = `${base}/rules-image.png`;
+    await replyImage(evt.replyToken, imageUrl);
     return;
   }
 
