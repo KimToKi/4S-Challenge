@@ -780,6 +780,19 @@ async function handleEvent(evt) {
   const detail = parts.slice(1).join(' ') || '(no-detail)';
   const userId = evt.source?.userId;
 
+  if (cmd === '/groupid' || cmd === '/group_id') {
+    if (sourceType === 'group' && evt.source?.groupId) {
+      await reply(evt.replyToken, `Group ID: ${evt.source.groupId}`);
+      return;
+    }
+    if (sourceType === 'room' && evt.source?.roomId) {
+      await reply(evt.replyToken, `Room ID: ${evt.source.roomId}`);
+      return;
+    }
+    await reply(evt.replyToken, 'คำสั่งนี้ใช้ได้เฉพาะในห้องสนทนากลุ่มเท่านั้น');
+    return;
+  }
+
   // In group/room, if userId is missing (e.g., OpenChat privacy), skip replying to avoid noise
   if (!userId) {
     if (isGroupOrRoom) return; // silent in groups
