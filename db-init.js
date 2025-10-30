@@ -1,37 +1,32 @@
-const fs = require('fs');
-const { Pool } = require('pg');
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) {}
 
-const connectionString = process.env.SUPABASE_DB_URL
-  || process.env.SUPABASE_POSTGRES_URL
-  || process.env.DATABASE_URL;
+const store = require('./data-store');
 
-if (!connectionString) {
-  console.error('Missing Supabase/Postgres connection string (SUPABASE_DB_URL or DATABASE_URL)');
-  process.exit(1);
+async function seedScoreRules() {
+  const rows = [
+    { command: '/bm_product', subtype: '', points: 1 },
+    { command: '/pack3', subtype: '', points: 4 },
+    { command: '/old_member', subtype: '', points: 1 },
+    { command: '/sop', subtype: '', points: 2 },
+    { command: '/plan_update', subtype: 'success', points: 4 },
+    { command: '/plan_update', subtype: 'fail', points: -10 },
+    { command: '/use_product', subtype: '', points: 1 },
+    { command: '/link_30d', subtype: 'success', points: 4 },
+    { command: '/link_30d', subtype: 'fail', points: -1 },
+    { command: '/link_30d', subtype: 'none', points: 0 },
+    { command: '/book', subtype: 'success', points: 4 },
+    { command: '/book', subtype: 'fail', points: -4 }
+  ];
+  await store.upsertScoreRules(rows);
 }
 
-const SQL = fs.readFileSync('./schema.sql', 'utf8');
-
-async function applySchema() {
-  const pool = new Pool({
-    connectionString,
-    ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
-  });
-  const client = await pool.connect();
+(async () => {
   try {
-    await client.query(SQL);
-    console.log('✅ Supabase/Postgres schema applied.');
+    await store.ensureFile();
+    await seedScoreRules();
+    console.log('✅ Offline data store ready and score rules seeded.');
   } catch (err) {
-    console.error('DB init error', err);
-    process.exitCode = 1;
-  } finally {
-    client.release();
-    await pool.end();
+    console.error('Failed to prepare local data store:', err?.message || err);
+    process.exit(1);
   }
-}
-
-applySchema().catch((err) => {
-  console.error('Failed to run schema migration:', err?.message || err);
-  process.exit(1);
-});
+})();

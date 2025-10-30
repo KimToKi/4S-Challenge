@@ -1,0 +1,69 @@
+{
+  "events": [],
+  "score_rules": [
+    {
+      "command": "/bm_product",
+      "subtype": "",
+      "points": 1
+    },
+    {
+      "command": "/pack3",
+      "subtype": "",
+      "points": 4
+    },
+    {
+      "command": "/old_member",
+      "subtype": "",
+      "points": 1
+    },
+    {
+      "command": "/sop",
+      "subtype": "",
+      "points": 2
+    },
+    {
+      "command": "/plan_update",
+      "subtype": "success",
+      "points": 4
+    },
+    {
+      "command": "/plan_update",
+      "subtype": "fail",
+      "points": -10
+    },
+    {
+      "command": "/use_product",
+      "subtype": "",
+      "points": 1
+    },
+    {
+      "command": "/link_30d",
+      "subtype": "success",
+      "points": 4
+    },
+    {
+      "command": "/link_30d",
+      "subtype": "fail",
+      "points": -1
+    },
+    {
+      "command": "/link_30d",
+      "subtype": "none",
+      "points": 0
+    },
+    {
+      "command": "/book",
+      "subtype": "success",
+      "points": 4
+    },
+    {
+      "command": "/book",
+      "subtype": "fail",
+      "points": -4
+    }
+  ],
+  "pending": [],
+  "sequences": {
+    "events": 1
+  }
+}

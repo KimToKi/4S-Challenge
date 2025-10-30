@@ -1,8 +1,7 @@
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
+try { require('dotenv').config(); } catch (_) {}
 const path = require('path');
-const cron = require('node-cron');
+const { createApp } = require('./tiny-server');
+const { schedule } = require('./tiny-cron');
 const {
   handleEvent,
   handleImageEvent,
@@ -16,15 +15,11 @@ const {
 } = require('./logic');
 
 const PORT = process.env.PORT || 3000;
-const app = express();
+const app = createApp();
 
-// Do NOT use a global JSON parser. Nothing else here needs it.
-app.use('/static', express.static(path.join(__dirname, 'views')));
+app.static('/static', path.join(__dirname, 'views'));
 
-// LINE Webhook endpoint
-// Use raw body so verification/empty payloads never cause 400
-app.post('/webhook', express.raw({ type: '*/*' }), async (req, res) => {
-  // Always ACK immediately to avoid upstream timeouts
+app.post('/webhook', async (req, res) => {
   res.status(200).send('OK');
 
   let payload = {};
@@ -56,22 +51,17 @@ app.post('/webhook', express.raw({ type: '*/*' }), async (req, res) => {
   }
 });
 
-// Optional: respond to GET on /webhook so manual checks don't fail
 app.get('/webhook', (req, res) => res.status(200).send('OK'));
-
-// Leaderboard endpoints
 app.get('/top10', top10Handler);
 app.get('/months', monthsHandler);
 app.get('/weeks', weeksHandler);
 
-// Static pages
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'leaderboard.html')));
 app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, 'views', 'rules.html')));
 app.get('/rules-image.png', (req, res) => {
   res.sendFile(path.join(__dirname, 'rules.png'));
 });
 
-// Helper: format /link_30d monthly announcement with emojis
 function buildLink30dAnnouncement(monthKey, settled) {
   const pos = settled.filter(r => r.points > 0);
   const neg = settled.filter(r => r.points < 0);
@@ -87,16 +77,14 @@ function buildLink30dAnnouncement(monthKey, settled) {
   return lines;
 }
 
-// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-// Weekly push via cron
 const weeklyCron = process.env.WEEKLY_CRON || '0 9 * * 1';
 const weeklyTz = process.env.WEEKLY_TZ || 'Asia/Bangkok';
 try {
-  cron.schedule(weeklyCron, async () => {
+  schedule(weeklyCron, async () => {
     try {
       const text = await buildWeeklySummaryText();
       await push(text);
@@ -110,7 +98,6 @@ try {
   console.warn('Weekly cron invalid or failed to start:', err?.message);
 }
 
-// Admin endpoints (optional)
 if (process.env.ADMIN_KEY) {
   app.get('/admin/weekly-push', async (req, res) => {
     if (req.query.key !== process.env.ADMIN_KEY) return res.status(403).send('Forbidden');
@@ -142,11 +129,10 @@ if (process.env.ADMIN_KEY) {
   console.log('🔐 Admin endpoint: GET /admin/link30d-settle?key=***&ym=YYYY-MM&push=1');
 }
 
-// Monthly settlement via cron (last day of month, 23:55 local time)
 const monthlyCron = process.env.MONTHLY_CRON || '55 23 * * *';
 const monthlyTz = process.env.MONTHLY_TZ || 'Asia/Bangkok';
 try {
-  cron.schedule(monthlyCron, async () => {
+  schedule(monthlyCron, async () => {
     try {
       const now = new Date();
       const tomorrow = new Date(now);
@@ -155,7 +141,6 @@ try {
       if (!isMonthEnd) return;
       const mk = now.toISOString().slice(0,7);
       const result = await finalizeLink30dMonth(mk);
-      // Also apply /plan_update month-end penalty for incomplete (count < 3)
       try { await finalizePlanUpdateMonth(mk); } catch {}
       const lines = buildLink30dAnnouncement(mk, result.settled);
       if (lines.length > 1) await push(lines.join('\n'));

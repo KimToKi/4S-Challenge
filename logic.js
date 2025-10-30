@@ -1,27 +1,267 @@
-const { Pool } = require('pg');
-const axios = require('axios');
-require('dotenv').config();
+let axios;
+try {
+  axios = require('axios');
+} catch (_) {
+  const fetchImpl = typeof fetch === 'function' ? fetch.bind(globalThis) : null;
+  const ensureFetch = () => {
+    if (!fetchImpl) {
+      throw new Error('axios fallback requires global fetch support');
+    }
+    return fetchImpl;
+  };
+  const buildResponse = async (res) => {
+    const text = await res.text();
+    let data = text;
+    try {
+      data = JSON.parse(text);
+    } catch (_) {}
+    return { data, status: res.status };
+  };
+  axios = {
+    async post(url, payload, options = {}) {
+      const fetchFn = ensureFetch();
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+      const res = await fetchFn(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload || {})
+      });
+      if (!res.ok) {
+        const error = new Error(`Request failed with status ${res.status}`);
+        error.response = await buildResponse(res);
+        throw error;
+      }
+      return buildResponse(res);
+    },
+    async get(url, options = {}) {
+      const fetchFn = ensureFetch();
+      const res = await fetchFn(url, {
+        method: 'GET',
+        headers: Object.assign({}, options.headers || {})
+      });
+      if (!res.ok) {
+        const error = new Error(`Request failed with status ${res.status}`);
+        error.response = await buildResponse(res);
+        throw error;
+      }
+      return buildResponse(res);
+    }
+  };
+}
+try { require('dotenv').config(); } catch (_) {}
 
-const connectionString = process.env.SUPABASE_DB_URL
-  || process.env.SUPABASE_POSTGRES_URL
-  || process.env.DATABASE_URL;
+const store = require('./data-store');
 
-if (!connectionString) {
-  throw new Error('Missing Supabase/Postgres connection string (set SUPABASE_DB_URL or DATABASE_URL)');
+async function ensurePendingTable() {
+  await store.ensureFile();
 }
 
-const pool = new Pool({
-  connectionString,
-  ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
-});
+function normalizeSql(sql) {
+  return sql.replace(/\s+/g, ' ').trim();
+}
+
+function aggregateEventsByUser(rows) {
+  const map = new Map();
+  for (const row of rows || []) {
+    const id = row.user_id;
+    if (!id) continue;
+    const current = map.get(id) || { user_id: id, display_name: '', points: 0 };
+    const displayName = row.display_name;
+    if (typeof displayName === 'string' && displayName && displayName > current.display_name) {
+      current.display_name = displayName;
+    }
+    const pts = Number(row.points) || 0;
+    current.points += pts;
+    map.set(id, current);
+  }
+  return Array.from(map.values());
+}
 
 async function dbQuery(sql, params = []) {
-  const client = await pool.connect();
-  try {
-    return await client.query(sql, params);
-  } finally {
-    client.release();
+  const normalized = normalizeSql(sql);
+  const lower = normalized.toLowerCase();
+
+  if (lower === 'select id, timestamp, month_key from events') {
+    const rows = await store.listEvents();
+    return {
+      rows: rows.map((row) => ({
+        id: row.id,
+        timestamp: row.timestamp,
+        month_key: row.month_key
+      }))
+    };
   }
+
+  if (lower === 'select points from score_rules where lower(command) = lower($1) and lower(subtype) = lower($2)') {
+    const command = params[0] ?? '';
+    const subtype = params[1] ?? '';
+    const rule = await store.getScoreRule(command, subtype || '');
+    return { rows: rule ? [{ points: rule.points }] : [] };
+  }
+
+  if (lower === 'select count(*) as c from events where user_id = $1 and lower(command) = lower($2) and month_key = $3') {
+    const [userId, command, mk] = params;
+    const count = await store.countEventsByUserCommandMonth(userId, command, mk);
+    return { rows: [{ c: count }] };
+  }
+
+  if (lower.startsWith("select timestamp from events where user_id = $1 and lower(command) = lower('/link_30d')")) {
+    const [userId, mk] = params;
+    const rows = await store.getRecentEvents({ userId, command: '/link_30d', monthKey: mk, limit: 20 });
+    return { rows: rows.map((row) => ({ timestamp: row.timestamp })) };
+  }
+
+  if (lower.startsWith("select timestamp from events where user_id = $1 and lower(command) = lower('/use_product')")) {
+    const [userId, mk] = params;
+    const rows = await store.getRecentEvents({ userId, command: '/use_product', monthKey: mk, limit: 20 });
+    return { rows: rows.map((row) => ({ timestamp: row.timestamp })) };
+  }
+
+  if (lower.startsWith('insert into pending (user_id, command, date_key, month_key) values')) {
+    const [userId, command, dateKey, monthKey] = params;
+    await store.upsertPending({ user_id: userId, command, date_key: dateKey, month_key: monthKey }, ['user_id', 'command', 'date_key']);
+    return { rows: [] };
+  }
+
+  if (lower === 'select * from pending where user_id = $1 and command = $2 and date_key = $3') {
+    const [userId, command, dateKey] = params;
+    const row = await store.findPending({ user_id: userId, command, date_key: dateKey });
+    return { rows: row ? [row] : [] };
+  }
+
+  if (lower === 'delete from pending where user_id = $1 and command = $2 and date_key = $3') {
+    const [userId, command, dateKey] = params;
+    await store.deletePending({ user_id: userId, command, date_key: dateKey });
+    return { rows: [] };
+  }
+
+  if (lower.startsWith('insert into events (user_id, display_name, command, detail, points, month_key) values')) {
+    const [userId, displayName, command, detail, points, monthKey] = params;
+    const inserted = await store.insertEvent({
+      user_id: userId,
+      display_name: displayName,
+      command,
+      detail,
+      points,
+      month_key: monthKey
+    });
+    return { rows: inserted ? [{ id: inserted.id }] : [] };
+  }
+
+  if (lower === 'select coalesce(sum(points),0) as total from events where user_id = $1 and month_key = $2') {
+    const [userId, mk] = params;
+    const total = await store.sumPointsByUserMonth(userId, mk);
+    return { rows: [{ total }] };
+  }
+
+  if (lower.startsWith('select user_id, max(display_name) as display_name, coalesce(sum(points),0) as points from events where month_key = $1')) {
+    const [mk] = params;
+    const data = await store.listEventsForMonth(mk);
+    const aggregated = aggregateEventsByUser(data).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    }).slice(0, 10);
+    return { rows: aggregated };
+  }
+
+  if (lower.startsWith('select user_id, max(display_name) as display_name, coalesce(sum(points),0) as points from events group by user_id')) {
+    const data = await store.listAllEvents();
+    const aggregated = aggregateEventsByUser(data).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    }).slice(0, 10);
+    return { rows: aggregated };
+  }
+
+  if (lower === 'select distinct month_key as mk from events where month_key is not null order by mk desc') {
+    const unique = (await store.listDistinctMonthKeys()).filter(Boolean);
+    unique.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    return { rows: unique.map((mk) => ({ mk })) };
+  }
+
+  if (lower.startsWith('select user_id, max(display_name) as display_name, coalesce(sum(points),0) as points from events where "timestamp" >= $1 and "timestamp" < $2')) {
+    const [startUtc, endUtc] = params;
+    const data = await store.listEventsBetween(startUtc, endUtc);
+    const aggregated = aggregateEventsByUser(data).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    }).slice(0, 10);
+    return { rows: aggregated };
+  }
+
+  if (lower.startsWith('select distinct to_char(timezone($1, "timestamp"),')) {
+    const data = await store.listEventsWithNonNullTimestamp();
+    const set = new Set();
+    for (const row of data || []) {
+      const dt = asDate(row.timestamp);
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      set.add(weekKey(dt));
+    }
+    const weeks = Array.from(set);
+    weeks.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    return { rows: weeks.map((wk) => ({ wk })) };
+  }
+
+  if (lower.startsWith("select user_id, max(display_name) as display_name from events where lower(command) = lower('/link_30d')")) {
+    const [mk] = params;
+    const data = await store.getLink30dUsers(mk);
+    const map = new Map();
+    for (const row of data || []) {
+      const id = row.user_id;
+      if (!id) continue;
+      const name = row.display_name || '';
+      const existing = map.get(id) || '';
+      if (!existing || name > existing) {
+        map.set(id, name);
+      }
+    }
+    return { rows: Array.from(map.entries()).map(([user_id, display_name]) => ({ user_id, display_name })) };
+  }
+
+  if (lower.startsWith("select count(distinct to_char(timezone($3, \"timestamp\"), 'yyyy-mm-dd')) as c from events where user_id = $1 and lower(command) = lower('/link_30d')")) {
+    const [userId, mk] = params;
+    const count = await store.countDistinctDays(userId, '/link_30d', mk, (dt) => {
+      if (!dt || Number.isNaN(dt.getTime())) return null;
+      return localDateKey(dt);
+    });
+    return { rows: [{ c: count }] };
+  }
+
+  if (lower === 'select user_id, max(display_name) as display_name from events where month_key = $1 group by user_id') {
+    const [mk] = params;
+    const data = await store.listUsersForMonth(mk);
+    const map = new Map();
+    for (const row of data || []) {
+      const id = row.user_id;
+      if (!id) continue;
+      const name = row.display_name || '';
+      const existing = map.get(id) || '';
+      if (!existing || name > existing) {
+        map.set(id, name);
+      }
+    }
+    return { rows: Array.from(map.entries()).map(([user_id, display_name]) => ({ user_id, display_name })) };
+  }
+
+  if (lower.startsWith("select count(*) as c from events where user_id = $1 and lower(command) = lower('/book')")) {
+    const [userId, mk] = params;
+    const count = await store.countCommandOccurrences(userId, '/book', mk);
+    return { rows: [{ c: count }] };
+  }
+
+  if (lower.startsWith("select count(*) as c from events where user_id = $1 and lower(command) = lower('/plan_update')")) {
+    const [userId, mk] = params;
+    const count = await store.countCommandOccurrences(userId, '/plan_update', mk);
+    return { rows: [{ c: count }] };
+  }
+
+  if (lower.startsWith('update events set month_key = $1 where id = $2')) {
+    const [monthKey, id] = params;
+    await store.updateEventMonthKey(id, monthKey);
+    return { rows: [] };
+  }
+
+  throw new Error(`Unsupported SQL query: ${normalized}`);
 }
 
 async function dbGet(sql, params = []) {
@@ -36,19 +276,6 @@ async function dbAll(sql, params = []) {
 
 async function dbRun(sql, params = []) {
   await dbQuery(sql, params);
-}
-
-async function ensurePendingTable() {
-  await dbRun(`
-    CREATE TABLE IF NOT EXISTS pending (
-      user_id TEXT NOT NULL,
-      command TEXT NOT NULL,
-      date_key DATE NOT NULL,
-      month_key TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      PRIMARY KEY (user_id, command, date_key)
-    )
-  `);
 }
 
 const configuredTz = process.env.SCORE_TZ || process.env.APP_TZ || process.env.TZ || 'Asia/Bangkok';
