@@ -1728,7 +1728,80 @@ async function handleImageEvent2_fixed(evt) {
     getPendingLinkToday(userId, '/bm_product')
   ]);
 
-  const candidates = [];
+const candidates = [];
+
+if (pendingLink) {
+  candidates.push({ kind: 'link', ts: pendingCreatedAt(pendingLink) });
+}
+
+if (pendingBm) {
+  candidates.push({ kind: 'bm', ts: pendingCreatedAt(pendingBm) });
+}
+
+candidates.sort((a, b) => {
+  if (b.ts !== a.ts) return b.ts - a.ts;
+  if (a.kind === b.kind) return 0;
+  return a.kind === 'bm' ? -1 : 1;
+});
+
+const messages = [];
+let displayNameCache;
+const getDisplayName = async () => {
+  if (!displayNameCache) {
+    displayNameCache = await safeGetDisplayName(userId, evt.source);
+  }
+  return displayNameCache;
+};
+
+for (const candidate of candidates) {
+  if (candidate.kind === 'link') {
+    const already = await hasLink30dToday(userId);
+    if (already) {
+      await clearPendingLinkToday(userId, '/link_30d');
+      messages.push({ type: 'text', text: 'วันนี้ส่ง /link_30d ไปแล้วนะ ขอบคุณสำหรับรูป 😊' });
+      continue;
+    }
+    const displayName2 = await getDisplayName();
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName2,
+      command: '/link_30d',
+      detail: `evidence:${imageId}`,
+      points: 0,
+      month_key: mk,
+    });
+    await clearPendingLinkToday(userId, '/link_30d');
+    messages.push({
+      type: 'text',
+      text: pickMsg('link_received', { quote: pick(cleanMsgPools.inspire) }),
+    });
+    continue;
+  }
+
+  if (candidate.kind === 'bm') {
+    const displayName2 = await getDisplayName();
+    const pts = (await loadRule('/bm_product', '')) ?? 1;
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName2,
+      command: '/bm_product',
+      detail: `evidence:${imageId}`,
+      points: pts,
+      month_key: mk,
+    });
+    await clearPendingLinkToday(userId, '/bm_product');
+    const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await sumUserMonth(userId, mk);
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
+    break;
+  }
+}
+
   if (pendingLink) {
     candidates.push({ kind: 'link', ts: pendingCreatedAt(pendingLink) });
   }
