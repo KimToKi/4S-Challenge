@@ -797,14 +797,17 @@ async function replyImage(replyToken, url) {
 }
 
 // Reply with extra inspiration and optional display name
-async function replyWithInspire(replyToken, text, displayName) {
+function composeInspireText(text, displayName) {
   const quote = pick(cleanMsgPools.inspire) || '';
   if (!quote) {
-    await reply(replyToken, text);
-    return;
+    return text;
   }
   const namePart = displayName ? `✨ ${displayName}` : '✨';
-  const finalText = `${text}\n${namePart} ${quote}`;
+  return `${text}\n${namePart} ${quote}`;
+}
+
+async function replyWithInspire(replyToken, text, displayName) {
+  const finalText = composeInspireText(text, displayName);
   await reply(replyToken, finalText);
 }
 
@@ -1725,43 +1728,67 @@ async function handleImageEvent2_fixed(evt) {
     getPendingLinkToday(userId, '/bm_product')
   ]);
 
-  const linkTs = pendingCreatedAt(pendingLink);
-  const bmTs = pendingCreatedAt(pendingBm);
-  const handleBmFirst = pendingBm && bmTs >= linkTs;
+const candidates = [];
 
-  if (handleBmFirst) {
-    const displayName2 = await safeGetDisplayName(userId, evt.source);
-    const pts = (await loadRule('/bm_product', '')) ?? 1;
-    await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
-    await clearPendingLinkToday(userId, '/bm_product');
-    const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
-    let composed = msg;
-    const delta = Number(pts);
-    if (!Number.isNaN(delta) && delta !== 0) {
-      const sum = await sumUserMonth(userId, mk);
-      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
-    }
-    await replyWithInspire(evt.replyToken, composed, displayName2);
-    return;
+if (pendingLink) {
+  candidates.push({ kind: 'link', ts: pendingCreatedAt(pendingLink) });
+}
+
+if (pendingBm) {
+  candidates.push({ kind: 'bm', ts: pendingCreatedAt(pendingBm) });
+}
+
+candidates.sort((a, b) => {
+  if (b.ts !== a.ts) return b.ts - a.ts;
+  if (a.kind === b.kind) return 0;
+  return a.kind === 'bm' ? -1 : 1;
+});
+
+const messages = [];
+let displayNameCache;
+const getDisplayName = async () => {
+  if (!displayNameCache) {
+    displayNameCache = await safeGetDisplayName(userId, evt.source);
   }
+  return displayNameCache;
+};
 
-  if (pendingLink) {
+for (const candidate of candidates) {
+  if (candidate.kind === 'link') {
     const already = await hasLink30dToday(userId);
     if (already) {
-      await reply(evt.replyToken, 'วันนี้ส่ง /link_30d ไปแล้วนะ ขอบคุณสำหรับรูป 🙂');
-      return;
+      await clearPendingLinkToday(userId, '/link_30d');
+      messages.push({ type: 'text', text: 'วันนี้ส่ง /link_30d ไปแล้วนะ ขอบคุณสำหรับรูป 😊' });
+      continue;
     }
-    const displayName2 = await safeGetDisplayName(userId, evt.source);
-    await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
+    const displayName2 = await getDisplayName();
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName2,
+      command: '/link_30d',
+      detail: `evidence:${imageId}`,
+      points: 0,
+      month_key: mk,
+    });
     await clearPendingLinkToday(userId, '/link_30d');
-    await reply(evt.replyToken, pickMsg('link_received', { quote: pick(cleanMsgPools.inspire) }));
-    return;
+    messages.push({
+      type: 'text',
+      text: pickMsg('link_received', { quote: pick(cleanMsgPools.inspire) }),
+    });
+    continue;
   }
 
-  if (pendingBm) {
-    const displayName2 = await safeGetDisplayName(userId, evt.source);
+  if (candidate.kind === 'bm') {
+    const displayName2 = await getDisplayName();
     const pts = (await loadRule('/bm_product', '')) ?? 1;
-    await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName2,
+      command: '/bm_product',
+      detail: `evidence:${imageId}`,
+      points: pts,
+      month_key: mk,
+    });
     await clearPendingLinkToday(userId, '/bm_product');
     const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
     let composed = msg;
@@ -1770,7 +1797,67 @@ async function handleImageEvent2_fixed(evt) {
       const sum = await sumUserMonth(userId, mk);
       composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
     }
-    await replyWithInspire(evt.replyToken, composed, displayName2);
+    messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
+    break;
+  }
+}
+
+  if (pendingLink) {
+    candidates.push({ kind: 'link', ts: pendingCreatedAt(pendingLink) });
+  }
+  if (pendingBm) {
+    candidates.push({ kind: 'bm', ts: pendingCreatedAt(pendingBm) });
+  }
+
+  candidates.sort((a, b) => {
+    if (b.ts !== a.ts) return b.ts - a.ts;
+    if (a.kind === b.kind) return 0;
+    return a.kind === 'bm' ? -1 : 1;
+  });
+
+  const messages = [];
+  let displayNameCache;
+  const getDisplayName = async () => {
+    if (!displayNameCache) {
+      displayNameCache = await safeGetDisplayName(userId, evt.source);
+    }
+    return displayNameCache;
+  };
+
+  for (const candidate of candidates) {
+    if (candidate.kind === 'link') {
+      const already = await hasLink30dToday(userId);
+      if (already) {
+        await clearPendingLinkToday(userId, '/link_30d');
+        messages.push({ type: 'text', text: 'วันนี้ส่ง /link_30d ไปแล้วนะ ขอบคุณสำหรับรูป 🙂' });
+        continue;
+      }
+      const displayName2 = await getDisplayName();
+      await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
+      await clearPendingLinkToday(userId, '/link_30d');
+      messages.push({ type: 'text', text: pickMsg('link_received', { quote: pick(cleanMsgPools.inspire) }) });
+      continue;
+    }
+
+    if (candidate.kind === 'bm') {
+      const displayName2 = await getDisplayName();
+      const pts = (await loadRule('/bm_product', '')) ?? 1;
+      await insertEvent({ user_id: userId, display_name: displayName2, command: '/bm_product', detail: `evidence:${imageId}`, points: pts, month_key: mk });
+      await clearPendingLinkToday(userId, '/bm_product');
+      const msg = pickMsg('bm_product', { displayName: displayName2, pts: `+${pts}` });
+      let composed = msg;
+      const delta = Number(pts);
+      if (!Number.isNaN(delta) && delta !== 0) {
+        const sum = await sumUserMonth(userId, mk);
+        composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+      }
+      messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
+      break;
+    }
+  }
+
+  if (messages.length) {
+    await replyMessages(evt.replyToken, messages);
     return;
   }
 
