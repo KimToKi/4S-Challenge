@@ -26,8 +26,81 @@ function publicBaseUrl() {
   return base.replace(/\/$/, '');
 }
 
+function isMissingPendingTableError(error) {
+  const message = `${error?.message || error?.error_description || error?.details || ''}`.toLowerCase();
+  if (!message) return false;
+  if (!message.includes('pending')) return false;
+  return message.includes('schema cache') || message.includes('does not exist');
+}
+
+function resolveDatabaseUrl() {
+  return process.env.SUPABASE_DB_URL
+    || process.env.SUPABASE_POSTGRES_URL
+    || process.env.SUPABASE_DB_CONNECTION_STRING
+    || process.env.DATABASE_URL
+    || null;
+}
+
+function shouldUseSsl(url) {
+  if (!url) return false;
+  if (/sslmode=disable/i.test(url)) return false;
+  if (/localhost|127\.0\.0\.1/i.test(url)) return false;
+  return true;
+}
+
 async function ensurePendingTable() {
-  // Schema is managed via Supabase migrations; nothing to do here.
+  const checkResult = await supabase
+    .from('pending')
+    .select('user_id', { head: true, count: 'exact' })
+    .limit(1);
+
+  if (!checkResult.error) {
+    return;
+  }
+
+  if (!isMissingPendingTableError(checkResult.error)) {
+    throw new Error(`Failed to access pending table: ${checkResult.error.message || checkResult.error}`);
+  }
+
+  const connectionString = resolveDatabaseUrl();
+  if (!connectionString) {
+    throw new Error('Supabase table "pending" is missing. Provide SUPABASE_DB_URL (or DATABASE_URL) so it can be created automatically, or apply schema.sql manually.');
+  }
+
+  let pool;
+  try {
+    const { Pool } = require('pg');
+    const poolConfig = { connectionString };
+    if (shouldUseSsl(connectionString)) {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    pool = new Pool(poolConfig);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.pending (
+        user_id TEXT NOT NULL,
+        command TEXT NOT NULL,
+        date_key DATE NOT NULL,
+        month_key TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, command, date_key)
+      );
+    `);
+  } catch (err) {
+    throw new Error(`Failed to create pending table: ${err?.message || err}`);
+  } finally {
+    if (pool) {
+      await pool.end().catch(() => {});
+    }
+  }
+
+  const verifyResult = await supabase
+    .from('pending')
+    .select('user_id', { head: true, count: 'exact' })
+    .limit(1);
+
+  if (verifyResult.error) {
+    throw new Error(`Pending table was created but Supabase still cannot access it: ${verifyResult.error.message || verifyResult.error}`);
+  }
 }
 
 function normalizeSql(sql) {
