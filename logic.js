@@ -105,6 +105,56 @@ async function ensurePendingTable() {
   }
 }
 
+const memoryPending = new Map();
+const MEMORY_PENDING_TTL_MS = 48 * 60 * 60 * 1000;
+
+function pendingMemoryKey(userId, command) {
+  return `${userId || ''}::${command || ''}`;
+}
+
+function cleanupMemoryPending() {
+  const now = Date.now();
+  const todayKey = localDateKey();
+  for (const [key, entry] of memoryPending.entries()) {
+    const createdRaw = entry?.created_at || entry?.createdAt || entry?.created_at_utc;
+    const created = createdRaw ? new Date(createdRaw).getTime() : NaN;
+    const isStaleDate = entry?.date_key && entry.date_key !== todayKey;
+    if (!Number.isFinite(created) || (now - created) > MEMORY_PENDING_TTL_MS || isStaleDate) {
+      memoryPending.delete(key);
+    }
+  }
+}
+
+function setMemoryPending(userId, command, mk, metadata = null, createdAt, dateKey) {
+  cleanupMemoryPending();
+  const entry = {
+    user_id: userId,
+    command,
+    month_key: mk,
+    date_key: dateKey || localDateKey(),
+    metadata: metadata ?? null,
+    created_at: createdAt || new Date().toISOString()
+  };
+  memoryPending.set(pendingMemoryKey(userId, command), entry);
+  return entry;
+}
+
+function getMemoryPending(userId, command) {
+  cleanupMemoryPending();
+  const entry = memoryPending.get(pendingMemoryKey(userId, command));
+  if (!entry) return null;
+  if (entry.date_key && entry.date_key !== localDateKey()) {
+    memoryPending.delete(pendingMemoryKey(userId, command));
+    return null;
+  }
+  return { ...entry };
+}
+
+function clearMemoryPending(userId, command) {
+  cleanupMemoryPending();
+  memoryPending.delete(pendingMemoryKey(userId, command));
+}
+
 function normalizeSql(sql) {
   return sql.replace(/\s+/g, ' ').trim();
 }
@@ -982,6 +1032,7 @@ async function hasUseProductToday(userId) {
 
 async function setPendingLinkToday(userId, command, mk, metadata = null) {
   await dbReady;
+  setMemoryPending(userId, command, mk, metadata);
   const dk = localDateKey();
   try {
     await dbRun(
@@ -1000,18 +1051,40 @@ async function setPendingLinkToday(userId, command, mk, metadata = null) {
 
 async function getPendingLinkToday(userId, command) {
   await dbReady;
-  return await dbGet(
-    'SELECT * FROM pending WHERE user_id = $1 AND command = $2 AND date_key = $3',
-    [userId, command, localDateKey()]
-  );
+  const today = localDateKey();
+  try {
+    const row = await dbGet(
+      'SELECT * FROM pending WHERE user_id = $1 AND command = $2 AND date_key = $3',
+      [userId, command, today]
+    );
+    if (row) {
+      const stored = setMemoryPending(
+        userId,
+        command,
+        row.month_key || monthKey(),
+        row.metadata ?? null,
+        row.created_at || row.createdAt || row.created_at_utc || null,
+        row.date_key || row.dateKey || today
+      );
+      return { ...stored, ...row };
+    }
+  } catch (err) {
+    console.warn('Failed to load pending entry:', err?.message || err);
+  }
+  return getMemoryPending(userId, command);
 }
 
 async function clearPendingLinkToday(userId, command) {
   await dbReady;
-  await dbRun(
-    'DELETE FROM pending WHERE user_id = $1 AND command = $2 AND date_key = $3',
-    [userId, command, localDateKey()]
-  );
+  clearMemoryPending(userId, command);
+  try {
+    await dbRun(
+      'DELETE FROM pending WHERE user_id = $1 AND command = $2 AND date_key = $3',
+      [userId, command, localDateKey()]
+    );
+  } catch (err) {
+    console.warn('Failed to clear pending entry:', err?.message || err);
+  }
 }
 
 function pendingCreatedAt(row) {
