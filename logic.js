@@ -81,10 +81,12 @@ async function ensurePendingTable() {
         command TEXT NOT NULL,
         date_key DATE NOT NULL,
         month_key TEXT NOT NULL,
+        metadata TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         PRIMARY KEY (user_id, command, date_key)
       );
     `);
+    await pool.query('ALTER TABLE public.pending ADD COLUMN IF NOT EXISTS metadata TEXT');
   } catch (err) {
     throw new Error(`Failed to create pending table: ${err?.message || err}`);
   } finally {
@@ -206,8 +208,8 @@ async function dbQuery(sql, params = []) {
     return { rows: data || [] };
   }
 
-  if (lower.startsWith('insert into pending (user_id, command, date_key, month_key) values')) {
-    const [userId, command, dateKey, monthKey] = params;
+  if (lower.startsWith('insert into pending (user_id, command, date_key, month_key, metadata) values')) {
+    const [userId, command, dateKey, monthKey, metadata] = params;
     const { error } = await supabase
       .from('pending')
       .upsert({
@@ -215,6 +217,7 @@ async function dbQuery(sql, params = []) {
         command,
         date_key: dateKey,
         month_key: monthKey,
+        metadata: metadata ?? null,
         created_at: new Date().toISOString()
       }, {
         onConflict: 'user_id,command,date_key'
@@ -569,9 +572,9 @@ const cleanMsgPools = {
     'SOP เรียบร้อย ดูแลทีมได้ดีมาก\n+{pts} คะแนน'
   ],
   use_product: [
-    'ส่งรายงานการใช้สินค้าแล้ว ขอบคุณนะ\n+{pts} คะแนน',
-    'เก็บการใช้สินค้าวันนี้เรียบร้อย\n+{pts} คะแนน',
-    'รายงานใช้สินค้าสำเร็จ เยี่ยมมาก\n+{pts} คะแนน'
+    'ส่งรายงานและรูปการใช้สินค้าแล้ว ขอบคุณนะ\n+{pts} คะแนน',
+    'เก็บการใช้สินค้าพร้อมรูปเรียบร้อย\n+{pts} คะแนน',
+    'รายงานใช้สินค้าแนบรูปสำเร็จ เยี่ยมมาก\n+{pts} คะแนน'
   ],
   plan_success: [
     'อัปเดตแผนสำเร็จ ดีมาก\n+{pts} คะแนน',
@@ -678,9 +681,9 @@ const msgPools = {
   ],
   use_product: [
     '📸 ใช้สินค้าแล้วถ่ายแชร์ให้ทีมเห็น!\n📈 ตัวอย่างที่ดีมีค่ามากสุด\n🎁 +{pts} คะแนน',
-    '🧃 ใช้จริง รีวิวจริง น่ารัก!\n🔥 อินสไปร์เพื่อนๆ สุดหัวใจ\n🎁 +{pts} คะแนน',
-    '🪞 โพสต์ใช้สินค้าจริง ชัดเจน!\n✨ ของดีต้องแชร์ต่อ\n🎁 +{pts} คะแนน',
-    '🎥 แคปภาพ/คลิปการใช้จริง น่ารักมาก\n🚀 เพื่อนๆ กำลังได้แรงบันดาลใจ\n🎁 +{pts} คะแนน'
+    '🧃 ใช้จริง รีวิวจริง พร้อมรูปประกอบ น่ารัก!\n🔥 อินสไปร์เพื่อนๆ สุดหัวใจ\n🎁 +{pts} คะแนน',
+    '🪞 โพสต์ใช้สินค้าจริงพร้อมภาพชัดเจน!\n✨ ของดีต้องแชร์ต่อ\n🎁 +{pts} คะแนน',
+    '🎥 แคปภาพ/คลิปการใช้จริงแนบครบ\n🚀 เพื่อนๆ กำลังได้แรงบันดาลใจ\n🎁 +{pts} คะแนน'
   ],
   follow_old: [
     '📞 ติดตามคนเก่าสำเร็จ!\n🧠 ความใส่ใจของคุณคือหัวใจของการเติบโต\n🎁 +{pts} คะแนน',
@@ -977,16 +980,16 @@ async function hasUseProductToday(userId) {
   });
 }
 
-async function setPendingLinkToday(userId, command, mk) {
+async function setPendingLinkToday(userId, command, mk, metadata = null) {
   await dbReady;
   const dk = localDateKey();
   try {
     await dbRun(
-      `INSERT INTO pending (user_id, command, date_key, month_key)
-         VALUES ($1, $2, $3, $4)
+      `INSERT INTO pending (user_id, command, date_key, month_key, metadata)
+         VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id, command, date_key)
-         DO UPDATE SET month_key = EXCLUDED.month_key, created_at = NOW()`,
-      [userId, command, dk, mk]
+         DO UPDATE SET month_key = EXCLUDED.month_key, metadata = EXCLUDED.metadata, created_at = NOW()`,
+      [userId, command, dk, mk, metadata]
     );
     return true;
   } catch (err) {
@@ -1409,7 +1412,7 @@ async function handleEvent(evt) {
       '/sop',
       '/pack3',
       '/bm_product',
-      '/use_product <สิ่งที่ใช้>',
+      '/use_product <สิ่งที่ใช้> แล้วส่งรูป',
       '/connection+N',
       '/old_follow_up',
       '/new_follow_up',
@@ -1447,7 +1450,7 @@ async function handleEvent(evt) {
       '- /sop — เราซื้อ SOP หรือมี new member สมัครและซื้อ SOP',
       '- /pack3 — คนใหม่ฟังจบครบ 3 Pack',
       '- /bm_product — ทำ BM หรือเล่าเคสสินค้า (แนบรูป)',
-      '- /use_product <สิ่งที่ใช้> — ใช้สินค้าพร้อมรีวิว วันละ 1 ครั้ง',
+      '- /use_product <สิ่งที่ใช้> — ใช้สินค้าพร้อมรีวิว + รูป วันละ 1 ครั้ง',
       '- /connection+N — รายชื่อ/เพื่อนใหม่ เช่น /connection+3',
       '- /old_follow_up — โทรติดตามคนเก่า',
       '- /new_follow_up — โทรติดตามคนใหม่',
@@ -1527,22 +1530,25 @@ const insert = async (command, pts, msg) => {
     return;
   }
 
-  // /use_product requires a short report and is limited to +1 per day
+  // /use_product requires a short report, photo evidence, and is limited to +1 per day
   if (cmd === '/use_product') {
     const already = await hasUseProductToday(userId);
     if (already) {
       await reply(evt.replyToken, 'วันนี้ส่ง /use_product แล้วนะ จำกัด 1 ครั้ง/วัน');
       return;
     }
+    const pendingToday = await getPendingLinkToday(userId, '/use_product');
     const report = (parts.slice(1).join(' ') || '').trim();
     if (!report) {
       await reply(evt.replyToken, 'กรุณาพิมพ์รายงานสั้นๆ ต่อท้าย เช่น:\n/use_product ใช้สินค้า X ตอนเช้า รู้สึกดีขึ้น');
       return;
     }
-    const pts = await loadRule('/use_product', '') ?? 1;
-    const msg = pickMsg('use_product', { displayName, pts: `+${pts}` });
-    await insertEvent({ user_id: userId, display_name: displayName, command: '/use_product', detail: `report:${report}`, points: pts, month_key: mk });
-    await respond(msg, pts);
+    const metadata = JSON.stringify({ report });
+    await setPendingLinkToday(userId, '/use_product', mk, metadata);
+    const text = pendingToday
+      ? 'อัปเดตรายงานไว้แล้ว รอแค่รูปยืนยัน /use_product นะ (จำกัด 1 ครั้ง/วัน)' 
+      : 'รับทราบการใช้สินค้าแล้ว โปรดส่งรูปยืนยัน /use_product ภายในวันนี้ (จำกัด 1 ครั้ง/วัน)';
+    await reply(evt.replyToken, text);
     return;
   }
 
@@ -1631,7 +1637,7 @@ const insert = async (command, pts, msg) => {
       '/bm_product (แนบรูป)',
       '/old_member',
       '/sop',
-      '/use_product <รายละเอียด> (จำกัด 1 ครั้ง/วัน)',
+      '/use_product <รายละเอียด> + ส่งรูป (จำกัด 1 ครั้ง/วัน)',
       '/plan_update (ส่งแผน/อัปเดตรวมอย่างน้อย 3 ครั้ง: 1/3, 2/3 ยังไม่ให้คะแนน; ครบ 3/3 = +4; ไม่ครบทั้งเดือน = -10)',
       '/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)',
       '/book (ได้ +4 ได้สูงสุด 2 ครั้ง/เดือน)',
@@ -1661,7 +1667,7 @@ const insert = async (command, pts, msg) => {
       '/bm_product (แนบรูป)',
       '/old_member',
       '/sop',
-      '/use_product <รายงาน> (จำกัด 1 ครั้ง/วัน)',
+      '/use_product <รายงาน> + ส่งรูป (จำกัด 1 ครั้ง/วัน)',
       '/plan_update success|fail',
       '/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)',
       '/book (ได้ +4 ได้สูงสุด 2 ครั้ง/เดือน)',
@@ -1767,8 +1773,54 @@ async function handleImageEvent2(evt) {
     return;
   }
 
+  const pendingUse = await getPendingLinkToday(userId, '/use_product');
+  if (pendingUse) {
+    const already = await hasUseProductToday(userId);
+    if (already) {
+      await clearPendingLinkToday(userId, '/use_product');
+      await reply(evt.replyToken, 'วันนี้ส่ง /use_product ไปแล้วนะ ขอบคุณสำหรับรูป 😊');
+      return;
+    }
+    const displayName2 = await safeGetDisplayName(userId, evt.source);
+    const pts = await loadRule('/use_product', '') ?? 1;
+    let report = '';
+    if (pendingUse.metadata) {
+      try {
+        const meta = typeof pendingUse.metadata === 'string'
+          ? JSON.parse(pendingUse.metadata)
+          : pendingUse.metadata;
+        if (meta && typeof meta.report === 'string') {
+          report = meta.report.trim();
+        }
+      } catch (err) {
+        console.warn('Failed to parse /use_product metadata:', err?.message || err);
+      }
+    }
+    const parts = [];
+    if (report) parts.push(`report:${report}`);
+    parts.push(`evidence:${imageId}`);
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName2,
+      command: '/use_product',
+      detail: parts.join('|'),
+      points: pts,
+      month_key: mk
+    });
+    await clearPendingLinkToday(userId, '/use_product');
+    const msg = pickMsg('use_product', { displayName: displayName2, pts: `+${pts}` });
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await sumUserMonth(userId, mk);
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    await replyWithInspire(evt.replyToken, composed, displayName2);
+    return;
+  }
+
   if (!isGroupOrRoom) {
-    await reply(evt.replyToken, 'หากเป็นการส่งรูปประกอบคะแนน โปรดพิมพ์ /bm_product หรือ /link_30d ก่อน');
+    await reply(evt.replyToken, 'หากเป็นการส่งรูปประกอบคะแนน โปรดพิมพ์ /bm_product, /use_product หรือ /link_30d ก่อน');
   }
 }
 
@@ -1796,9 +1848,10 @@ async function handleImageEvent2_fixed(evt) {
   const mk = monthKey();
   const imageId = evt.message?.id || 'image';
 
-  const [pendingLink, pendingBm] = await Promise.all([
+  const [pendingLink, pendingBm, pendingUse] = await Promise.all([
     getPendingLinkToday(userId, '/link_30d'),
-    getPendingLinkToday(userId, '/bm_product')
+    getPendingLinkToday(userId, '/bm_product'),
+    getPendingLinkToday(userId, '/use_product')
   ]);
 
 const candidates = [];
@@ -1811,10 +1864,18 @@ if (pendingBm) {
   candidates.push({ kind: 'bm', ts: pendingCreatedAt(pendingBm) });
 }
 
+if (pendingUse) {
+  candidates.push({ kind: 'use', ts: pendingCreatedAt(pendingUse) });
+}
+
+const priority = { use: 0, bm: 1, link: 2 };
+
 candidates.sort((a, b) => {
   if (b.ts !== a.ts) return b.ts - a.ts;
-  if (a.kind === b.kind) return 0;
-  return a.kind === 'bm' ? -1 : 1;
+  const pa = priority[a.kind] ?? 99;
+  const pb = priority[b.kind] ?? 99;
+  if (pa !== pb) return pa - pb;
+  return a.kind.localeCompare(b.kind);
 });
 
 const messages = [];
@@ -1873,6 +1934,51 @@ for (const candidate of candidates) {
     messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
     break;
   }
+
+  if (candidate.kind === 'use') {
+    const already = await hasUseProductToday(userId);
+    if (already) {
+      await clearPendingLinkToday(userId, '/use_product');
+      messages.push({ type: 'text', text: 'วันนี้ส่ง /use_product ไว้แล้วนะ ขอบคุณสำหรับรูป 😊' });
+      continue;
+    }
+    const displayName2 = await getDisplayName();
+    const pts = (await loadRule('/use_product', '')) ?? 1;
+    let report = '';
+    if (pendingUse?.metadata) {
+      try {
+        const meta = typeof pendingUse.metadata === 'string'
+          ? JSON.parse(pendingUse.metadata)
+          : pendingUse.metadata;
+        if (meta && typeof meta.report === 'string') {
+          report = meta.report.trim();
+        }
+      } catch (err) {
+        console.warn('Failed to parse /use_product metadata:', err?.message || err);
+      }
+    }
+    const parts = [];
+    if (report) parts.push(`report:${report}`);
+    parts.push(`evidence:${imageId}`);
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName2,
+      command: '/use_product',
+      detail: parts.join('|'),
+      points: pts,
+      month_key: mk,
+    });
+    await clearPendingLinkToday(userId, '/use_product');
+    const msg = pickMsg('use_product', { displayName: displayName2, pts: `+${pts}` });
+    let composed = msg;
+    const delta = Number(pts);
+    if (!Number.isNaN(delta) && delta !== 0) {
+      const sum = await sumUserMonth(userId, mk);
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+    }
+    messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
+    break;
+  }
 }
   if (messages.length) {
     await replyMessages(evt.replyToken, messages);
@@ -1880,7 +1986,7 @@ for (const candidate of candidates) {
   }
 
   if (!isGroupOrRoom) {
-    await reply(evt.replyToken, 'รูปนี้ยังไม่เข้าหมวดสะสมแต้ม โปรดใช้ /bm_product หรือ /link_30d ก่อน');
+    await reply(evt.replyToken, 'รูปนี้ยังไม่เข้าหมวดสะสมแต้ม โปรดใช้ /bm_product, /use_product หรือ /link_30d ก่อน');
   }
 }
 

@@ -85,6 +85,27 @@ async function ensureTable(table, createSql) {
   }
 }
 
+async function ensurePendingMetadataColumn() {
+  const connectionString = resolveDatabaseUrl();
+  if (!connectionString) return;
+  let pool;
+  try {
+    const { Pool } = require('pg');
+    const poolConfig = { connectionString };
+    if (shouldUseSsl(connectionString)) {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    pool = new Pool(poolConfig);
+    await pool.query('ALTER TABLE IF EXISTS public.pending ADD COLUMN IF NOT EXISTS metadata TEXT;');
+  } catch (err) {
+    console.warn('Failed to ensure pending.metadata column:', err?.message || err);
+  } finally {
+    if (pool) {
+      await pool.end().catch(() => {});
+    }
+  }
+}
+
 async function seedScoreRules() {
   const rows = [
     { command: '/bm_product', subtype: '', points: 1 },
@@ -114,10 +135,12 @@ async function seedScoreRules() {
         command TEXT NOT NULL,
         date_key DATE NOT NULL,
         month_key TEXT NOT NULL,
+        metadata TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         PRIMARY KEY (user_id, command, date_key)
       );
     `);
+    await ensurePendingMetadataColumn();
   } catch (err) {
     console.error(err?.message || err);
     console.error('Run the statements in schema.sql using Supabase SQL before running this initializer.');
