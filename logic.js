@@ -1711,10 +1711,7 @@ async function handleImageEvent(evt) {
   }
   const pending = await getPendingLinkToday(userId, '/link_30d');
   if (!pending) {
-    // No pending request; gentle nudge to send the command first
-    if (!isGroupOrRoom) {
-      await reply(evt.replyToken, 'พิมพ์ /link_30d ก่อน แล้วส่งรูปอีกครั้งนะ');
-    }
+    // No pending request; ignore images sent before the command without replying
     return;
   }
   // Insert the /link_30d event with evidence ref (messageId)
