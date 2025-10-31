@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS pending (
   command TEXT NOT NULL,
   date_key DATE NOT NULL,
   month_key TEXT NOT NULL,
+  metadata TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (user_id, command, date_key)
 );
