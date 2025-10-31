@@ -2,6 +2,8 @@ const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 require('dotenv').config();
 
+const manualSettleSecret = process.env.MANUAL_SETTLE_SECRET || 'NewSilver21%';
+
 const supabaseUrl = process.env.SUPABASE_URL
   || process.env.SUPABASE_REST_URL
   || process.env.SUPABASE_PROJECT_URL;
@@ -255,6 +257,20 @@ async function dbQuery(sql, params = []) {
       .order('timestamp', { ascending: false })
       .limit(20);
     if (error) throw wrapError(error, 'Failed to load use_product events');
+    return { rows: data || [] };
+  }
+
+  if (lower.startsWith('select id, points, detail from events where user_id = $1 and lower(command) = lower($2) and month_key = $3 order by timestamp desc limit 1')) {
+    const [userId, command, monthKey] = params;
+    let query = supabase
+      .from('events')
+      .select('id, points, detail')
+      .eq('user_id', userId)
+      .eq('month_key', monthKey);
+    query = applyIlike(query, 'command', command);
+    query = query.order('timestamp', { ascending: false }).limit(1);
+    const { data, error } = await query;
+    if (error) throw wrapError(error, 'Failed to load settlement event');
     return { rows: data || [] };
   }
 
@@ -1214,6 +1230,15 @@ function daysInMonthKey(mk) {
   return new Date(y, m, 0).getDate();
 }
 
+async function getSettlementEvent(command, userId, mk) {
+  await dbReady;
+  const row = await dbGet(
+    'SELECT id, points, detail FROM events WHERE user_id = $1 AND LOWER(command) = LOWER($2) AND month_key = $3 ORDER BY timestamp DESC LIMIT 1',
+    [userId, command, mk]
+  );
+  return row ? { ...row, points: Number(row.points) || 0 } : null;
+}
+
 async function distinctUsersWithLink30d(mk) {
   await dbReady;
   const rows = await dbAll(
@@ -1241,21 +1266,31 @@ async function finalizeLink30dMonth(mk) {
   const results = [];
   for (const u of users) {
     const days = await countLink30dDays(u.user_id, mk);
+    const missing = Math.max(0, dim - days);
     if (days <= 0) { // no entries at all -> 0 points per requirement
-      results.push({ user_id: u.user_id, display_name: u.display_name, days, points: 0 });
+      results.push({ user_id: u.user_id, display_name: u.display_name, days, missing: dim, total_days: dim, points: 0 });
       continue;
     }
-    const missing = Math.max(0, dim - days);
-    const pts = missing === 0 ? 4 : -missing;
-    await insertEvent({
+    const existing = await getSettlementEvent('/link_30d_settle', u.user_id, mk);
+    const points = missing === 0 ? 4 : -missing;
+    if (!existing) {
+      await insertEvent({
+        user_id: u.user_id,
+        display_name: u.display_name,
+        command: '/link_30d_settle',
+        detail: `settlement ${mk}: ${days}/${dim} days, missing ${missing}`,
+        points,
+        month_key: mk
+      });
+    }
+    results.push({
       user_id: u.user_id,
       display_name: u.display_name,
-      command: '/link_30d_settle',
-      detail: `settlement ${mk}: ${days}/${dim} days, missing ${missing}`,
-      points: pts,
-      month_key: mk
+      days,
+      missing,
+      total_days: dim,
+      points: existing ? Number(existing.points) || points : points
     });
-    results.push({ user_id: u.user_id, display_name: u.display_name, days, points: pts });
   }
   return { month: mk, settled: results };
 }
@@ -1287,15 +1322,19 @@ async function finalizeBookMonth(mk) {
   for (const u of users) {
     const cnt = await countBookInMonth(u.user_id, mk);
     if (cnt === 0) {
-      await insertEvent({
-        user_id: u.user_id,
-        display_name: u.display_name,
-        command: '/book_settle',
-        detail: `settlement ${mk}: no /book this month`,
-        points: -4,
-        month_key: mk
-      });
-      results.push({ user_id: u.user_id, display_name: u.display_name, points: -4 });
+      const existing = await getSettlementEvent('/book_settle', u.user_id, mk);
+      const points = existing ? Number(existing.points) || -4 : -4;
+      if (!existing) {
+        await insertEvent({
+          user_id: u.user_id,
+          display_name: u.display_name,
+          command: '/book_settle',
+          detail: `settlement ${mk}: no /book this month`,
+          points,
+          month_key: mk
+        });
+      }
+      results.push({ user_id: u.user_id, display_name: u.display_name, count: cnt, points });
     }
   }
   return { month: mk, settled: results };
@@ -1317,18 +1356,90 @@ async function finalizePlanUpdateMonth(mk) {
   for (const u of users) {
     const cnt = await countPlanUpdateInMonth(u.user_id, mk);
     if (cnt < 3) {
-      await insertEvent({
-        user_id: u.user_id,
-        display_name: u.display_name,
-        command: '/plan_update_settle',
-        detail: `settlement ${mk}: plan updates ${cnt}/3`,
-        points: -10,
-        month_key: mk
-      });
-      results.push({ user_id: u.user_id, display_name: u.display_name, count: cnt, points: -10 });
+      const existing = await getSettlementEvent('/plan_update_settle', u.user_id, mk);
+      const points = existing ? Number(existing.points) || -10 : -10;
+      if (!existing) {
+        await insertEvent({
+          user_id: u.user_id,
+          display_name: u.display_name,
+          command: '/plan_update_settle',
+          detail: `settlement ${mk}: plan updates ${cnt}/3`,
+          points,
+          month_key: mk
+        });
+      }
+      results.push({ user_id: u.user_id, display_name: u.display_name, count: cnt, points });
     }
   }
   return { month: mk, settled: results };
+}
+
+function normalizeName(name) {
+  return (typeof name === 'string' && name.trim()) ? name.trim() : 'สมาชิกไม่ระบุชื่อ';
+}
+
+function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
+  const lines = [`📊 สรุปคะแนนปลายเดือน ${mk}`];
+  const linkEntries = (linkResult?.settled || []).filter((r) => Number(r.points || 0) !== 0);
+  const planEntries = planResult?.settled || [];
+  const bookEntries = bookResult?.settled || [];
+
+  const addBlank = () => {
+    if (lines[lines.length - 1] !== '') {
+      lines.push('');
+    }
+  };
+
+  addBlank();
+  if (linkEntries.length) {
+    lines.push('🔗 /link_30d');
+    const positives = linkEntries.filter((r) => Number(r.points) > 0);
+    const negatives = linkEntries.filter((r) => Number(r.points) < 0);
+    for (const r of positives) {
+      const days = Number(r.days) || 0;
+      const totalDays = Number(r.total_days) || (days + Number(r.missing) || 0);
+      const name = normalizeName(r.display_name);
+      const pts = Number(r.points) || 0;
+      lines.push(`• ✨ ${name} +${pts} (ครบ ${days}/${totalDays} วัน)`);
+    }
+    for (const r of negatives) {
+      const days = Number(r.days) || 0;
+      const totalDays = Number(r.total_days) || (days + Math.max(Number(r.missing) || 0, 0));
+      const name = normalizeName(r.display_name);
+      const pts = Number(r.points) || 0;
+      const miss = Math.max(Math.abs(Number(r.missing) || 0), 0);
+      lines.push(`• ⚠️ ${name} ${pts} (ขาด ${miss} วัน จาก ${totalDays})`);
+    }
+  } else {
+    lines.push('🔗 /link_30d: ไม่มีการปรับคะแนน');
+  }
+
+  addBlank();
+  if (planEntries.length) {
+    lines.push('🗂️ /plan_update');
+    for (const r of planEntries) {
+      const name = normalizeName(r.display_name);
+      const pts = Number(r.points) || 0;
+      const cnt = Number(r.count) || 0;
+      lines.push(`• ⚠️ ${name} ${pts} (อัปเดต ${cnt}/3 ครั้ง)`);
+    }
+  } else {
+    lines.push('🗂️ /plan_update: ไม่มีการปรับคะแนน');
+  }
+
+  addBlank();
+  if (bookEntries.length) {
+    lines.push('📚 /book');
+    for (const r of bookEntries) {
+      const name = normalizeName(r.display_name);
+      const pts = Number(r.points) || 0;
+      lines.push(`• ⚠️ ${name} ${pts} (ไม่มีการส่ง /book เดือนนี้)`);
+    }
+  } else {
+    lines.push('📚 /book: ไม่มีการปรับคะแนน');
+  }
+
+  return lines.join('\n');
 }
 
 function safeQueryParams(req) {
@@ -1516,6 +1627,49 @@ async function handleEvent(evt) {
     const base = publicBaseUrl();
     const imageUrl = `${base}/rules-image.png`;
     await replyImage(evt.replyToken, imageUrl);
+    return;
+  }
+
+  if (cmd === '/settle') {
+    if (sourceType !== 'user') {
+      await reply(evt.replyToken, 'คำสั่ง /settle ใช้ได้เฉพาะในแชทส่วนตัวกับบอทเท่านั้น');
+      return;
+    }
+    const args = parts.slice(1);
+    if (!args.length) {
+      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ');
+      return;
+    }
+    let ym = '';
+    if (/^\d{4}-\d{2}$/.test(args[0])) {
+      ym = args.shift();
+    }
+    const providedSecret = args.join(' ').trim();
+    if (!providedSecret) {
+      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ');
+      return;
+    }
+    if (providedSecret !== manualSettleSecret) {
+      await reply(evt.replyToken, 'รหัสลับไม่ถูกต้อง');
+      return;
+    }
+    const targetMonth = ym || monthKey();
+    try {
+      const linkResult = await finalizeLink30dMonth(targetMonth);
+      const planResult = await finalizePlanUpdateMonth(targetMonth);
+      const bookResult = await finalizeBookMonth(targetMonth);
+      const summary = buildManualSettlementMessage(targetMonth, linkResult, planResult, bookResult);
+      if (summary && summary.trim()) {
+        await push(summary);
+      }
+      const ack = summary && summary.trim()
+        ? `ส่งสรุปคะแนนเดือน ${targetMonth} ไปยังกลุ่มเป้าหมายแล้ว`
+        : `ไม่มีการปรับคะแนนสำหรับเดือน ${targetMonth}`;
+      await reply(evt.replyToken, ack);
+    } catch (err) {
+      console.error('Manual settle error:', err?.message || err);
+      await reply(evt.replyToken, 'เกิดข้อผิดพลาดระหว่างประมวลผลคำสั่ง /settle');
+    }
     return;
   }
 
