@@ -107,6 +107,30 @@ async function ensurePendingTable() {
   }
 }
 
+async function ensureEventsPointsNumericType() {
+  const connectionString = resolveDatabaseUrl();
+  if (!connectionString) {
+    return;
+  }
+
+  let pool;
+  try {
+    const { Pool } = require('pg');
+    const poolConfig = { connectionString };
+    if (shouldUseSsl(connectionString)) {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    pool = new Pool(poolConfig);
+    await pool.query('ALTER TABLE IF EXISTS public.events ALTER COLUMN points TYPE NUMERIC(10,2) USING points::NUMERIC;');
+  } catch (err) {
+    console.warn('Failed to ensure events.points numeric type:', err?.message || err);
+  } finally {
+    if (pool) {
+      await pool.end().catch(() => {});
+    }
+  }
+}
+
 const memoryPending = new Map();
 const MEMORY_PENDING_TTL_MS = 48 * 60 * 60 * 1000;
 
@@ -881,8 +905,11 @@ const msgPools = {
 };
 
 // Ensure table for pending actions (e.g., waiting for image)
-const dbReady = ensurePendingTable().catch((err) => {
-  console.error('Failed to ensure pending table:', err?.message || err);
+const dbReady = (async () => {
+  await ensureEventsPointsNumericType();
+  await ensurePendingTable();
+})().catch((err) => {
+  console.error('Failed to initialize database:', err?.message || err);
 });
 
 function localDateKey(d = new Date()) {
@@ -1233,13 +1260,35 @@ function pendingCreatedAt(row) {
 
 async function insertEvent(e) {
   await dbReady;
-  const row = await dbGet(
-    `INSERT INTO events (user_id, display_name, command, detail, points, month_key)
+  const params = [e.user_id, e.display_name, e.command, e.detail, e.points, e.month_key];
+  const sql = `INSERT INTO events (user_id, display_name, command, detail, points, month_key)
      VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id`,
-    [e.user_id, e.display_name, e.command, e.detail, e.points, e.month_key]
-  );
-  return row ? row.id : null;
+     RETURNING id`;
+
+  async function runInsert() {
+    const row = await dbGet(sql, params);
+    return row ? row.id : null;
+  }
+
+  try {
+    return await runInsert();
+  } catch (err) {
+    const original = err?.original || err;
+    const message = `${original?.message || original?.error_description || original?.details || err?.message || ''}`.toLowerCase();
+    const looksLikeIntegerCast = message.includes('type integer')
+      || (message.includes('integer') && (message.includes('syntax') || message.includes('numeric')));
+    if (!looksLikeIntegerCast) {
+      throw err;
+    }
+
+    try {
+      await ensureEventsPointsNumericType();
+    } catch (_) {
+      // ignore secondary failure; we'll retry once regardless
+    }
+
+    return await runInsert();
+  }
 }
 
 async function sumUserMonth(user_id, mk) {
