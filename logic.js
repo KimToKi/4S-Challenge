@@ -600,9 +600,12 @@ async function dbRun(sql, params = []) {
   await dbQuery(sql, params);
 }
 
+const PLAN_UPDATE_MONTHLY_CAP = 4;
+
 const configuredTz = process.env.SCORE_TZ || process.env.APP_TZ || process.env.TZ || 'Asia/Bangkok';
 let activeTimeZone = configuredTz;
 let cachedDateFormatter;
+let cachedWeekdayFormatter;
 
 function getZonedDateParts(date = new Date()) {
   if (!cachedDateFormatter) {
@@ -621,6 +624,7 @@ function getZonedDateParts(date = new Date()) {
         month: '2-digit',
         day: '2-digit'
       });
+      cachedWeekdayFormatter = null;
       console.warn(`Invalid timezone '${configuredTz}', falling back to UTC`);
     }
   }
@@ -936,6 +940,44 @@ function weekKey(date = new Date()) {
   return `${weekYear}-W${w}`;
 }
 
+function getZonedWeekdayIndex(date = new Date()) {
+  if (!cachedWeekdayFormatter) {
+    try {
+      cachedWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: activeTimeZone,
+        weekday: 'short'
+      });
+    } catch (err) {
+      activeTimeZone = 'UTC';
+      cachedWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: activeTimeZone,
+        weekday: 'short'
+      });
+      console.warn(`Invalid timezone '${configuredTz}', falling back to UTC`);
+    }
+  }
+  const abbr = cachedWeekdayFormatter.format(date);
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[abbr] ?? 0;
+}
+
+function isWeekend(date = new Date()) {
+  const idx = getZonedWeekdayIndex(date);
+  return idx === 0 || idx === 6;
+}
+
+function thaiWeekdayName(idx) {
+  const names = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  return names[idx] || '';
+}
+
+function formatPlanUpdateWeekDescription(date = new Date()) {
+  const idx = getZonedWeekdayIndex(date);
+  const dayName = thaiWeekdayName(idx);
+  const prefix = dayName ? `วัน${dayName}` : '';
+  return `${prefix ? prefix + ' ' : ''}${localDateKey(date)}`.trim();
+}
+
 function asDate(value) {
   if (!value) return null;
   if (value instanceof Date) {
@@ -1101,6 +1143,18 @@ async function countUserCommandThisMonth(userId, command, mk) {
     [userId, command, mk]
   );
   return row ? Number(row.c) : 0;
+}
+
+async function listPlanUpdateEventsInMonth(userId, mk) {
+  await dbReady;
+  const rows = await dbAll(
+    `SELECT id, timestamp, points, detail
+       FROM events
+       WHERE user_id = $1 AND LOWER(command) = LOWER('/plan_update') AND month_key = $2
+       ORDER BY timestamp ASC`,
+    [userId, mk]
+  );
+  return rows || [];
 }
 
 // Check if user already submitted /link_30d today (local date)
@@ -1372,29 +1426,39 @@ async function finalizeLink30dMonth(mk) {
   for (const u of users) {
     const days = await countLink30dDays(u.user_id, mk);
     const missing = Math.max(0, dim - days);
-    if (days <= 0) { // no entries at all -> 0 points per requirement
-      results.push({ user_id: u.user_id, display_name: u.display_name, days, missing: dim, total_days: dim, points: 0 });
-      continue;
-    }
     const existing = await getSettlementEvent('/link_30d_settle', u.user_id, mk);
-    const points = missing === 0 ? 4 : -missing;
-    if (!existing) {
+    const fullAttendance = days > 0 && missing === 0;
+    const points = fullAttendance ? 1 : 0;
+    const detailParts = [`settlement ${mk}: ${days}/${dim} days`];
+    if (missing > 0) {
+      detailParts.push(`missing ${missing}`);
+    } else if (fullAttendance) {
+      detailParts.push('full attendance bonus');
+    }
+    const detail = detailParts.join(', ');
+
+    if (existing) {
+      if (existing.points !== points || existing.detail !== detail) {
+        await dbRun('UPDATE events SET points = $1, detail = $2 WHERE id = $3', [points, detail, existing.id]);
+      }
+    } else if (points !== 0) {
       await insertEvent({
         user_id: u.user_id,
         display_name: u.display_name,
         command: '/link_30d_settle',
-        detail: `settlement ${mk}: ${days}/${dim} days, missing ${missing}`,
+        detail,
         points,
         month_key: mk
       });
     }
+
     results.push({
       user_id: u.user_id,
       display_name: u.display_name,
       days,
       missing,
       total_days: dim,
-      points: existing ? Number(existing.points) || points : points
+      points
     });
   }
   return { month: mk, settled: results };
@@ -1457,38 +1521,9 @@ async function finalizeBookMonth(mk) {
   return { month: mk, settled: results };
 }
 
-// ---- /plan_update month-end settlement ----
-async function countPlanUpdateInMonth(userId, mk) {
-  await dbReady;
-  const row = await dbGet(
-    `SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/plan_update') AND month_key = $2`,
-    [userId, mk]
-  );
-  return row ? Number(row.c) : 0;
-}
-
+// ---- /plan_update month-end settlement (no longer applies; scoring is instant) ----
 async function finalizePlanUpdateMonth(mk) {
-  const users = await distinctUsersInMonth(mk);
-  const results = [];
-  for (const u of users) {
-    const cnt = await countPlanUpdateInMonth(u.user_id, mk);
-    if (cnt < 3) {
-      const existing = await getSettlementEvent('/plan_update_settle', u.user_id, mk);
-      const points = existing ? Number(existing.points) || -10 : -10;
-      if (!existing) {
-        await insertEvent({
-          user_id: u.user_id,
-          display_name: u.display_name,
-          command: '/plan_update_settle',
-          detail: `settlement ${mk}: plan updates ${cnt}/3`,
-          points,
-          month_key: mk
-        });
-      }
-      results.push({ user_id: u.user_id, display_name: u.display_name, count: cnt, points });
-    }
-  }
-  return { month: mk, settled: results };
+  return { month: mk, settled: [] };
 }
 
 function normalizeName(name) {
@@ -1497,7 +1532,8 @@ function normalizeName(name) {
 
 function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
   const lines = [`📊 สรุปคะแนนปลายเดือน ${mk}`];
-  const linkEntries = (linkResult?.settled || []).filter((r) => Number(r.points || 0) !== 0);
+  const linkEntries = linkResult?.settled || [];
+  const linkBonuses = linkEntries.filter((r) => Number(r.points) > 0);
   const planEntries = planResult?.settled || [];
   const bookEntries = bookResult?.settled || [];
 
@@ -1510,28 +1546,23 @@ function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
   addBlank();
   if (linkEntries.length) {
     lines.push('🔗 /link_30d');
-    const positives = linkEntries.filter((r) => Number(r.points) > 0);
-    const negatives = linkEntries.filter((r) => Number(r.points) < 0);
-    for (const r of positives) {
-      const days = Number(r.days) || 0;
-      const totalDays = Number(r.total_days) || (days + Number(r.missing) || 0);
-      const name = normalizeName(r.display_name);
-      const pts = Number(r.points) || 0;
-      lines.push(`• ✨ ${name} +${formatPoints(pts)} (ครบ ${days}/${totalDays} วัน)`);
-    }
-    for (const r of negatives) {
-      const days = Number(r.days) || 0;
-      const totalDays = Number(r.total_days) || (days + Math.max(Number(r.missing) || 0, 0));
-      const name = normalizeName(r.display_name);
-      const pts = Number(r.points) || 0;
-      const miss = Math.max(Math.abs(Number(r.missing) || 0), 0);
-      lines.push(`• ⚠️ ${name} ${formatPoints(pts)} (ขาด ${miss} วัน จาก ${totalDays})`);
+    if (linkBonuses.length) {
+      for (const r of linkBonuses) {
+        const days = Number(r.days) || 0;
+        const totalDays = Number(r.total_days) || (days + Number(r.missing) || 0);
+        const name = normalizeName(r.display_name);
+        const pts = Number(r.points) || 0;
+        lines.push(`• ✨ ${name} +${formatPoints(pts)} (ครบ ${days}/${totalDays} วันเต็ม)`);
+      }
+    } else {
+      lines.push('• เดือนนี้ยังไม่มีโบนัสครบ 30 วัน');
     }
   } else {
-    lines.push('🔗 /link_30d: ไม่มีการปรับคะแนน');
+    lines.push('🔗 /link_30d: เดือนนี้ยังไม่มีโบนัสครบ 30 วัน');
   }
 
   addBlank();
+
   if (planEntries.length) {
     lines.push('🗂️ /plan_update');
     for (const r of planEntries) {
@@ -1811,7 +1842,7 @@ async function handleEvent(evt) {
       '- /new_follow_up — โทรติดตามคนใหม่',
       '- /link_30d — เช็กอิน 30 วัน พิมพ์ก่อน แล้วส่งรูป',
       '- /book — อ่านหนังสือจบ 1เล่ม',
-      '- /plan_update — ส่งแผนต้นเดือน อัพเดทรายสัปดาห์',
+      '- /plan_update — ส่งเป้าหมายต้นเดือน + อัปเดตเสาร์-อาทิตย์ (สูงสุด +4 คะแนน/เดือน)',
       '- /score — คะแนนของฉัน',
       '- /rank — อันดับ Top 10',
       '',
@@ -1820,8 +1851,15 @@ async function handleEvent(evt) {
     await reply(evt.replyToken, lines.join('\n'));
     return;
   }
-const insert = async (command, pts, msg) => {
-    await insertEvent({ user_id: userId, display_name: displayName, command, detail, points: pts, month_key: mk });
+const insert = async (command, pts, msg, detailOverride) => {
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName,
+      command,
+      detail: detailOverride ?? detail,
+      points: pts,
+      month_key: mk
+    });
     await respond(msg, pts);
   };
 
@@ -1907,6 +1945,7 @@ const insert = async (command, pts, msg) => {
     return;
   }
 
+
   if (cmd === '/book') {
     const rawDetail = parts.slice(1).join(' ').trim();
     let pages = 10;
@@ -1946,23 +1985,56 @@ const insert = async (command, pts, msg) => {
     const baseMsg = `📚 บันทึกการอ่าน ${pageText} หน้า ได้ +${pointText} คะแนน`;
     const bonusMsg = '🎯 อ่านเกิน 300 หน้าในเดือนนี้ รับโบนัสเพิ่ม +1 ตอนสรุปปลายเดือน';
     await respond(`${baseMsg}\n${bonusMsg}`, points);
+
     return;
   }
 
-  // New rule: /plan_update requires 3 submissions per month.
-  // 1st=1/3 and 2nd=2/3 give status only (0 pts), 3rd=3/3 awards +4.
   if (cmd === '/plan_update') {
-    const used = await countUserCommandThisMonth(userId, '/plan_update', mk);
-    const next = used + 1;
-    if (next < 3) {
-      await insert('/plan_update', 0, `ส่งสถานะ ${next}/3 — ยังไม่คิดคะแนน`);
+    const now = new Date();
+    const events = await listPlanUpdateEventsInMonth(userId, mk);
+    const awarded = events.filter((evt) => Number(evt.points) > 0);
+    const awardedCount = awarded.length;
+    if (awardedCount >= PLAN_UPDATE_MONTHLY_CAP) {
+      await reply(
+        evt.replyToken,
+        'เดือนนี้เก็บครบ +4 คะแนนจาก /plan_update แล้ว ลองเก็บโมเมนตัมต่อเนื่องในเดือนหน้า 🌟'
+      );
       return;
     }
-    if (next === 3) {
-      await insert('/plan_update', 4, 'ครบ 3/3 แล้ว ได้คะแนน +4');
+
+    const progressLabel = `${awardedCount + 1}/${PLAN_UPDATE_MONTHLY_CAP}`;
+    const baseMessage = pickMsg('plan_success', { pts: '+1' });
+
+    if (awardedCount === 0) {
+      const detailText = `ตั้งเป้าหมายต้นเดือน (${progressLabel})`;
+      const msg = `${baseMessage}\n📊 ความคืบหน้า ${progressLabel} (สูงสุด +${PLAN_UPDATE_MONTHLY_CAP} คะแนน/เดือน)`;
+      await insert('/plan_update', 1, msg, detailText);
       return;
     }
-    await insert('/plan_update', 0, 'บันทึกอัปเดตเพิ่มเติม (เกิน 3/3)');
+
+    if (!isWeekend(now)) {
+      await reply(
+        evt.replyToken,
+        'อัปเดตรายสัปดาห์ต้องส่งวันเสาร์หรืออาทิตย์นะ ลองกลับมาอัปเดตเสาร์-อาทิตย์ 😊'
+      );
+      return;
+    }
+
+    const wk = weekKey(now);
+    const weekendAwards = awarded.slice(1);
+    const alreadyThisWeek = weekendAwards.some((evt) => {
+      const dt = asDate(evt.timestamp);
+      return dt && weekKey(dt) === wk;
+    });
+    if (alreadyThisWeek) {
+      await reply(evt.replyToken, 'สัปดาห์นี้บันทึก /plan_update แล้ว ลองเก็บคะแนนในเสาร์-อาทิตย์ถัดไปนะ');
+      return;
+    }
+
+    const weekDesc = formatPlanUpdateWeekDescription(now);
+    const detailText = `อัปเดตรายสัปดาห์ ${wk} (${progressLabel})`;
+    const msg = `${baseMessage}\n📅 อัปเดตสัปดาห์นี้ (${weekDesc})\n📊 ความคืบหน้า ${progressLabel} (สูงสุด +${PLAN_UPDATE_MONTHLY_CAP} คะแนน/เดือน)`;
+    await insert('/plan_update', 1, msg, detailText);
     return;
   }
 
@@ -1975,8 +2047,10 @@ const insert = async (command, pts, msg) => {
     const pts = await loadRule(cmd, subtype) ?? 0;
     let msg;
     msg = pts >= 0
+
       ? pickMsg('plan_success', { displayName, pts: `+${pts}` })
       : pickMsg('plan_fail', { abs: Math.abs(pts) });
+
     await insert(cmd, pts, msg);
     return;
   }
@@ -2018,7 +2092,7 @@ const insert = async (command, pts, msg) => {
       '/old_member',
       '/sop',
       '/use_product <รายละเอียด> + ส่งรูป (จำกัด 1 ครั้ง/วัน)',
-      '/plan_update (ส่งแผน/อัปเดตรวมอย่างน้อย 3 ครั้ง: 1/3, 2/3 ยังไม่ให้คะแนน; ครบ 3/3 = +4; ไม่ครบทั้งเดือน = -10)',
+      '/plan_update (ตั้งเป้าหมายต้นเดือน + อัปเดตเสาร์-อาทิตย์ ครั้งละ +1 สูงสุด +4 คะแนน/เดือน)',
       '/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)',
       '/book <จำนวนหน้า> (0.1 คะแนนต่อ 10 หน้า)',
       '/old_follow_up',
@@ -2048,7 +2122,7 @@ const insert = async (command, pts, msg) => {
       '/old_member',
       '/sop',
       '/use_product <รายงาน> + ส่งรูป (จำกัด 1 ครั้ง/วัน)',
-      '/plan_update success|fail',
+      '/plan_update (ตั้งเป้าหมายต้นเดือน + อัปเดตเสาร์-อาทิตย์)',
       '/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)',
       '/book <จำนวนหน้า> (0.1 คะแนนต่อ 10 หน้า)',
       '/old_follow_up',
@@ -2097,7 +2171,8 @@ async function handleImageEvent(evt) {
   // Insert the /link_30d event with evidence ref (messageId)
   const imageId = evt.message?.id || 'image';
   const displayName2 = await safeGetDisplayName(userId, evt.source);
-  await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
+  const pts = await loadRule('/link_30d', 'success') ?? 0.1;
+  await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: pts, month_key: mk });
   await clearPendingLinkToday(userId, '/link_30d');
   const quote = pick(cleanMsgPools.inspire);
   await reply(evt.replyToken, pickMsg('link_received', { quote }));
@@ -2125,7 +2200,8 @@ async function handleImageEvent2(evt) {
       return;
     }
     const displayName2 = await safeGetDisplayName(userId, evt.source);
-    await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
+    const pts = await loadRule('/link_30d', 'success') ?? 0.1;
+    await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: pts, month_key: mk });
     await clearPendingLinkToday(userId, '/link_30d');
     const quote = pick(cleanMsgPools.inspire);
     await reply(evt.replyToken, pickMsg('link_received', { quote }));

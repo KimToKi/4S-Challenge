@@ -74,16 +74,13 @@ app.get('/rules-image.png', (req, res) => {
 
 // Helper: format /link_30d monthly announcement with emojis
 function buildLink30dAnnouncement(monthKey, settled) {
-  const pos = settled.filter(r => r.points > 0);
-  const neg = settled.filter(r => r.points < 0);
+  const bonuses = settled.filter(r => Number(r.points) > 0);
   const lines = [`🗓️ สรุปคะแนน /link_30d ประจำเดือน ${monthKey}`];
-  if (pos.length) {
-    lines.push('✅ ทำครบทุกวัน (+4):');
-    pos.forEach(r => lines.push(`• ✨ ${r.display_name} +4`));
-  }
-  if (neg.length) {
-    lines.push('⚠️ ขาดส่ง (หักคะแนน):');
-    neg.forEach(r => lines.push(`• ❌ ${r.display_name} ${r.points} (ขาด ${Math.abs(r.points)} วัน)`));
+  if (bonuses.length) {
+    lines.push('✅ โบนัสครบ 30 วัน (+1):');
+    bonuses.forEach(r => lines.push(`• ✨ ${r.display_name} +${Number(r.points)}`));
+  } else {
+    lines.push('ℹ️ เดือนนี้ยังไม่มีใครทำครบทุกวัน');
   }
   return lines;
 }
@@ -168,7 +165,6 @@ try {
       if (!isMonthEnd) return;
       const mk = now.toISOString().slice(0,7);
       const result = await finalizeLink30dMonth(mk);
-      // Also apply /plan_update month-end penalty for incomplete (count < 3)
       try {
         const book = await finalizeBookMonth(mk);
         if (book?.settled?.length) {
@@ -178,7 +174,7 @@ try {
         console.error('Monthly book bonus error:', err?.message);
       }
       try {
-        await finalizePlanUpdateMonth(mk);
+        await finalizePlanUpdateMonth(mk); // /plan_update ให้คะแนนทันที ฟังก์ชันนี้คงไว้เพื่อความเข้ากันได้
       } catch (err) {
         console.error('Monthly plan_update settle error:', err?.message);
       }

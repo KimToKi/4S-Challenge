@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS pending (
 CREATE TABLE IF NOT EXISTS score_rules (
   command TEXT NOT NULL,
   subtype TEXT NOT NULL DEFAULT '',
-  points INTEGER NOT NULL,
+  points NUMERIC(10,2) NOT NULL,
   PRIMARY KEY (command, subtype)
 );
 
@@ -31,9 +31,9 @@ INSERT INTO score_rules VALUES('/bm_product','',1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/pack3','',4) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/old_member','',1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/sop','',2) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/plan_update','success',4) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/plan_update','fail',-10) ON CONFLICT DO NOTHING;
+INSERT INTO score_rules VALUES('/plan_update','success',1) ON CONFLICT DO NOTHING;
+INSERT INTO score_rules VALUES('/plan_update','fail',0) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/use_product','',1) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/link_30d','success',4) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/link_30d','fail',-1) ON CONFLICT DO NOTHING;
+INSERT INTO score_rules VALUES('/link_30d','success',0.1) ON CONFLICT DO NOTHING;
+INSERT INTO score_rules VALUES('/link_30d','fail',0) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','none',0) ON CONFLICT DO NOTHING;
