@@ -135,7 +135,7 @@ async function seedScoreRules() {
     { command: '/sop', subtype: '', points: 2 },
     { command: '/plan_update', subtype: 'success', points: 1 },
     { command: '/plan_update', subtype: 'fail', points: 0 },
-    { command: '/use_product', subtype: '', points: 1 },
+    { command: '/use_product', subtype: '', points: 0.1 },
     { command: '/link_30d', subtype: 'success', points: 0.1 },
     { command: '/link_30d', subtype: 'fail', points: 0 },
     { command: '/link_30d', subtype: 'none', points: 0 }
