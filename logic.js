@@ -892,8 +892,8 @@ const messagePools = {
     'พิมพ์ /link_30d แล้วอย่าลืมส่งรูปต่อเลยน้า\n• {quote}'
   ],
   link_received: [
-    'ได้รับรูปแล้ว บันทึก /link_30d สำเร็จ\n• {quote}',
-    'รูปมาครบแล้ว ขอบคุณมาก\n• {quote}'
+    'ได้รับรูปแล้ว บันทึก /link_30d สำเร็จ\n+{pts} คะแนน\n• {quote}',
+    'รูปมาครบแล้ว ขอบคุณมาก\n+{pts} คะแนน\n• {quote}'
   ],
   unknown: [
     'ยังไม่รู้จักคำสั่งนี้ ลองพิมพ์ /help เพื่อดูรายการทั้งหมด',
@@ -1272,6 +1272,7 @@ async function handleImageEvent(evt) {
       return;
     }
     const pts = (await loadRulePoints('/link_30d', 'success')) ?? 0.1;
+    const formattedPts = formatPoints(pts);
     await insertEvent({
       user_id: userId,
       display_name: displayName,
@@ -1282,7 +1283,7 @@ async function handleImageEvent(evt) {
     });
     await clearPending(userId, '/link_30d');
     const quote = pick(messagePools.inspire) || '';
-    await reply(evt.replyToken, pickMsg('link_received', { quote }));
+    await reply(evt.replyToken, pickMsg('link_received', { quote, pts: formattedPts }));
     return;
   }
 
