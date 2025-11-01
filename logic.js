@@ -1377,29 +1377,39 @@ async function finalizeLink30dMonth(mk) {
   for (const u of users) {
     const days = await countLink30dDays(u.user_id, mk);
     const missing = Math.max(0, dim - days);
-    if (days <= 0) { // no entries at all -> 0 points per requirement
-      results.push({ user_id: u.user_id, display_name: u.display_name, days, missing: dim, total_days: dim, points: 0 });
-      continue;
-    }
     const existing = await getSettlementEvent('/link_30d_settle', u.user_id, mk);
-    const points = missing === 0 ? 4 : -missing;
-    if (!existing) {
+    const fullAttendance = days > 0 && missing === 0;
+    const points = fullAttendance ? 1 : 0;
+    const detailParts = [`settlement ${mk}: ${days}/${dim} days`];
+    if (missing > 0) {
+      detailParts.push(`missing ${missing}`);
+    } else if (fullAttendance) {
+      detailParts.push('full attendance bonus');
+    }
+    const detail = detailParts.join(', ');
+
+    if (existing) {
+      if (existing.points !== points || existing.detail !== detail) {
+        await dbRun('UPDATE events SET points = $1, detail = $2 WHERE id = $3', [points, detail, existing.id]);
+      }
+    } else if (points !== 0) {
       await insertEvent({
         user_id: u.user_id,
         display_name: u.display_name,
         command: '/link_30d_settle',
-        detail: `settlement ${mk}: ${days}/${dim} days, missing ${missing}`,
+        detail,
         points,
         month_key: mk
       });
     }
+
     results.push({
       user_id: u.user_id,
       display_name: u.display_name,
       days,
       missing,
       total_days: dim,
-      points: existing ? Number(existing.points) || points : points
+      points
     });
   }
   return { month: mk, settled: results };
@@ -1473,7 +1483,9 @@ function normalizeName(name) {
 
 function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
   const lines = [`📊 สรุปคะแนนปลายเดือน ${mk}`];
-  const linkEntries = (linkResult?.settled || []).filter((r) => Number(r.points || 0) !== 0);
+  const linkEntries = linkResult?.settled || [];
+  const linkBonuses = linkEntries.filter((r) => Number(r.points) > 0);
+  const planEntries = planResult?.settled || [];
   const bookEntries = bookResult?.settled || [];
 
   const addBlank = () => {
@@ -1485,25 +1497,19 @@ function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
   addBlank();
   if (linkEntries.length) {
     lines.push('🔗 /link_30d');
-    const positives = linkEntries.filter((r) => Number(r.points) > 0);
-    const negatives = linkEntries.filter((r) => Number(r.points) < 0);
-    for (const r of positives) {
-      const days = Number(r.days) || 0;
-      const totalDays = Number(r.total_days) || (days + Number(r.missing) || 0);
-      const name = normalizeName(r.display_name);
-      const pts = Number(r.points) || 0;
-      lines.push(`• ✨ ${name} +${formatPoints(pts)} (ครบ ${days}/${totalDays} วัน)`);
-    }
-    for (const r of negatives) {
-      const days = Number(r.days) || 0;
-      const totalDays = Number(r.total_days) || (days + Math.max(Number(r.missing) || 0, 0));
-      const name = normalizeName(r.display_name);
-      const pts = Number(r.points) || 0;
-      const miss = Math.max(Math.abs(Number(r.missing) || 0), 0);
-      lines.push(`• ⚠️ ${name} ${formatPoints(pts)} (ขาด ${miss} วัน จาก ${totalDays})`);
+    if (linkBonuses.length) {
+      for (const r of linkBonuses) {
+        const days = Number(r.days) || 0;
+        const totalDays = Number(r.total_days) || (days + Number(r.missing) || 0);
+        const name = normalizeName(r.display_name);
+        const pts = Number(r.points) || 0;
+        lines.push(`• ✨ ${name} +${formatPoints(pts)} (ครบ ${days}/${totalDays} วันเต็ม)`);
+      }
+    } else {
+      lines.push('• เดือนนี้ยังไม่มีโบนัสครบ 30 วัน');
     }
   } else {
-    lines.push('🔗 /link_30d: ไม่มีการปรับคะแนน');
+    lines.push('🔗 /link_30d: เดือนนี้ยังไม่มีโบนัสครบ 30 วัน');
   }
 
   addBlank();
@@ -2116,7 +2122,8 @@ async function handleImageEvent(evt) {
   // Insert the /link_30d event with evidence ref (messageId)
   const imageId = evt.message?.id || 'image';
   const displayName2 = await safeGetDisplayName(userId, evt.source);
-  await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
+  const pts = await loadRule('/link_30d', 'success') ?? 0.1;
+  await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: pts, month_key: mk });
   await clearPendingLinkToday(userId, '/link_30d');
   const quote = pick(cleanMsgPools.inspire);
   await reply(evt.replyToken, pickMsg('link_received', { quote }));
@@ -2144,7 +2151,8 @@ async function handleImageEvent2(evt) {
       return;
     }
     const displayName2 = await safeGetDisplayName(userId, evt.source);
-    await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: 0, month_key: mk });
+    const pts = await loadRule('/link_30d', 'success') ?? 0.1;
+    await insertEvent({ user_id: userId, display_name: displayName2, command: '/link_30d', detail: `evidence:${imageId}`, points: pts, month_key: mk });
     await clearPendingLinkToday(userId, '/link_30d');
     const quote = pick(cleanMsgPools.inspire);
     await reply(evt.replyToken, pickMsg('link_received', { quote }));

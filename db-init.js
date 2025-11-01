@@ -136,8 +136,8 @@ async function seedScoreRules() {
     { command: '/plan_update', subtype: 'success', points: 1 },
     { command: '/plan_update', subtype: 'fail', points: 0 },
     { command: '/use_product', subtype: '', points: 1 },
-    { command: '/link_30d', subtype: 'success', points: 4 },
-    { command: '/link_30d', subtype: 'fail', points: -1 },
+    { command: '/link_30d', subtype: 'success', points: 0.1 },
+    { command: '/link_30d', subtype: 'fail', points: 0 },
     { command: '/link_30d', subtype: 'none', points: 0 }
   ];
   const { error } = await supabase.from('score_rules').upsert(rows, { onConflict: 'command,subtype' });
