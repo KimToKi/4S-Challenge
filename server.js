@@ -152,7 +152,7 @@ if (process.env.ADMIN_KEY) {
 
   console.log('🔐 Admin endpoint: GET /admin/weekly-push?key=***');
   console.log('🔐 Admin endpoint: GET /admin/link30d-settle?key=***&ym=YYYY-MM&push=1');
-  console.log('🔐 Admin endpoint: GET /admin/book-settle?key=***&ym=YYYY-MM');
+  console.log('🔐 Admin endpoint: GET /admin/book-settle?key=***&ym=YYYY-MM (apply /book bonus)');
 }
 
 // Monthly settlement via cron (last day of month, 23:55 local time)
@@ -171,10 +171,10 @@ try {
       try {
         const book = await finalizeBookMonth(mk);
         if (book?.settled?.length) {
-          console.log(`📚 Monthly book settle applied to ${book.settled.length} member(s)`);
+          console.log(`📚 Monthly book bonus awarded to ${book.settled.length} member(s)`);
         }
       } catch (err) {
-        console.error('Monthly book settle error:', err?.message);
+        console.error('Monthly book bonus error:', err?.message);
       }
       try {
         await finalizePlanUpdateMonth(mk); // /plan_update ให้คะแนนทันที ฟังก์ชันนี้คงไว้เพื่อความเข้ากันได้

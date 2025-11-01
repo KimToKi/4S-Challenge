@@ -190,6 +190,62 @@ function aggregateEventsByUser(rows) {
   return Array.from(map.values());
 }
 
+function roundTo(value, precision = 2) {
+  const factor = Math.pow(10, precision);
+  return Math.round(Number(value || 0) * factor) / factor;
+}
+
+function formatNumber(value, maxFractionDigits = 2) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0';
+  const rounded = roundTo(num, maxFractionDigits);
+  if (Number.isInteger(rounded)) {
+    return String(rounded);
+  }
+  return rounded.toFixed(maxFractionDigits).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+}
+
+function formatPoints(value) {
+  return formatNumber(value, 2);
+}
+
+function parseBookPages(detail, points) {
+  if (detail) {
+    if (typeof detail === 'string') {
+      try {
+        const json = JSON.parse(detail);
+        if (json && typeof json.pages === 'number' && Number.isFinite(json.pages)) {
+          return json.pages;
+        }
+      } catch (_) {
+        // not json, fall through to pattern match
+      }
+    } else if (typeof detail === 'object' && detail !== null) {
+      if (typeof detail.pages === 'number' && Number.isFinite(detail.pages)) {
+        return detail.pages;
+      }
+    }
+
+    const match = String(detail).match(/(-?\d+(?:\.\d+)?)/);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  const pts = Number(points);
+  if (Number.isFinite(pts) && Math.abs(pts) <= 1) {
+    const pages = roundTo(pts / 0.01, 2);
+    if (Number.isFinite(pages)) {
+      return pages;
+    }
+  }
+
+  return 0;
+}
+
 async function dbQuery(sql, params = []) {
   const normalized = normalizeSql(sql);
   const lower = normalized.toLowerCase();
@@ -1192,7 +1248,7 @@ async function sumUserMonth(user_id, mk) {
     'SELECT COALESCE(SUM(points),0) as total FROM events WHERE user_id = $1 AND month_key = $2',
     [user_id, mk]
   );
-  return row ? Number(row.total) : 0;
+  return row ? roundTo(Number(row.total) || 0, 2) : 0;
 }
 
 async function getTop10(mk) {
@@ -1208,7 +1264,7 @@ async function getTop10(mk) {
      LIMIT 10`,
     [mk]
   );
-  return rows.map((r) => ({ ...r, points: Number(r.points) }));
+  return rows.map((r) => ({ ...r, points: roundTo(Number(r.points) || 0, 2) }));
 }
 
 async function getTop10All() {
@@ -1222,7 +1278,7 @@ async function getTop10All() {
      ORDER BY points DESC, display_name
      LIMIT 10`
   );
-  return rows.map((r) => ({ ...r, points: Number(r.points) }));
+  return rows.map((r) => ({ ...r, points: roundTo(Number(r.points) || 0, 2) }));
 }
 
 async function getDistinctMonths() {
@@ -1248,7 +1304,7 @@ async function getTop10Week(yw) {
      LIMIT 10`,
     [range.startUtc, range.endUtc]
   );
-  return rows.map((r) => ({ ...r, points: Number(r.points) }));
+  return rows.map((r) => ({ ...r, points: roundTo(Number(r.points) || 0, 2) }));
 }
 
 async function getDistinctWeeks() {
@@ -1361,34 +1417,46 @@ async function distinctUsersInMonth(mk) {
   return rows || [];
 }
 
-async function countBookInMonth(userId, mk) {
+async function sumBookPagesInMonth(userId, mk) {
   await dbReady;
-  const row = await dbGet(
-    `SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/book') AND month_key = $2`,
+  const rows = await dbAll(
+    `SELECT detail, points FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/book') AND month_key = $2`,
     [userId, mk]
   );
-  return row ? Number(row.c) : 0;
+  let pages = 0;
+  for (const row of rows || []) {
+    const value = parseBookPages(row?.detail, row?.points);
+    if (Number.isFinite(value) && value > 0) {
+      pages += value;
+    }
+  }
+  return roundTo(pages, 2);
 }
 
 async function finalizeBookMonth(mk) {
   const users = await distinctUsersInMonth(mk);
   const results = [];
   for (const u of users) {
-    const cnt = await countBookInMonth(u.user_id, mk);
-    if (cnt === 0) {
-      const existing = await getSettlementEvent('/book_settle', u.user_id, mk);
-      const points = existing ? Number(existing.points) || -4 : -4;
-      if (!existing) {
+    const pages = await sumBookPagesInMonth(u.user_id, mk);
+    if (pages > 300) {
+      const existing = await getSettlementEvent('/book_bonus', u.user_id, mk);
+      const detail = JSON.stringify({ pages });
+      const points = 1;
+      if (existing) {
+        if (existing.points !== points || existing.detail !== detail) {
+          await dbRun('UPDATE events SET points = $1, detail = $2 WHERE id = $3', [points, detail, existing.id]);
+        }
+      } else {
         await insertEvent({
           user_id: u.user_id,
           display_name: u.display_name,
-          command: '/book_settle',
-          detail: `settlement ${mk}: no /book this month`,
+          command: '/book_bonus',
+          detail,
           points,
           month_key: mk
         });
       }
-      results.push({ user_id: u.user_id, display_name: u.display_name, count: cnt, points });
+      results.push({ user_id: u.user_id, display_name: u.display_name, pages, points });
     }
   }
   return { month: mk, settled: results };
@@ -1424,7 +1492,7 @@ function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
       const totalDays = Number(r.total_days) || (days + Number(r.missing) || 0);
       const name = normalizeName(r.display_name);
       const pts = Number(r.points) || 0;
-      lines.push(`• ✨ ${name} +${pts} (ครบ ${days}/${totalDays} วัน)`);
+      lines.push(`• ✨ ${name} +${formatPoints(pts)} (ครบ ${days}/${totalDays} วัน)`);
     }
     for (const r of negatives) {
       const days = Number(r.days) || 0;
@@ -1432,25 +1500,37 @@ function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
       const name = normalizeName(r.display_name);
       const pts = Number(r.points) || 0;
       const miss = Math.max(Math.abs(Number(r.missing) || 0), 0);
-      lines.push(`• ⚠️ ${name} ${pts} (ขาด ${miss} วัน จาก ${totalDays})`);
+      lines.push(`• ⚠️ ${name} ${formatPoints(pts)} (ขาด ${miss} วัน จาก ${totalDays})`);
     }
   } else {
     lines.push('🔗 /link_30d: ไม่มีการปรับคะแนน');
   }
 
   addBlank();
-  lines.push('🗂️ /plan_update: ให้คะแนนทันที (ตั้งเป้าหมายต้นเดือน + อัปเดตเสาร์/อาทิตย์ สูงสุด +4 คะแนน/เดือน)');
+
+  if (planEntries.length) {
+    lines.push('🗂️ /plan_update');
+    for (const r of planEntries) {
+      const name = normalizeName(r.display_name);
+      const pts = Number(r.points) || 0;
+      const cnt = Number(r.count) || 0;
+      lines.push(`• ⚠️ ${name} ${formatPoints(pts)} (อัปเดต ${cnt}/3 ครั้ง)`);
+    }
+  } else {
+    lines.push('🗂️ /plan_update: ไม่มีการปรับคะแนน');
+  }
 
   addBlank();
   if (bookEntries.length) {
-    lines.push('📚 /book');
+    lines.push('📚 /book — โบนัสอ่านหนังสือ');
     for (const r of bookEntries) {
       const name = normalizeName(r.display_name);
       const pts = Number(r.points) || 0;
-      lines.push(`• ⚠️ ${name} ${pts} (ไม่มีการส่ง /book เดือนนี้)`);
+      const pages = Number(r.pages) || 0;
+      lines.push(`• ✨ ${name} +${formatPoints(pts)} (อ่าน ${formatNumber(pages, 1)} หน้า)`);
     }
   } else {
-    lines.push('📚 /book: ไม่มีการปรับคะแนน');
+    lines.push('📚 /book: ไม่มีโบนัสอ่านหนังสือรอบนี้');
   }
 
   return lines.join('\n');
@@ -1593,7 +1673,7 @@ async function handleEvent(evt) {
     const delta = Number(pts);
     if (!Number.isNaN(delta) && delta !== 0) {
       const sum = await total();
-      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(sum)} คะแนน`;
     }
     await replyWithInspire(evt.replyToken, composed, displayName);
   };
@@ -1605,7 +1685,7 @@ async function handleEvent(evt) {
   }
   async function _respond2(msg, pts) {
     const sum = await _total2();
-    await replyWithInspire(evt.replyToken, `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`, displayName);
+    await replyWithInspire(evt.replyToken, `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(sum)} คะแนน`, displayName);
   }
 
   // Simplified help: list commands only + Rules link (disabled; using unified help below)
@@ -1810,14 +1890,47 @@ const insert = async (command, pts, msg, detailOverride) => {
     return;
   }
 
-  // Group-only /book: +4 for the first two times per month
-  if (cmd === '/book' && !['success', 'fail', 'none'].includes(subtype)) {
-    const used = await countUserCommandThisMonth(userId, '/book', mk);
-    const pts = used < 2 ? 4 : 0;
-    const msg = pts > 0
-      ? pickMsg('book_success', { displayName, pts: `+${pts}` })
-      : 'รับทราบการส่ง /book แล้ว (ครบโควตาประจำเดือน)';
-    await insert('/book', pts, msg);
+
+  if (cmd === '/book') {
+    const rawDetail = parts.slice(1).join(' ').trim();
+    let pages = 10;
+    if (rawDetail) {
+      const match = rawDetail.match(/(\d+(?:\.\d+)?)/);
+      if (match) {
+        const parsed = Number(match[1]);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          pages = parsed;
+        }
+      }
+    }
+    pages = roundTo(pages, 2);
+    if (!Number.isFinite(pages) || pages <= 0) {
+      await reply(evt.replyToken, 'กรุณาระบุจำนวนหน้าที่อ่าน เช่น /book 30');
+      return;
+    }
+
+    const points = roundTo(pages * 0.01, 2);
+    if (points <= 0) {
+      await reply(evt.replyToken, 'จำนวนหน้าที่ระบุไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+      return;
+    }
+
+    const detailPayload = JSON.stringify({ pages, raw: rawDetail || null });
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName,
+      command: '/book',
+      detail: detailPayload,
+      points,
+      month_key: mk
+    });
+
+    const pageText = formatNumber(pages, 1);
+    const pointText = formatPoints(points);
+    const baseMsg = `📚 บันทึกการอ่าน ${pageText} หน้า ได้ +${pointText} คะแนน`;
+    const bonusMsg = '🎯 อ่านเกิน 300 หน้าในเดือนนี้ รับโบนัสเพิ่ม +1 ตอนสรุปปลายเดือน';
+    await respond(`${baseMsg}\n${bonusMsg}`, points);
+
     return;
   }
 
@@ -1870,7 +1983,7 @@ const insert = async (command, pts, msg, detailOverride) => {
     return;
   }
 
-  if (cmd === '/book' && ['success', 'fail', 'none'].includes(subtype)) {
+  if (cmd === '/plan_update') {
     const validSubtypes = ['success', 'fail', 'none'];
     if (!validSubtypes.includes(subtype)) {
       await reply(evt.replyToken, `กรุณาระบุรูปแบบที่ถูกต้อง เช่น /${cmd.slice(1)} success หรือ fail`);
@@ -1879,8 +1992,10 @@ const insert = async (command, pts, msg, detailOverride) => {
     const pts = await loadRule(cmd, subtype) ?? 0;
     let msg;
     msg = pts >= 0
-      ? pickMsg('book_success', { displayName, pts: `+${pts}` })
-      : pickMsg('book_fail', { abs: Math.abs(pts) });
+
+      ? pickMsg('plan_success', { displayName, pts: `+${pts}` })
+      : pickMsg('plan_fail', { abs: Math.abs(pts) });
+
     await insert(cmd, pts, msg);
     return;
   }
@@ -1924,7 +2039,7 @@ const insert = async (command, pts, msg, detailOverride) => {
       '/use_product <รายละเอียด> + ส่งรูป (จำกัด 1 ครั้ง/วัน)',
       '/plan_update (ตั้งเป้าหมายต้นเดือน + อัปเดตเสาร์-อาทิตย์ ครั้งละ +1 สูงสุด +4 คะแนน/เดือน)',
       '/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)',
-      '/book (ได้ +4 ได้สูงสุด 2 ครั้ง/เดือน)',
+      '/book <จำนวนหน้า> (0.1 คะแนนต่อ 10 หน้า)',
       '/old_follow_up',
       '/new_follow_up',
       '/score',
@@ -1954,7 +2069,7 @@ const insert = async (command, pts, msg, detailOverride) => {
       '/use_product <รายงาน> + ส่งรูป (จำกัด 1 ครั้ง/วัน)',
       '/plan_update (ตั้งเป้าหมายต้นเดือน + อัปเดตเสาร์-อาทิตย์)',
       '/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)',
-      '/book (ได้ +4 ได้สูงสุด 2 ครั้ง/เดือน)',
+      '/book <จำนวนหน้า> (0.1 คะแนนต่อ 10 หน้า)',
       '/old_follow_up',
       '/new_follow_up',
       '/score',
@@ -1967,7 +2082,7 @@ const insert = async (command, pts, msg, detailOverride) => {
   }
 
   if (false && (cmd === '/help' || cmd === '/rules')) {
-    await reply(evt.replyToken, `📚 คำสั่งที่ใช้ได้:\n/begin onsite\n/beyond_dec\n/new_pride\n/new_member\n/connection+N (เช่น /connection+3)\n/pack3\n/bm_product\n/old_member\n/sop\n/plan_update (ตั้งเป้าหมายต้นเดือน + อัปเดตเสาร์-อาทิตย์)\n/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)\\n/book (ได้ +4 ได้สูงสุด 2 ครั้ง/เดือน)\n/old_follow_up\n/new_follow_up\n/score\n/rank`);
+    await reply(evt.replyToken, `📚 คำสั่งที่ใช้ได้:\n/begin onsite\n/beyond_dec\n/new_pride\n/new_member\n/connection+N (เช่น /connection+3)\n/pack3\n/bm_product\n/old_member\n/sop\n/plan_update success|fail\n/link_30d (พิมพ์แล้วส่งรูปหลักฐาน)\\n/book <จำนวนหน้า> (0.1 คะแนนต่อ 10 หน้า)\n/old_follow_up\n/new_follow_up\n/score\n/rank`);
     return;
   }
 
