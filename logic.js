@@ -1146,7 +1146,7 @@ async function buildWeeklySummaryText() {
 async function loadRule(command, subtype) {
   await dbReady;
   const row = await dbGet(
-    'SELECT points FROM score_rules WHERE LOWER(command) = LOWER($1) AND LOWER(subtype) = LOWER($2)',
+    'SELECT points FROM score_rules WHERE command ILIKE $1 AND subtype ILIKE $2',
     [command, subtype || '']
   );
   return row ? Number(row.points) : null;
@@ -1155,7 +1155,7 @@ async function loadRule(command, subtype) {
 async function countUserCommandThisMonth(userId, command, mk) {
   await dbReady;
   const row = await dbGet(
-    'SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND LOWER(command) = LOWER($2) AND month_key = $3',
+    'SELECT COUNT(*) AS c FROM events WHERE user_id = $1 AND command ILIKE $2 AND month_key = $3',
     [userId, command, mk]
   );
   return row ? Number(row.c) : 0;
@@ -1166,7 +1166,7 @@ async function listPlanUpdateEventsInMonth(userId, mk) {
   const rows = await dbAll(
     `SELECT id, timestamp, points, detail
        FROM events
-       WHERE user_id = $1 AND LOWER(command) = LOWER('/plan_update') AND month_key = $2
+       WHERE user_id = $1 AND command ILIKE '/plan_update' AND month_key = $2
        ORDER BY timestamp ASC`,
     [userId, mk]
   );
@@ -1180,7 +1180,7 @@ async function hasLink30dToday(userId) {
   const mk = monthKey();
   const rows = await dbAll(
     `SELECT timestamp FROM events
-       WHERE user_id = $1 AND LOWER(command) = LOWER('/link_30d') AND month_key = $2
+       WHERE user_id = $1 AND command ILIKE '/link_30d' AND month_key = $2
        ORDER BY timestamp DESC
        LIMIT 20`,
     [userId, mk]
@@ -1198,7 +1198,7 @@ async function hasUseProductToday(userId) {
   const mk = monthKey();
   const rows = await dbAll(
     `SELECT timestamp FROM events
-       WHERE user_id = $1 AND LOWER(command) = LOWER('/use_product') AND month_key = $2
+       WHERE user_id = $1 AND command ILIKE '/use_product' AND month_key = $2
        ORDER BY timestamp DESC
        LIMIT 20`,
     [userId, mk]
@@ -1408,7 +1408,7 @@ function daysInMonthKey(mk) {
 async function getSettlementEvent(command, userId, mk) {
   await dbReady;
   const row = await dbGet(
-    'SELECT id, points, detail FROM events WHERE user_id = $1 AND LOWER(command) = LOWER($2) AND month_key = $3 ORDER BY timestamp DESC LIMIT 1',
+    'SELECT id, points, detail FROM events WHERE user_id = $1 AND command ILIKE $2 AND month_key = $3 ORDER BY timestamp DESC LIMIT 1',
     [userId, command, mk]
   );
   return row ? { ...row, points: Number(row.points) || 0 } : null;
@@ -1418,7 +1418,7 @@ async function distinctUsersWithLink30d(mk) {
   await dbReady;
   const rows = await dbAll(
     `SELECT user_id, MAX(display_name) AS display_name
-     FROM events WHERE LOWER(command) = LOWER('/link_30d') AND month_key = $1
+     FROM events WHERE command ILIKE '/link_30d' AND month_key = $1
      GROUP BY user_id`,
     [mk]
   );
@@ -1429,7 +1429,7 @@ async function countLink30dDays(userId, mk) {
   await dbReady;
   const row = await dbGet(
     `SELECT COUNT(DISTINCT TO_CHAR(timezone($3, "timestamp"), 'YYYY-MM-DD')) AS c
-     FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/link_30d') AND month_key = $2`,
+     FROM events WHERE user_id = $1 AND command ILIKE '/link_30d' AND month_key = $2`,
     [userId, mk, activeTimeZone]
   );
   return row ? Number(row.c) : 0;
@@ -1495,7 +1495,7 @@ async function distinctUsersInMonth(mk) {
 async function sumBookPagesInMonth(userId, mk) {
   await dbReady;
   const rows = await dbAll(
-    `SELECT detail, points FROM events WHERE user_id = $1 AND LOWER(command) = LOWER('/book') AND month_key = $2`,
+    `SELECT detail, points FROM events WHERE user_id = $1 AND command ILIKE '/book' AND month_key = $2`,
     [userId, mk]
   );
   let pages = 0;
