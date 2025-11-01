@@ -32,7 +32,7 @@
 - `ADMIN_KEY` : เปิด endpoint แอดมินสำหรับ trigger manual push/settlement
   - `/admin/weekly-push?key=...` : ส่งอันดับ Top 10 ปัจจุบันเข้า LINE ทันที
   - `/admin/link30d-settle?key=...&ym=YYYY-MM&push=1` : สรุปคะแนน /link_30d และ (ถ้า `push=1`) ส่งข้อความเข้า LINE
-  - `/admin/book-settle?key=...&ym=YYYY-MM` : ตรวจสอบเดือนที่เลือกและบันทึกโทษ -4 ให้ผู้ที่ไม่มี `/book` ภายในเดือนนั้น
+  - `/admin/book-settle?key=...&ym=YYYY-MM` : ตรวจสอบเดือนที่เลือกและให้โบนัส +1 สำหรับผู้ที่ส่ง `/book` รวมแล้วอ่านเกิน 300 หน้าในเดือนนั้น
 
 ## หมายเหตุ
 - ตัวโค้ดจะเชื่อมต่อ Supabase ทุกครั้งที่มีการบันทึกหรืออ่านข้อมูล จึงไม่ต้องมีไฟล์ `db.sqlite` ภายในเซิร์ฟเวอร์อีกต่อไป

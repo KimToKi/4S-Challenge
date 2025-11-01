@@ -106,6 +106,27 @@ async function ensurePendingMetadataColumn() {
   }
 }
 
+async function ensureEventsPointsNumeric() {
+  const connectionString = resolveDatabaseUrl();
+  if (!connectionString) return;
+  let pool;
+  try {
+    const { Pool } = require('pg');
+    const poolConfig = { connectionString };
+    if (shouldUseSsl(connectionString)) {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    pool = new Pool(poolConfig);
+    await pool.query('ALTER TABLE IF EXISTS public.events ALTER COLUMN points TYPE NUMERIC(10,2) USING points::NUMERIC;');
+  } catch (err) {
+    console.warn('Failed to ensure events.points numeric type:', err?.message || err);
+  } finally {
+    if (pool) {
+      await pool.end().catch(() => {});
+    }
+  }
+}
+
 async function seedScoreRules() {
   const rows = [
     { command: '/bm_product', subtype: '', points: 1 },
@@ -117,9 +138,7 @@ async function seedScoreRules() {
     { command: '/use_product', subtype: '', points: 1 },
     { command: '/link_30d', subtype: 'success', points: 4 },
     { command: '/link_30d', subtype: 'fail', points: -1 },
-    { command: '/link_30d', subtype: 'none', points: 0 },
-    { command: '/book', subtype: 'success', points: 4 },
-    { command: '/book', subtype: 'fail', points: -4 }
+    { command: '/link_30d', subtype: 'none', points: 0 }
   ];
   const { error } = await supabase.from('score_rules').upsert(rows, { onConflict: 'command,subtype' });
   if (error) throw error;
@@ -141,6 +160,7 @@ async function seedScoreRules() {
       );
     `);
     await ensurePendingMetadataColumn();
+    await ensureEventsPointsNumeric();
   } catch (err) {
     console.error(err?.message || err);
     console.error('Run the statements in schema.sql using Supabase SQL before running this initializer.');
