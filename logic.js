@@ -20,6 +20,31 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false }
 });
 
+function deriveSupabaseConnectionString() {
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
+  if (!/service_role/i.test(supabaseKey)) {
+    return null;
+  }
+  try {
+    const parsed = new URL(supabaseUrl);
+    const host = parsed.host || '';
+    const match = host.match(/^([^.]+)\.(supabase\.(?:co|in))$/i);
+    if (!match) {
+      return null;
+    }
+    const projectRef = match[1];
+    if (!projectRef) {
+      return null;
+    }
+    const password = encodeURIComponent(supabaseKey);
+    return `postgresql://postgres:${password}@db.${projectRef}.${match[2]}:5432/postgres`;
+  } catch (_) {
+    return null;
+  }
+}
+
 function publicBaseUrl() {
   const base = process.env.PUBLIC_BASE_URL
     || process.env.PUBLIC_URL
@@ -40,6 +65,7 @@ function resolveDatabaseUrl() {
     || process.env.SUPABASE_POSTGRES_URL
     || process.env.SUPABASE_DB_CONNECTION_STRING
     || process.env.DATABASE_URL
+    || deriveSupabaseConnectionString()
     || null;
 }
 
