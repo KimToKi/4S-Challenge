@@ -69,7 +69,7 @@ app.get('/weeks', weeksHandler);
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'leaderboard.html')));
 app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, 'views', 'rules.html')));
 app.get('/rules-image.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'rules.png'));
+  res.sendFile(path.join(__dirname, 'rulesdn.png'));
 });
 
 // Helper: format /link_30d monthly announcement with emojis
