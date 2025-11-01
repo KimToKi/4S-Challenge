@@ -20,12 +20,28 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false }
 });
 
+function normalizeBaseUrl(raw) {
+  if (!raw) return null;
+  let url = String(raw).trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  return url.replace(/\/+$/, '');
+}
+
 function publicBaseUrl() {
-  const base = process.env.PUBLIC_BASE_URL
-    || process.env.PUBLIC_URL
-    || process.env.BASE_URL
-    || `http://localhost:${process.env.PORT || 3000}`;
-  return base.replace(/\/$/, '');
+  const base = normalizeBaseUrl(process.env.PUBLIC_BASE_URL)
+    || normalizeBaseUrl(process.env.PUBLIC_URL)
+    || normalizeBaseUrl(process.env.BASE_URL)
+    || normalizeBaseUrl(process.env.APP_BASE_URL)
+    || normalizeBaseUrl(process.env.APP_URL)
+    || normalizeBaseUrl(process.env.SITE_URL)
+    || normalizeBaseUrl(process.env.URL)
+    || normalizeBaseUrl(process.env.RENDER_EXTERNAL_URL)
+    || normalizeBaseUrl(process.env.VERCEL_URL)
+    || normalizeBaseUrl(`http://localhost:${process.env.PORT || 3000}`);
+  return base;
 }
 
 function isMissingPendingTableError(error) {
