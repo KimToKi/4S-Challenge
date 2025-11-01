@@ -859,6 +859,11 @@ const messagePools = {
     'รับรูป BM แล้ว ขอบคุณมาก!\n+{pts} คะแนน',
     'BM วันนี้สุดปัง ✨\n+{pts} คะแนน'
   ],
+  bm_product_prompt: [
+    'โปรดถ่ายรูปรายงานสำหรับ /bm_product แล้วส่งในแชทนี้นะ',
+    'พิมพ์ /bm_product แล้วอย่าลืมส่งรูปตามในห้องนี้ด้วยนะ',
+    'ส่งรูปรายงาน BM ในแชทนี้ได้เลย เพื่อบันทึก /bm_product ให้ครบ'
+  ],
   pack3: [
     'จัด 3 Pack เรียบร้อย\n+{pts} คะแนน',
     'Pack 3 มาแล้ว เดินเครื่องต่อเลย\n+{pts} คะแนน'
@@ -887,6 +892,18 @@ const messagePools = {
     'อัปเดตแผนสำเร็จ ดีมาก\n+{pts} คะแนน',
     'ความคืบหน้ามาแล้ว\n+{pts} คะแนน'
   ],
+  plan_update_completed: [
+    'เดือนนี้เก็บครบ +4 คะแนนจาก /plan_update แล้ว ไว้ลุยต่อเดือนหน้า 🌟',
+    'คะแนน /plan_update เดือนนี้เต็มแล้ว รอเริ่มใหม่เดือนหน้านะ'
+  ],
+  plan_update_weekend_only: [
+    'อัปเดตสัปดาห์ต้องส่งวันเสาร์หรืออาทิตย์นะ ลองกลับมาอีกครั้งช่วงสุดสัปดาห์ 😊',
+    'เก็บ /plan_update ได้เฉพาะเสาร์-อาทิตย์นะคะ กลับมาส่งอีกทีตอน weekend นะ'
+  ],
+  plan_update_already_week: [
+    'สัปดาห์นี้อัปเดตไว้แล้ว ลองเก็บคะแนนสัปดาห์หน้าได้เลย',
+    'อัปเดตสัปดาห์นี้เรียบร้อยแล้ว เจอกันรอบหน้าค่ะ'
+  ],
   link_need_photo: [
     'ขอรูปหลักฐานสำหรับ /link_30d วันนี้ด้วยนะ\n• {quote}',
     'พิมพ์ /link_30d แล้วอย่าลืมส่งรูปต่อเลยน้า\n• {quote}'
@@ -895,9 +912,77 @@ const messagePools = {
     'ได้รับรูปแล้ว บันทึก /link_30d สำเร็จ\n• {quote}',
     'รูปมาครบแล้ว ขอบคุณมาก\n• {quote}'
   ],
+  link_already: [
+    'วันนี้บันทึก /link_30d ไว้แล้ว ขอบคุณมากนะ ✨',
+    'วันนี้ส่งเรียบร้อยแล้ว เก็บพลังไว้ลุยต่อพรุ่งนี้นะ ✨'
+  ],
+  link_today_done_with_quote: [
+    'วันนี้บันทึก /link_30d ไว้แล้ว ขอบคุณมากนะ ✨\n— {quote}',
+    'ส่งครบแล้วสำหรับ /link_30d วันนี้\n— {quote}'
+  ],
   unknown: [
     'ยังไม่รู้จักคำสั่งนี้ ลองพิมพ์ /help เพื่อดูรายการทั้งหมด',
     'คำสั่งนี้ยังไม่รองรับ ลอง /help ดูนะ'
+  ],
+  settle_dm_only: [
+    'คำสั่ง /settle ใช้ได้เฉพาะแชทส่วนตัวกับบอทเท่านั้น',
+    'โปรดใช้คำสั่ง /settle ในห้องแชทส่วนตัวกับบอทนะคะ'
+  ],
+  settle_need_secret: [
+    'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ',
+    'อย่าลืมใส่รหัสลับต่อท้ายคำสั่ง /settle ด้วยนะ (ตัวอย่าง: /settle รหัสลับ)'
+  ],
+  settle_wrong_secret: [
+    'รหัสลับไม่ถูกต้อง',
+    'รหัสลับยังไม่ตรง ลองตรวจสอบอีกครั้งนะ'
+  ],
+  settle_success: [
+    'สรุปคะแนนปลายเดือน {month} ถูกส่งเรียบร้อยแล้ว',
+    'ส่งสรุปคะแนนเดือน {month} ให้ทีมเรียบร้อยแล้ว ✨'
+  ],
+  connection_need_number: [
+    'กรุณาระบุจำนวน เช่น /connection+3',
+    'ใส่จำนวนคนเป็นตัวเลขด้วยนะ เช่น /connection+5'
+  ],
+  use_product_need_detail: [
+    'กรุณาพิมพ์รีวิวสั้นๆ ต่อท้ายคำสั่ง เช่น /use_product ใช้สินค้า X แล้วรู้สึกสดชื่น',
+    'อธิบายสั้นๆ ต่อท้าย /use_product ด้วยนะ เช่น /use_product ใช้สินค้าแล้วสดชื่นขึ้น'
+  ],
+  use_product_already: [
+    'วันนี้บันทึก /use_product ไว้แล้ว (จำกัดวันละ 1 ครั้ง)',
+    'วันนี้ส่งรายงานการใช้สินค้าไว้แล้วนะ เจอกันพรุ่งนี้ ✨'
+  ],
+  use_product_wait_photo: [
+    'รับรายงานแล้ว โปรดส่งรูปประกอบ /use_product ภายในวันนี้ (จำกัดวันละ 1 ครั้ง)',
+    'โอเคเลย! ส่งรูปประกอบ /use_product ต่อในวันนี้เพื่อรับคะแนนนะ'
+  ],
+  use_product_already_image: [
+    'วันนี้ส่ง /use_product แล้ว ขอบคุณสำหรับรูป 😊',
+    'ได้รับรูป /use_product วันนี้ไปแล้ว ขอบคุณมากนะ'
+  ],
+  book_need_number: [
+    'กรุณาระบุจำนวนหน้าที่อ่าน เช่น /book 30',
+    'อย่าลืมระบุจำนวนหน้า เช่น /book 25'
+  ],
+  book_invalid_number: [
+    'จำนวนหน้าที่ระบุไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
+    'ตัวเลขจำนวนหน้าไม่ถูกต้อง ลองพิมพ์ใหม่อีกครั้งนะ'
+  ],
+  book_success: [
+    '📚 บันทึกการอ่าน {pages} หน้า ได้ +{points} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1',
+    '📖 วันนี้อ่าน {pages} หน้า รับไปเลย +{points} คะแนน\n🎯 เก็บครบ 300 หน้าในเดือนนี้ลุ้นโบนัสปลายเดือน +1'
+  ],
+  score_summary: [
+    '💎 คะแนนของ {displayName} เดือน {month}\nรวม {total} คะแนน',
+    'สรุปคะแนนเดือน {month} ของ {displayName}: {total} คะแนน 💎'
+  ],
+  rank_no_data: [
+    'ยังไม่มีคะแนนเดือน {month}',
+    'เดือน {month} ยังไม่มีใครเก็บคะแนนเลยนะ'
+  ],
+  rank_header: [
+    '🏆 Top 3 เดือน {month}',
+    '🏅 3 อันดับแรกของเดือน {month}'
   ]
 };
 
@@ -1040,7 +1125,7 @@ async function handleEvent(evt) {
 
   if (cmd === '/settle' || cmd.startsWith('/settle+')) {
     if (sourceType !== 'user') {
-      await reply(evt.replyToken, 'คำสั่ง /settle ใช้ได้เฉพาะแชทส่วนตัวกับบอทเท่านั้น');
+      await reply(evt.replyToken, pickMsg('settle_dm_only'));
       return;
     }
     const args = [];
@@ -1055,7 +1140,7 @@ async function handleEvent(evt) {
     }
     args.push(...parts.slice(1));
     if (!args.length) {
-      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ หรือ /settle+รหัสลับ');
+      await reply(evt.replyToken, pickMsg('settle_need_secret'));
       return;
     }
     let targetMonth = monthKey();
@@ -1064,11 +1149,11 @@ async function handleEvent(evt) {
     }
     const secret = args.join(' ').trim();
     if (!secret) {
-      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ หรือ /settle+รหัสลับ');
+      await reply(evt.replyToken, pickMsg('settle_need_secret'));
       return;
     }
     if (secret !== manualSettleSecret) {
-      await reply(evt.replyToken, 'รหัสลับไม่ถูกต้อง');
+      await reply(evt.replyToken, pickMsg('settle_wrong_secret'));
       return;
     }
     try {
@@ -1077,7 +1162,7 @@ async function handleEvent(evt) {
       const bookResult = await finalizeBookMonth(targetMonth);
       const summary = buildManualSettlementMessage(targetMonth, linkResult, planResult, bookResult);
       await push(summary);
-      await reply(evt.replyToken, `สรุปคะแนนปลายเดือน ${targetMonth} ถูกส่งเรียบร้อยแล้ว`);
+      await reply(evt.replyToken, pickMsg('settle_success', { month: targetMonth }));
     } catch (err) {
       await reply(evt.replyToken, `เกิดข้อผิดพลาด: ${err?.message || err}`);
     }
@@ -1086,17 +1171,22 @@ async function handleEvent(evt) {
 
   if (cmd === '/score') {
     const sum = await sumUserMonth(userId, mk);
-    await reply(evt.replyToken, `💎 คะแนนของ ${displayName} เดือน ${mk}\nรวม ${formatPoints(sum)} คะแนน`);
+    await reply(evt.replyToken, pickMsg('score_summary', {
+      displayName,
+      month: mk,
+      total: formatPoints(sum)
+    }));
     return;
   }
 
   if (cmd === '/rank') {
     const top = await getTop10(mk);
     if (!top.length) {
-      await reply(evt.replyToken, `ยังไม่มีคะแนนเดือน ${mk}`);
+      await reply(evt.replyToken, pickMsg('rank_no_data', { month: mk }));
       return;
     }
-    const lines = [`🏆 Top 3 เดือน ${mk}`];
+    const header = pickMsg('rank_header', { month: mk }) || `🏆 Top 3 เดือน ${mk}`;
+    const lines = [header];
     top.slice(0, 3).forEach((row, idx) => {
       lines.push(`${idx + 1}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`);
     });
@@ -1110,7 +1200,7 @@ async function handleEvent(evt) {
     const match = cmd.match(/\/connection\+(\d+(?:\.\d+)?)/);
     const pts = match ? Number(match[1]) : 0;
     if (!Number.isFinite(pts) || pts <= 0) {
-      await reply(evt.replyToken, 'กรุณาระบุจำนวน เช่น /connection+3');
+      await reply(evt.replyToken, pickMsg('connection_need_number'));
       return;
     }
     const msg = pickMsg('connection', { displayName, n: formatPoints(pts), pts: `+${formatPoints(pts)}` });
@@ -1148,21 +1238,21 @@ async function handleEvent(evt) {
 
   if (cmd === '/bm_product') {
     await upsertPending(userId, '/bm_product');
-    await reply(evt.replyToken, 'โปรดถ่ายรูปรายงานสำหรับ /bm_product แล้วส่งรูปในแชทนี้');
+    await reply(evt.replyToken, pickMsg('bm_product_prompt'));
     return;
   }
 
   if (cmd === '/use_product') {
     if (!detail) {
-      await reply(evt.replyToken, 'กรุณาพิมพ์รีวิวสั้นๆ ต่อท้ายคำสั่ง เช่น /use_product ใช้สินค้า X แล้วรู้สึกสดชื่น');
+      await reply(evt.replyToken, pickMsg('use_product_need_detail'));
       return;
     }
     if (await hasUseProductToday(userId)) {
-      await reply(evt.replyToken, 'วันนี้บันทึก /use_product ไว้แล้ว (จำกัดวันละ 1 ครั้ง)');
+      await reply(evt.replyToken, pickMsg('use_product_already'));
       return;
     }
     await upsertPending(userId, '/use_product', { report: detail });
-    await reply(evt.replyToken, 'รับรายงานแล้ว โปรดส่งรูปประกอบ /use_product ภายในวันนี้ (จำกัดวันละ 1 ครั้ง)');
+    await reply(evt.replyToken, pickMsg('use_product_wait_photo'));
     return;
   }
 
@@ -1170,7 +1260,7 @@ async function handleEvent(evt) {
     const events = await listPlanUpdateEvents(userId, mk);
     const awarded = events.filter((row) => Number(row.points) > 0);
     if (awarded.length >= PLAN_UPDATE_MONTHLY_CAP) {
-      await reply(evt.replyToken, 'เดือนนี้เก็บครบ +4 คะแนนจาก /plan_update แล้ว ไว้ลุยต่อเดือนหน้า 🌟');
+      await reply(evt.replyToken, pickMsg('plan_update_completed'));
       return;
     }
     if (awarded.length === 0) {
@@ -1180,14 +1270,14 @@ async function handleEvent(evt) {
     }
     const now = new Date();
     if (!isWeekend(now)) {
-      await reply(evt.replyToken, 'อัปเดตสัปดาห์ต้องส่งวันเสาร์หรืออาทิตย์นะ ลองกลับมาอีกครั้งช่วงสุดสัปดาห์ 😊');
+      await reply(evt.replyToken, pickMsg('plan_update_weekend_only'));
       return;
     }
     const currentWeek = isoWeekKey(now);
     const weekendUpdates = awarded.slice(1);
     const alreadyWeek = weekendUpdates.some((row) => isoWeekKey(new Date(row.timestamp)) === currentWeek);
     if (alreadyWeek) {
-      await reply(evt.replyToken, 'สัปดาห์นี้อัปเดตไว้แล้ว ลองเก็บคะแนนสัปดาห์หน้าได้เลย');
+      await reply(evt.replyToken, pickMsg('plan_update_already_week'));
       return;
     }
     const progress = `${awarded.length + 1}/${PLAN_UPDATE_MONTHLY_CAP}`;
@@ -1198,7 +1288,7 @@ async function handleEvent(evt) {
 
   if (cmd === '/link_30d') {
     if (await hasLink30dToday(userId)) {
-      await reply(evt.replyToken, 'วันนี้บันทึก /link_30d ไว้แล้ว ขอบคุณมากนะ ✨');
+      await reply(evt.replyToken, pickMsg('link_already'));
       return;
     }
     await upsertPending(userId, '/link_30d');
@@ -1230,16 +1320,19 @@ async function handleEvent(evt) {
       }
     }
     if (!Number.isFinite(pages) || pages <= 0) {
-      await reply(evt.replyToken, 'กรุณาระบุจำนวนหน้าที่อ่าน เช่น /book 30');
+      await reply(evt.replyToken, pickMsg('book_need_number'));
       return;
     }
     const points = roundTo(pages * 0.01, 2);
     if (points <= 0) {
-      await reply(evt.replyToken, 'จำนวนหน้าที่ระบุไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+      await reply(evt.replyToken, pickMsg('book_invalid_number'));
       return;
     }
     const detailPayload = JSON.stringify({ pages, raw: raw || null });
-    const message = `📚 บันทึกการอ่าน ${formatNumber(pages, 1)} หน้า ได้ +${formatPoints(points)} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1`; 
+    const message = pickMsg('book_success', {
+      pages: formatNumber(pages, 1),
+      points: formatPoints(points)
+    }) || `📚 บันทึกการอ่าน ${formatNumber(pages, 1)} หน้า ได้ +${formatPoints(points)} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1`;
     await insertEvent({
       user_id: userId,
       display_name: displayName,
@@ -1278,7 +1371,7 @@ async function handleImageEvent(evt) {
   if (pendingLink) {
     if (await hasLink30dToday(userId)) {
       const quote = pick(messagePools.inspire) || '';
-      await reply(evt.replyToken, `วันนี้บันทึก /link_30d ไว้แล้ว ขอบคุณมากนะ ✨\n— ${quote}`);
+      await reply(evt.replyToken, pickMsg('link_today_done_with_quote', { quote }));
       return;
     }
     const pts = (await loadRulePoints('/link_30d', 'success')) ?? 0.1;
@@ -1317,7 +1410,7 @@ async function handleImageEvent(evt) {
   if (pendingUse) {
     if (await hasUseProductToday(userId)) {
       await clearPending(userId, '/use_product');
-      await reply(evt.replyToken, 'วันนี้ส่ง /use_product แล้ว ขอบคุณสำหรับรูป 😊');
+      await reply(evt.replyToken, pickMsg('use_product_already_image'));
       return;
     }
     const pts = (await loadRulePoints('/use_product', '')) ?? 0.1;
