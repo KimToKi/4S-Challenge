@@ -74,16 +74,13 @@ app.get('/rules-image.png', (req, res) => {
 
 // Helper: format /link_30d monthly announcement with emojis
 function buildLink30dAnnouncement(monthKey, settled) {
-  const pos = settled.filter(r => r.points > 0);
-  const neg = settled.filter(r => r.points < 0);
+  const bonuses = settled.filter(r => Number(r.points) > 0);
   const lines = [`🗓️ สรุปคะแนน /link_30d ประจำเดือน ${monthKey}`];
-  if (pos.length) {
-    lines.push('✅ ทำครบทุกวัน (+4):');
-    pos.forEach(r => lines.push(`• ✨ ${r.display_name} +4`));
-  }
-  if (neg.length) {
-    lines.push('⚠️ ขาดส่ง (หักคะแนน):');
-    neg.forEach(r => lines.push(`• ❌ ${r.display_name} ${r.points} (ขาด ${Math.abs(r.points)} วัน)`));
+  if (bonuses.length) {
+    lines.push('✅ โบนัสครบ 30 วัน (+1):');
+    bonuses.forEach(r => lines.push(`• ✨ ${r.display_name} +${Number(r.points)}`));
+  } else {
+    lines.push('ℹ️ เดือนนี้ยังไม่มีใครทำครบทุกวัน');
   }
   return lines;
 }
