@@ -1038,14 +1038,24 @@ async function handleEvent(evt) {
     return;
   }
 
-  if (cmd === '/settle') {
+  if (cmd === '/settle' || cmd.startsWith('/settle+')) {
     if (sourceType !== 'user') {
       await reply(evt.replyToken, 'คำสั่ง /settle ใช้ได้เฉพาะแชทส่วนตัวกับบอทเท่านั้น');
       return;
     }
-    const args = parts.slice(1);
+    const args = [];
+    if (cmd.startsWith('/settle+')) {
+      const inline = parts[0].slice('/settle+'.length).trim();
+      if (inline) {
+        inline.split('+').forEach((token) => {
+          const value = token.trim();
+          if (value) args.push(value);
+        });
+      }
+    }
+    args.push(...parts.slice(1));
     if (!args.length) {
-      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ');
+      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ หรือ /settle+รหัสลับ');
       return;
     }
     let targetMonth = monthKey();
@@ -1054,7 +1064,7 @@ async function handleEvent(evt) {
     }
     const secret = args.join(' ').trim();
     if (!secret) {
-      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ');
+      await reply(evt.replyToken, 'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ หรือ /settle+รหัสลับ');
       return;
     }
     if (secret !== manualSettleSecret) {
