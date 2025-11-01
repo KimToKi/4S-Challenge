@@ -156,6 +156,13 @@
     const monthPick = document.getElementById('monthPick');
     const weekPick = document.getElementById('weekPick');
 
+    function formatPoints(value){
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '-';
+      if (Number.isInteger(num)) return String(num);
+      return num.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    }
+
     function setActive(scope){
       seg.querySelectorAll('button').forEach(btn=>{
         const on = btn.dataset.scope===scope;
@@ -196,7 +203,7 @@
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
           <td class="name" data-label="ชื่อ">${r.display_name}</td>
-          <td class="points" data-label="คะแนน">${r.points}</td>
+          <td class="points" data-label="คะแนน">${formatPoints(r.points)}</td>
         `;
         tbody.appendChild(tr);
       });

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS events (
   display_name TEXT,
   command TEXT,
   detail TEXT,
-  points INTEGER DEFAULT 0,
+  points NUMERIC(10,2) DEFAULT 0,
   month_key TEXT
 );
 
@@ -37,5 +37,3 @@ INSERT INTO score_rules VALUES('/use_product','',1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','success',4) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','fail',-1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','none',0) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/book','success',4) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/book','fail',-4) ON CONFLICT DO NOTHING;

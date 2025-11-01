@@ -128,7 +128,11 @@
           <tr><td data-label="คำสั่ง"><code>/connection+N</code></td><td data-label="เงื่อนไข">รู้จักเพื่อนใหม่/รายชื่อใหม่ ใส่จำนวนหลัง + เพื่อบันทึก</td><td data-label="คะแนน" class="score">+N</td></tr>
           <tr><td data-label="คำสั่ง"><code>/use_product</code></td><td data-label="เงื่อนไข">ใช้สินค้าแล้วพิมพ์อธิบายว่าใช้อะไร พร้อมส่งรูปลงกลุ่ม (วันละ 1 ครั้ง)</td><td data-label="คะแนน" class="score">+1</td></tr>
           <tr><td data-label="คำสั่ง"><code>/link_30d</code></td><td data-label="เงื่อนไข">เช็คอินการส่งลิงก์ประจำวัน <b>ต้องแนบรูปหลักฐาน</b> (พิมพ์ <code>/link_30d</code> แล้วส่งรูปทันที)</td><td data-label="คะแนน"><span class="score">+4</span> ครบทุกวันในเดือน <span class="penalty">-1</span> ต่อวันที่ขาดส่ง <span class="score">+0</span> ถ้าเดือนนั้นไม่มีเช็คอินเลย</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/book</code></td><td data-label="เงื่อนไข">อ่านหนังสือจบ 1 เล่ม</td><td data-label="คะแนน"><span class="score">+4</span> · ถ้าในเดือนไม่มีรายงานนี้ <span class="penalty">-4</span></td></tr>
+          <tr>
+            <td data-label="คำสั่ง"><code>/book</code></td>
+            <td data-label="เงื่อนไข">บันทึกจำนวนหน้าที่อ่าน (0.1 คะแนนต่อ 10 หน้า) · อ่านเกิน 300 หน้าในเดือนเดียวรับโบนัส <span class="score">+1</span> ปลายเดือน</td>
+            <td data-label="คะแนน"><span class="score">+0.1</span> ต่อ 10 หน้า</td>
+          </tr>
           </tbody>
         </table>
       </div>
@@ -146,9 +150,9 @@
       <div class="card">
         <div class="head"><div>📘 กติกา: /book</div></div>
         <div class="muted" style="font-size:14px">
-          - พิมพ์ <code>/book</code> แล้วนับคะแนนทันที (ไม่ต้องพิมพ์ success/fail)<br>
-          - เดือนหนึ่งนับคะแนนได้สูงสุด 2 ครั้ง (ครั้งละ <span class="score">+4</span>)<br>
-          - หากในเดือนนั้นไม่มีการส่ง <code>/book</code> เลย จะถูกหัก <span class="penalty">-4</span> ในวันสุดท้ายของเดือน
+          - พิมพ์ <code>/book</code> ตามด้วยจำนวนหน้าที่อ่าน เช่น <code>/book 30</code> (ไม่ระบุก็จะนับ 10 หน้า = <span class="score">+0.1</span>)<br>
+          - ระบบคิด <span class="score">+0.1</span> ต่อ 10 หน้า (0.01 คะแนนต่อหน้า) และบันทึกทันที ไม่ต้องพิมพ์ success/fail<br>
+          - ถ้าเดือนนั้นอ่านรวมเกิน 300 หน้า จะได้รับโบนัสพิเศษ <span class="score">+1</span> ในวันสุดท้ายของเดือน
         </div>
       </div>
   </div>
