@@ -2236,7 +2236,7 @@ async function handleImageEvent2(evt) {
     const delta = Number(pts);
     if (!Number.isNaN(delta) && delta !== 0) {
       const sum = await sumUserMonth(userId, mk);
-      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(sum)} คะแนน`;
     }
     await replyWithInspire(evt.replyToken, composed, displayName2);
     return;
@@ -2282,7 +2282,7 @@ async function handleImageEvent2(evt) {
     const delta = Number(pts);
     if (!Number.isNaN(delta) && delta !== 0) {
       const sum = await sumUserMonth(userId, mk);
-      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(sum)} คะแนน`;
     }
     await replyWithInspire(evt.replyToken, composed, displayName2);
     return;
@@ -2398,7 +2398,7 @@ for (const candidate of candidates) {
     const delta = Number(pts);
     if (!Number.isNaN(delta) && delta !== 0) {
       const sum = await sumUserMonth(userId, mk);
-      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(sum)} คะแนน`;
     }
     messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
     break;
@@ -2443,7 +2443,7 @@ for (const candidate of candidates) {
     const delta = Number(pts);
     if (!Number.isNaN(delta) && delta !== 0) {
       const sum = await sumUserMonth(userId, mk);
-      composed = `${msg}\n💎 คะแนนสะสมรวม: ${sum} คะแนน`;
+      composed = `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(sum)} คะแนน`;
     }
     messages.push({ type: 'text', text: composeInspireText(composed, displayName2) });
     break;
