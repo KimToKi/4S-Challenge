@@ -33,7 +33,7 @@ INSERT INTO score_rules VALUES('/old_member','',1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/sop','',2) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/plan_update','success',1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/plan_update','fail',0) ON CONFLICT DO NOTHING;
-INSERT INTO score_rules VALUES('/use_product','',1) ON CONFLICT DO NOTHING;
+INSERT INTO score_rules VALUES('/use_product','',0.1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','success',0.1) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','fail',0) ON CONFLICT DO NOTHING;
 INSERT INTO score_rules VALUES('/link_30d','none',0) ON CONFLICT DO NOTHING;

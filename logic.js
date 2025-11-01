@@ -1923,7 +1923,7 @@ const insert = async (command, pts, msg, detailOverride) => {
     return;
   }
 
-  // /use_product requires a short report, photo evidence, and is limited to +1 per day
+  // /use_product requires a short report, photo evidence, and is limited to 0.1 point per day
   if (cmd === '/use_product') {
     const already = await hasUseProductToday(userId);
     if (already) {
@@ -2235,7 +2235,7 @@ async function handleImageEvent2(evt) {
       return;
     }
     const displayName2 = await safeGetDisplayName(userId, evt.source);
-    const pts = await loadRule('/use_product', '') ?? 1;
+    const pts = await loadRule('/use_product', '') ?? 0.1;
     let report = '';
     if (pendingUse.metadata) {
       try {
@@ -2396,7 +2396,7 @@ for (const candidate of candidates) {
       continue;
     }
     const displayName2 = await getDisplayName();
-    const pts = (await loadRule('/use_product', '')) ?? 1;
+    const pts = (await loadRule('/use_product', '')) ?? 0.1;
     let report = '';
     if (pendingUse?.metadata) {
       try {
