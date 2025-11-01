@@ -1123,12 +1123,22 @@ async function handleEvent(evt) {
     return;
   }
 
-  if (cmd === '/settle') {
+  if (cmd === '/settle' || cmd.startsWith('/settle+')) {
     if (sourceType !== 'user') {
       await reply(evt.replyToken, pickMsg('settle_dm_only'));
       return;
     }
-    const args = parts.slice(1);
+    const args = [];
+    if (cmd.startsWith('/settle+')) {
+      const inline = parts[0].slice('/settle+'.length).trim();
+      if (inline) {
+        inline.split('+').forEach((token) => {
+          const value = token.trim();
+          if (value) args.push(value);
+        });
+      }
+    }
+    args.push(...parts.slice(1));
     if (!args.length) {
       await reply(evt.replyToken, pickMsg('settle_need_secret'));
       return;
