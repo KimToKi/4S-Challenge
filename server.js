@@ -168,7 +168,6 @@ try {
       if (!isMonthEnd) return;
       const mk = now.toISOString().slice(0,7);
       const result = await finalizeLink30dMonth(mk);
-      // Also apply /plan_update month-end penalty for incomplete (count < 3)
       try {
         const book = await finalizeBookMonth(mk);
         if (book?.settled?.length) {
@@ -178,7 +177,7 @@ try {
         console.error('Monthly book bonus error:', err?.message);
       }
       try {
-        await finalizePlanUpdateMonth(mk);
+        await finalizePlanUpdateMonth(mk); // /plan_update ให้คะแนนทันที ฟังก์ชันนี้คงไว้เพื่อความเข้ากันได้
       } catch (err) {
         console.error('Monthly plan_update settle error:', err?.message);
       }
