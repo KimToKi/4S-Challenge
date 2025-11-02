@@ -288,6 +288,15 @@ async function replyWithInspire(replyToken, text, displayName) {
   await reply(replyToken, composeInspireText(text, displayName));
 }
 
+async function replyWithInspireAndTotal(replyToken, baseMessage, displayName, userId, mk, points) {
+  let message = baseMessage;
+  if (Number.isFinite(points) && points !== 0) {
+    const total = await sumUserMonth(userId, mk);
+    message = `${baseMessage}\n💎 คะแนนสะสมรวม: ${formatPoints(total)} คะแนน`;
+  }
+  await replyWithInspire(replyToken, message, displayName);
+}
+
 async function push(text) {
   const to = process.env.LINE_TARGET_ID || process.env.LINE_GROUP_ID || process.env.LINE_USER_ID;
   if (!to) {
@@ -864,6 +873,14 @@ const messagePools = {
     'พิมพ์ /bm_product แล้วอย่าลืมส่งรูปตามในห้องนี้ด้วยนะ',
     'ส่งรูปรายงาน BM ในแชทนี้ได้เลย เพื่อบันทึก /bm_product ให้ครบ'
   ],
+  schedule: [
+    'ล็อกตารางเคสไว้แล้ว สุดยอดมาก!\n+{pts} คะแนน',
+    'จองคิวเคสล่วงหน้าพร้อมหลักฐานครบ\n+{pts} คะแนน'
+  ],
+  schedule_prompt: [
+    'โปรดนัดเคสและส่งรูปหลักฐานตามหลัง /schedule ในแชทนี้นะ',
+    'พิมพ์ /schedule แล้วอย่าลืมส่งภาพยืนยันตารางเคสต่อเลยน้า'
+  ],
   pack3: [
     'จัด 3 Pack เรียบร้อย\n+{pts} คะแนน',
     'Pack 3 มาแล้ว เดินเครื่องต่อเลย\n+{pts} คะแนน'
@@ -1067,13 +1084,7 @@ async function handleEvent(evt) {
   if (!displayName || /\uFFFD/.test(displayName)) displayName = 'คุณ';
 
   const respondWithTotal = async (msg, pts) => {
-    if (!Number.isFinite(pts) || pts === 0) {
-      await replyWithInspire(evt.replyToken, msg, displayName);
-      return;
-    }
-    const total = await sumUserMonth(userId, mk);
-    const textWithTotal = `${msg}\n💎 คะแนนสะสมรวม: ${formatPoints(total)} คะแนน`;
-    await replyWithInspire(evt.replyToken, textWithTotal, displayName);
+    await replyWithInspireAndTotal(evt.replyToken, msg, displayName, userId, mk, pts);
   };
 
   const insertAndReply = async (command, pts, message, detailOverride) => {
@@ -1098,6 +1109,7 @@ async function handleEvent(evt) {
       '/new_member',
       '/pack3',
       '/bm_product',
+      '/schedule (ส่งรูปตาม)',
       '/old_member',
       '/sop',
       '/connection+N',
@@ -1233,6 +1245,12 @@ async function handleEvent(evt) {
     const key = cmd.slice(1);
     const msg = pickMsg(key, { displayName, pts: `+${formatPoints(pts)}` });
     await insertAndReply(cmd, pts, msg);
+    return;
+  }
+
+  if (cmd === '/schedule') {
+    await upsertPending(userId, '/schedule');
+    await reply(evt.replyToken, pickMsg('schedule_prompt'));
     return;
   }
 
@@ -1389,6 +1407,23 @@ async function handleImageEvent(evt) {
     return;
   }
 
+  const pendingSchedule = await fetchPending(userId, '/schedule');
+  if (pendingSchedule) {
+    const pts = (await loadRulePoints('/schedule', '')) ?? 1;
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName,
+      command: '/schedule',
+      detail: `evidence:${imageId}`,
+      points: pts,
+      month_key: mk
+    });
+    await clearPending(userId, '/schedule');
+    const msg = pickMsg('schedule', { displayName, pts: `+${formatPoints(pts)}` });
+    await replyWithInspireAndTotal(evt.replyToken, msg, displayName, userId, mk, pts);
+    return;
+  }
+
   const pendingBm = await fetchPending(userId, '/bm_product');
   if (pendingBm) {
     const pts = (await loadRulePoints('/bm_product', '')) ?? 1;
@@ -1433,7 +1468,7 @@ async function handleImageEvent(evt) {
   }
 
   if (!isGroupOrRoom) {
-    await reply(evt.replyToken, 'หากเป็นรูปประกอบคะแนน โปรดพิมพ์คำสั่งก่อน เช่น /bm_product, /use_product หรือ /link_30d');
+    await reply(evt.replyToken, 'หากเป็นรูปประกอบคะแนน โปรดพิมพ์คำสั่งก่อน เช่น /schedule, /bm_product, /use_product หรือ /link_30d');
   }
 }
 
