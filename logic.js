@@ -468,36 +468,27 @@ async function upsertPending(userId, command, metadata = null) {
   return entry;
 }
 
-async function fetchPending(userId, command) {
+async function consumePending(userId, command) {
   await dbReady;
   const { data, error } = await supabase
-    .from('pending')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('command', command)
-    .eq('date_key', localDateKey())
-    .maybeSingle();
-  if (error && error.code !== 'PGRST116') {
-    throw new Error(error.message || 'Failed to load pending');
-  }
-  if (!data) return null;
-  if (typeof data.metadata === 'string') {
-    try {
-      data.metadata = JSON.parse(data.metadata);
-    } catch (_) {}
-  }
-  return data;
-}
-
-async function clearPending(userId, command) {
-  await dbReady;
-  const { error } = await supabase
     .from('pending')
     .delete()
     .eq('user_id', userId)
     .eq('command', command)
-    .eq('date_key', localDateKey());
-  if (error) throw new Error(error.message || 'Failed to clear pending');
+    .eq('date_key', localDateKey())
+    .select()
+    .limit(1);
+  if (error) throw new Error(error.message || 'Failed to consume pending');
+  if (!data || data.length === 0) {
+    return null;
+  }
+  const entry = data[0];
+  if (typeof entry.metadata === 'string') {
+    try {
+      entry.metadata = JSON.parse(entry.metadata);
+    } catch (_) {}
+  }
+  return entry;
 }
 
 function isoWeekRangeUTC(yw) {
@@ -1385,7 +1376,7 @@ async function handleImageEvent(evt) {
   const imageId = evt?.message?.id || 'image';
   const displayName = await safeGetDisplayName(userId, evt.source);
 
-  const pendingLink = await fetchPending(userId, '/link_30d');
+  const pendingLink = await consumePending(userId, '/link_30d');
   if (pendingLink) {
     if (await hasLink30dToday(userId)) {
       const quote = pick(messagePools.inspire) || '';
@@ -1401,13 +1392,12 @@ async function handleImageEvent(evt) {
       points: pts,
       month_key: mk
     });
-    await clearPending(userId, '/link_30d');
     const quote = pick(messagePools.inspire) || '';
     await reply(evt.replyToken, pickMsg('link_received', { quote }));
     return;
   }
 
-  const pendingSchedule = await fetchPending(userId, '/schedule');
+  const pendingSchedule = await consumePending(userId, '/schedule');
   if (pendingSchedule) {
     const pts = (await loadRulePoints('/schedule', '')) ?? 1;
     await insertEvent({
@@ -1418,13 +1408,12 @@ async function handleImageEvent(evt) {
       points: pts,
       month_key: mk
     });
-    await clearPending(userId, '/schedule');
     const msg = pickMsg('schedule', { displayName, pts: `+${formatPoints(pts)}` });
     await replyWithInspireAndTotal(evt.replyToken, msg, displayName, userId, mk, pts);
     return;
   }
 
-  const pendingBm = await fetchPending(userId, '/bm_product');
+  const pendingBm = await consumePending(userId, '/bm_product');
   if (pendingBm) {
     const pts = (await loadRulePoints('/bm_product', '')) ?? 1;
     await insertEvent({
@@ -1435,16 +1424,14 @@ async function handleImageEvent(evt) {
       points: pts,
       month_key: mk
     });
-    await clearPending(userId, '/bm_product');
     const msg = pickMsg('bm_product', { displayName, pts: `+${formatPoints(pts)}` });
     await replyWithInspire(evt.replyToken, msg, displayName);
     return;
   }
 
-  const pendingUse = await fetchPending(userId, '/use_product');
+  const pendingUse = await consumePending(userId, '/use_product');
   if (pendingUse) {
     if (await hasUseProductToday(userId)) {
-      await clearPending(userId, '/use_product');
       await reply(evt.replyToken, pickMsg('use_product_already_image'));
       return;
     }
@@ -1461,7 +1448,6 @@ async function handleImageEvent(evt) {
       points: pts,
       month_key: mk
     });
-    await clearPending(userId, '/use_product');
     const msg = pickMsg('use_product', { displayName, pts: `+${formatPoints(pts)}` });
     await replyWithInspire(evt.replyToken, msg, displayName);
     return;
