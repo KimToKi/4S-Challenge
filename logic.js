@@ -1201,12 +1201,17 @@ async function handleEvent(evt) {
 
   if (cmd.startsWith('/connection+')) {
     const match = cmd.match(/\/connection\+(\d+(?:\.\d+)?)/);
-    const pts = match ? Number(match[1]) : 0;
-    if (!Number.isFinite(pts) || pts <= 0) {
+    const count = match ? Number(match[1]) : 0;
+    const pts = count * 0.1;
+    if (!Number.isFinite(count) || count <= 0) {
       await reply(evt.replyToken, pickMsg('connection_need_number'));
       return;
     }
-    const msg = pickMsg('connection', { displayName, n: formatPoints(pts), pts: `+${formatPoints(pts)}` });
+    const msg = pickMsg('connection', {
+      displayName,
+      n: formatNumber(count),
+      pts: `+${formatPoints(pts)}`
+    });
     await insertAndReply('/connection', pts, msg);
     return;
   }
