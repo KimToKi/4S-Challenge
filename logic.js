@@ -1234,7 +1234,7 @@ async function handleEvent(evt) {
   if (cmd.startsWith('/connection+')) {
     const match = cmd.match(/\/connection\+(\d+(?:\.\d+)?)/);
     const count = match ? Number(match[1]) : 0;
-    const pts = count * 0.1;
+    const pts = count;
     if (!Number.isFinite(count) || count <= 0) {
       await reply(evt.replyToken, pickMsg('connection_need_number'));
       return;
