@@ -104,30 +104,30 @@
             <tr><th style="width:160px">คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th style="width:160px">คะแนน</th></tr>
           </thead>
           <tbody>
-          <tr><td data-label="คำสั่ง"><code>/bm_product</code></td><td data-label="เงื่อนไข">ทำเคส BM หรือเล่าเคสสินค้า ถ่ายรูป รายงานลงกลุ่ม</td><td data-label="คะแนน" class="score">+1</td></tr>
+          <tr><td data-label="คำสั่ง"><code>/bm_product</code></td><td data-label="เงื่อนไข">ทำเคส BM หรือเล่าเคสสินค้า ถ่ายรูป รายงานลงกลุ่ม</td><td data-label="คะแนน" class="score" data-command="/bm_product">+1</td></tr>
           <tr><td data-label="คำสั่ง"><code>/schedule</code></td><td data-label="เงื่อนไข">นัดเคส BM หรือเคสสินค้าลงตารางล่วงหน้า และ <b>ส่งรูปหลักฐาน</b> ถึงจะได้คะแนน</td><td data-label="คะแนน" class="score">+1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/pack3</code></td><td data-label="เงื่อนไข">คนใหม่ฟังลิงก์จบ 3 Pack (ต่อ 1 คนที่ฟังจบ)</td><td data-label="คะแนน" class="score">+4/คน</td></tr>
+          <tr><td data-label="คำสั่ง"><code>/pack3</code></td><td data-label="เงื่อนไข">คนใหม่ฟังลิงก์จบ 3 Pack (ต่อ 1 คนที่ฟังจบ)</td><td data-label="คะแนน" class="score" data-command="/pack3" data-suffix="/คน">+4/คน</td></tr>
           <tr><td data-label="คำสั่ง"><code>/begin</code></td><td data-label="เงื่อนไข">พาคนใหม่เข้าระบบ Begin Onsite: คนที่ 1 +1, คนที่ 2 +2, คนที่ 3 +4, คนที่ 4 +8 … </td><td data-label="คะแนน" class="score">+1 → +2 → +4 → +8 …</td></tr>
           <tr><td data-label="คำสั่ง"><code>/beyond_dec</code></td><td data-label="เงื่อนไข">พาคนใหม่เข้างาน Beyond เดือนธันวาคม: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2 ตามจำนวนคน)</td><td data-label="คะแนน" class="score">+2 / +4 / +8</td></tr>
           <tr><td data-label="คำสั่ง"><code>/new_pride</code></td><td data-label="เงื่อนไข">เราเป็น New Pride หรือมีคนใหม่เข้างาน Pride: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2)</td><td data-label="คะแนน" class="score">+2 / +4 / +8</td></tr>
           <tr><td data-label="คำสั่ง"><code>/new_member</code></td><td data-label="เงื่อนไข">ลูกค้าใหม่สมัครสมาชิกและซื้อของ 1,000 pv: คนที่ 1 +1, คนที่ 2 +2, คนที่ 3 +4, คนที่ 4 +8 …</td><td data-label="คะแนน" class="score">+1 / +2 / +4 / +8 / +16</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/old_member</code></td><td data-label="เงื่อนไข">ลูกค้าเก่าซื้อของในเดือนนั้น</td><td data-label="คะแนน" class="score">+1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/sop</code></td><td data-label="เงื่อนไข">เดือนนี้เราซื้อ SOP หรือมี new member สมัครและซื้อ SOP</td><td data-label="คะแนน" class="score">+2</td></tr>
+          <tr><td data-label="คำสั่ง"><code>/old_member</code></td><td data-label="เงื่อนไข">ลูกค้าเก่าซื้อของในเดือนนั้น</td><td data-label="คะแนน" class="score" data-command="/old_member">+1</td></tr>
+          <tr><td data-label="คำสั่ง"><code>/sop</code></td><td data-label="เงื่อนไข">เดือนนี้เราซื้อ SOP หรือมี new member สมัครและซื้อ SOP</td><td data-label="คะแนน" class="score" data-command="/sop">+2</td></tr>
           <tr>
             <td data-label="คำสั่ง"><code>/plan_update</code></td>
             <td data-label="เงื่อนไข">
               ส่งเป้าหมายต้นเดือน (ครั้งแรกของเดือน) และอัปเดทรายสัปดาห์ช่วงวันเสาร์/อาทิตย์ (นับได้ 1 ครั้งต่อสัปดาห์)
             </td>
             <td data-label="คะแนน">
-              ครั้งแรกของเดือน <span class="score">+1</span> · รายงานเสาร์/อาทิตย์สัปดาห์ละ 1 ครั้ง <span class="score">+1</span> (สูงสุด
+              ครั้งแรกของเดือน <span class="score" data-command="/plan_update" data-subtype="success">+1</span> · รายงานเสาร์/อาทิตย์สัปดาห์ละ 1 ครั้ง <span class="score" data-command="/plan_update" data-subtype="success">+1</span> (สูงสุด
               <span class="score">+4</span> ต่อเดือน และคิดคะแนนทันที)
             </td>
           </tr>
           <tr><td data-label="คำสั่ง"><code>/old_follow_up</code></td><td data-label="เงื่อนไข">โทรติดตามคนเก่า (จบ hm 4)</td><td data-label="คะแนน" class="score">+1/คน</td></tr>
           <tr><td data-label="คำสั่ง"><code>/new_follow_up</code></td><td data-label="เงื่อนไข">โทรติดตามคนใหม่ (อยู่ในกระบวนการ bm–hm4)</td><td data-label="คะแนน" class="score">+2/คน</td></tr>
           <tr><td data-label="คำสั่ง"><code>/connection+N</code></td><td data-label="เงื่อนไข">รู้จักเพื่อนใหม่/รายชื่อใหม่ ใส่จำนวนหลัง + เพื่อบันทึก</td><td data-label="คะแนน" class="score">+N</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/use_product</code></td><td data-label="เงื่อนไข">ใช้สินค้าแล้วพิมพ์อธิบายว่าใช้อะไร พร้อมส่งรูปลงกลุ่ม (วันละ 1 ครั้ง)</td><td data-label="คะแนน" class="score">+0.1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/link_30d</code></td><td data-label="เงื่อนไข">เช็คอินการส่งลิงก์ประจำวัน <b>ต้องแนบรูปหลักฐาน</b> (พิมพ์ <code>/link_30d</code> แล้วส่งรูปทันที)</td><td data-label="คะแนน"><span class="score">+0.1</span> ต่อครั้งที่บันทึก ครบทุกวันในเดือนรับโบนัสปลายเดือน <span class="score">+1</span></td></tr>
+          <tr><td data-label="คำสั่ง"><code>/use_product</code></td><td data-label="เงื่อนไข">ใช้สินค้าแล้วพิมพ์อธิบายว่าใช้อะไร พร้อมส่งรูปลงกลุ่ม (วันละ 1 ครั้ง)</td><td data-label="คะแนน" class="score" data-command="/use_product">+0.1</td></tr>
+          <tr><td data-label="คำสั่ง"><code>/link_30d</code></td><td data-label="เงื่อนไข">เช็คอินการส่งลิงก์ประจำวัน <b>ต้องแนบรูปหลักฐาน</b> (พิมพ์ <code>/link_30d</code> แล้วส่งรูปทันที)</td><td data-label="คะแนน"><span class="score" data-command="/link_30d" data-subtype="success">+0.1</span> ต่อครั้งที่บันทึก ครบทุกวันในเดือนรับโบนัสปลายเดือน <span class="score">+1</span></td></tr>
           <tr>
             <td data-label="คำสั่ง"><code>/book</code></td>
             <td data-label="เงื่อนไข">บันทึกจำนวนหน้าที่อ่าน (0.1 คะแนนต่อ 10 หน้า) · อ่านเกิน 300 หน้าในเดือนเดียวรับโบนัส <span class="score">+1</span> ปลายเดือน</td>
@@ -156,6 +156,44 @@
         </div>
       </div>
   </div>
+  <script>
+    function formatPoints(value){
+      const num = Number(value);
+      if(!Number.isFinite(num)) return null;
+      if(Number.isInteger(num)) return String(num);
+      return num.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    }
+
+    async function syncScoreTable(){
+      try{
+        const res = await fetch('/score-rules', { cache: 'no-store' });
+        const payload = await res.json();
+        const rules = Array.isArray(payload.rules) ? payload.rules : [];
+        const map = new Map();
+        rules.forEach(rule => {
+          const key = `${rule.command || ''}::${(rule.subtype || '').toLowerCase()}`;
+          map.set(key, Number(rule.points));
+        });
+
+        document.querySelectorAll('[data-command]').forEach(el => {
+          const command = el.dataset.command || '';
+          const subtype = (el.dataset.subtype || '').toLowerCase();
+          const key = `${command}::${subtype}`;
+          const fallbackKey = `${command}::`;
+          const points = map.has(key) ? map.get(key) : map.get(fallbackKey);
+          const formatted = formatPoints(points);
+          if(formatted === null) return;
+          const prefix = el.dataset.prefix || '+';
+          const suffix = el.dataset.suffix || '';
+          el.textContent = `${prefix}${formatted}${suffix}`;
+        });
+      }catch(err){
+        console.warn('Failed to sync scores from Supabase', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', syncScoreTable);
+  </script>
 </body>
 </html>
 
