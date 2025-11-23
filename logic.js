@@ -604,6 +604,29 @@ async function weeksHandler(req, res) {
   }
 }
 
+async function listScoreRules() {
+  await dbReady;
+  const { data, error } = await supabase
+    .from('score_rules')
+    .select('command, subtype, points');
+  if (error) throw new Error(error.message || 'Failed to load score rules');
+  return (data || []).map((row) => ({
+    command: row.command,
+    subtype: row.subtype || '',
+    points: Number(row.points)
+  }));
+}
+
+async function scoreRulesHandler(req, res) {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const rules = await listScoreRules();
+    res.json({ rules });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || 'Failed to load score rules' });
+  }
+}
+
 async function buildWeeklySummaryText() {
   const mk = monthKey();
   const top = await getTop10(mk);
@@ -1530,6 +1553,7 @@ module.exports = {
   push,
   monthsHandler,
   weeksHandler,
+  scoreRulesHandler,
   finalizeLink30dMonth,
   finalizeBookMonth,
   finalizePlanUpdateMonth

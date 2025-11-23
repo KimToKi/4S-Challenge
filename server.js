@@ -11,6 +11,7 @@ const {
   push,
   monthsHandler,
   weeksHandler,
+  scoreRulesHandler,
   finalizeLink30dMonth,
   finalizeBookMonth,
   finalizePlanUpdateMonth
@@ -64,6 +65,7 @@ app.get('/webhook', (req, res) => res.status(200).send('OK'));
 app.get('/top10', top10Handler);
 app.get('/months', monthsHandler);
 app.get('/weeks', weeksHandler);
+app.get('/score-rules', scoreRulesHandler);
 
 // Static pages
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'leaderboard.html')));
