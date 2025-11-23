@@ -582,6 +582,7 @@ async function getDistinctWeeks() {
 
 async function monthsHandler(req, res) {
   try {
+    res.set('Cache-Control', 'no-store');
     const months = await getDistinctMonths();
     const current = monthKey();
     const unique = Array.from(new Set([current, ...months]));
@@ -593,6 +594,7 @@ async function monthsHandler(req, res) {
 
 async function weeksHandler(req, res) {
   try {
+    res.set('Cache-Control', 'no-store');
     const weeks = await getDistinctWeeks();
     const current = isoWeekKey();
     const unique = Array.from(new Set([current, ...weeks]));
@@ -1497,6 +1499,7 @@ async function handleImageEvent(evt) {
 
 async function top10Handler(req, res) {
   try {
+    res.set('Cache-Control', 'no-store');
     const scope = (req.query?.scope || '').toLowerCase();
     const ym = (req.query?.ym || '').toLowerCase();
     const yw = (req.query?.yw || '').toUpperCase();
