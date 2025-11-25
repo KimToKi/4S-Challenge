@@ -321,17 +321,30 @@ async function push(text) {
 function aggregateEventsByUser(rows = []) {
   const map = new Map();
   for (const row of rows) {
-    const id = row.user_id;
-    if (!id) continue;
-    const current = map.get(id) || { user_id: id, display_name: '', points: 0 };
-    const name = row.display_name || '';
-    if (name && name > current.display_name) {
-      current.display_name = name;
-    }
+    const name = (row.display_name || '').trim();
+    const key = row.user_id || name;
+    if (!key) continue;
+
+    const ts = row.timestamp ? new Date(row.timestamp).getTime() : -Infinity;
+    const current = map.get(key) || {
+      user_id: row.user_id || key,
+      display_name: name || row.user_id || '',
+      points: 0,
+      _latestTs: -Infinity
+    };
+
+    current.user_id = current.user_id || row.user_id || key;
     current.points += Number(row.points || 0);
-    map.set(id, current);
+    if (name && ts >= current._latestTs) {
+      current.display_name = name;
+      current._latestTs = ts;
+    } else if (!current.display_name) {
+      current.display_name = row.user_id || '';
+    }
+
+    map.set(key, current);
   }
-  return Array.from(map.values());
+  return Array.from(map.values()).map(({ _latestTs, ...rest }) => rest);
 }
 
 async function insertEvent(event) {
@@ -513,7 +526,7 @@ async function getTop10(mk) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points')
+    .select('user_id, display_name, points, timestamp')
     .eq('month_key', mk);
   if (error) throw new Error(error.message || 'Failed to fetch events');
   return aggregateEventsByUser(data)
@@ -526,7 +539,7 @@ async function getTop10All() {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points');
+    .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to fetch all events');
   return aggregateEventsByUser(data)
     .sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')))
