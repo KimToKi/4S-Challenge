@@ -333,6 +333,9 @@ function aggregateEventsByUser(rows = []) {
       }
     } else if (!current.display_name && name) {
       current.display_name = name;
+      current._latestTs = ts;
+    } else if (!current.display_name) {
+      current.display_name = row.user_id || '';
     }
     current.points += Number(row.points || 0);
     map.set(key, current);
