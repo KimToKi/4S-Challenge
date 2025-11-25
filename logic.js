@@ -323,15 +323,21 @@ function aggregateEventsByUser(rows = []) {
   for (const row of rows) {
     const id = row.user_id;
     if (!id) continue;
-    const current = map.get(id) || { user_id: id, display_name: '', points: 0 };
+    const current = map.get(id) || { user_id: id, display_name: '', points: 0, latest: null };
     const name = row.display_name || '';
-    if (name && name > current.display_name) {
+    const ts = row.timestamp ? Number(new Date(row.timestamp)) : null;
+    if (ts !== null && Number.isFinite(ts)) {
+      if (current.latest === null || ts >= current.latest) {
+        current.display_name = name || current.display_name;
+        current.latest = ts;
+      }
+    } else if (!current.display_name && name) {
       current.display_name = name;
     }
     current.points += Number(row.points || 0);
     map.set(id, current);
   }
-  return Array.from(map.values());
+  return Array.from(map.values()).map(({ latest, ...rest }) => rest);
 }
 
 async function insertEvent(event) {
@@ -513,7 +519,7 @@ async function getTop10(mk) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points')
+    .select('user_id, display_name, points, timestamp')
     .eq('month_key', mk);
   if (error) throw new Error(error.message || 'Failed to fetch events');
   return aggregateEventsByUser(data)
@@ -526,7 +532,7 @@ async function getTop10All() {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points');
+    .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to fetch all events');
   return aggregateEventsByUser(data)
     .sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')))
