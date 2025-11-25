@@ -518,32 +518,34 @@ function isoWeekRangeUTC(yw) {
   };
 }
 
-async function getTop10(mk) {
+function sortAndLimit(rows, limit) {
+  const sorted = rows.sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')));
+  if (!limit || limit <= 0) return sorted;
+  return sorted.slice(0, limit);
+}
+
+async function getTop10(mk, limit = 10) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
     .select('user_id, display_name, points, timestamp')
     .eq('month_key', mk);
   if (error) throw new Error(error.message || 'Failed to fetch events');
-  return aggregateEventsByUser(data)
-    .sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')))
-    .slice(0, 10)
+  return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
-async function getTop10All() {
+async function getTop10All(limit = 10) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
     .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to fetch all events');
-  return aggregateEventsByUser(data)
-    .sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')))
-    .slice(0, 10)
+  return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
-async function getTop10Week(yw) {
+async function getTop10Week(yw, limit = 10) {
   const range = isoWeekRangeUTC(yw);
   if (!range) return [];
   await dbReady;
@@ -553,9 +555,7 @@ async function getTop10Week(yw) {
     .gte('timestamp', range.startUtc)
     .lt('timestamp', range.endUtc);
   if (error) throw new Error(error.message || 'Failed to load weekly events');
-  return aggregateEventsByUser(data)
-    .sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')))
-    .slice(0, 10)
+  return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
@@ -1535,19 +1535,23 @@ async function top10Handler(req, res) {
     const scope = (req.query?.scope || '').toLowerCase();
     const ym = (req.query?.ym || '').toLowerCase();
     const yw = (req.query?.yw || '').toUpperCase();
+    const full = (req.query?.full ?? '').toString().toLowerCase();
+    const limitRaw = req.query?.limit ?? null;
+    const unlimited = full === '1' || full === 'true' || limitRaw === '0' || limitRaw === 'all';
+    const limit = unlimited ? 0 : Number(limitRaw || 10);
     if (scope === 'week' || yw) {
       const targetWeek = yw || isoWeekKey();
-      const data = await getTop10Week(targetWeek);
+      const data = await getTop10Week(targetWeek, Number.isFinite(limit) ? limit : 10);
       res.json({ meta: { scope: 'week', yw: targetWeek }, data });
       return;
     }
     if (scope === 'all' || ym === 'all') {
-      const data = await getTop10All();
+      const data = await getTop10All(Number.isFinite(limit) ? limit : 10);
       res.json({ meta: { scope: 'all' }, data });
       return;
     }
     const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
-    const data = await getTop10(targetMonth);
+    const data = await getTop10(targetMonth, Number.isFinite(limit) ? limit : 10);
     res.json({ meta: { scope: 'month', ym: targetMonth }, data });
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Failed to load leaderboard' });
