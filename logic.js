@@ -321,53 +321,26 @@ async function push(text) {
 function aggregateEventsByUser(rows = []) {
   const map = new Map();
   for (const row of rows) {
-    const name = (row.display_name || '').trim();
-    const key = row.user_id || name;
-    if (!key) continue;
-
-    const ts = row.timestamp ? new Date(row.timestamp).getTime() : -Infinity;
-    const current = map.get(key) || {
-      user_id: row.user_id || key,
-      display_name: name || row.user_id || '',
-      points: 0,
-      _latestTs: -Infinity
-    };
-
-    current.user_id = current.user_id || row.user_id || key;
-    current.points += Number(row.points || 0);
-    if (name && ts >= current._latestTs) {
+    const id = row.user_id;
+    if (!id) continue;
+    const current = map.get(id) || { user_id: id, display_name: '', points: 0, latest: null };
+    const name = row.display_name || '';
+    const ts = row.timestamp ? Number(new Date(row.timestamp)) : null;
+    if (ts !== null && Number.isFinite(ts)) {
+      if (current.latest === null || ts >= current.latest) {
+        current.display_name = name || current.display_name;
+        current.latest = ts;
+      }
+    } else if (!current.display_name && name) {
       current.display_name = name;
       current._latestTs = ts;
     } else if (!current.display_name) {
       current.display_name = row.user_id || '';
     }
-
+    current.points += Number(row.points || 0);
     map.set(key, current);
   }
-  return Array.from(map.values()).map(({ _latestTs, ...rest }) => rest);
-}
-
-function deriveMonthKey(row) {
-  if (row.month_key && /^\d{4}-\d{2}$/.test(row.month_key)) {
-    return row.month_key;
-  }
-  if (row.timestamp) {
-    const dt = new Date(row.timestamp);
-    if (!Number.isNaN(dt.getTime())) {
-      return monthKey(dt);
-    }
-  }
-  return null;
-}
-
-function deriveWeekKey(row) {
-  if (row.timestamp) {
-    const dt = new Date(row.timestamp);
-    if (!Number.isNaN(dt.getTime())) {
-      return isoWeekKey(dt);
-    }
-  }
-  return null;
+  return Array.from(map.values()).map(({ latest, ...rest }) => rest);
 }
 
 async function insertEvent(event) {
@@ -555,10 +528,10 @@ async function getTop10(mk, limit = 10) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points, timestamp, month_key');
+    .select('user_id, display_name, points, timestamp')
+    .eq('month_key', mk);
   if (error) throw new Error(error.message || 'Failed to fetch events');
-  const scoped = (data || []).filter((row) => deriveMonthKey(row) === mk);
-  return sortAndLimit(aggregateEventsByUser(scoped), limit)
+  return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
@@ -566,20 +539,21 @@ async function getTop10All(limit = 10) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points, timestamp, month_key');
+    .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to fetch all events');
   return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
 async function getTop10Week(yw, limit = 10) {
+  const range = isoWeekRangeUTC(yw);
+  if (!range) return [];
   await dbReady;
   const { data, error } = await supabase
     .from('events')
     .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to load weekly events');
-  const scoped = (data || []).filter((row) => deriveWeekKey(row) === yw);
-  return sortAndLimit(aggregateEventsByUser(scoped), limit)
+  return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
