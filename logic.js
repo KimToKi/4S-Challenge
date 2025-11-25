@@ -335,7 +335,7 @@ function aggregateEventsByUser(rows = []) {
       current.display_name = name;
     }
     current.points += Number(row.points || 0);
-    map.set(id, current);
+    map.set(key, current);
   }
   return Array.from(map.values()).map(({ latest, ...rest }) => rest);
 }
