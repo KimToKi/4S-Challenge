@@ -145,7 +145,7 @@
         </table>
       </div>
     </div>
-    <div class="muted">อัปเดตอัตโนมัติทุก 1 นาที (ไม่แคช)</div>
+    <div class="muted">อัปเดตอัตโนมัติทุก 15 วินาที (ไม่แคช)</div>
   </div>
   <script>
     const tbody = document.getElementById('tbody');
@@ -191,13 +191,19 @@
       toggleFilters(scope);
       tbody.innerHTML='';
       periodEl.textContent = '';
-      const params = new URLSearchParams({ scope });
+      const params = new URLSearchParams({ scope, limit: 0 });
       if(scope==='month' && monthPick.value) params.set('ym', monthPick.value);
       if(scope==='week' && weekPick.value) params.set('yw', weekPick.value);
       const res = await fetch(`/top10?${params.toString()}`, { cache: 'no-store' });
       const payload = await res.json();
       const rows = payload.data || [];
       periodEl.textContent = labelFor(payload.meta);
+      if(!rows.length){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3" style="text-align:center;color:#64748b;padding:28px">ยังไม่มีคะแนน</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
       rows.forEach((r,i)=>{
         const rank = i+1;
         const cls = rank===1? 'rank-1' : rank===2? 'rank-2' : rank===3? 'rank-3' : 'rank-n';
@@ -251,7 +257,7 @@
     (async () => {
       await initFilters();
       load('month');
-      setInterval(()=> load(activeScope), 60000);
+      setInterval(()=> load(activeScope), 15000);
     })();
   </script>
 </body>
