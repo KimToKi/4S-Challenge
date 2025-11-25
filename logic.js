@@ -321,30 +321,26 @@ async function push(text) {
 function aggregateEventsByUser(rows = []) {
   const map = new Map();
   for (const row of rows) {
-    const name = (row.display_name || '').trim();
-    const key = row.user_id || name;
-    if (!key) continue;
-
-    const ts = row.timestamp ? new Date(row.timestamp).getTime() : -Infinity;
-    const current = map.get(key) || {
-      user_id: row.user_id || key,
-      display_name: name || row.user_id || '',
-      points: 0,
-      _latestTs: -Infinity
-    };
-
-    current.user_id = current.user_id || row.user_id || key;
-    current.points += Number(row.points || 0);
-    if (name && ts >= current._latestTs) {
+    const id = row.user_id;
+    if (!id) continue;
+    const current = map.get(id) || { user_id: id, display_name: '', points: 0, latest: null };
+    const name = row.display_name || '';
+    const ts = row.timestamp ? Number(new Date(row.timestamp)) : null;
+    if (ts !== null && Number.isFinite(ts)) {
+      if (current.latest === null || ts >= current.latest) {
+        current.display_name = name || current.display_name;
+        current.latest = ts;
+      }
+    } else if (!current.display_name && name) {
       current.display_name = name;
       current._latestTs = ts;
     } else if (!current.display_name) {
       current.display_name = row.user_id || '';
     }
-
+    current.points += Number(row.points || 0);
     map.set(key, current);
   }
-  return Array.from(map.values()).map(({ _latestTs, ...rest }) => rest);
+  return Array.from(map.values()).map(({ latest, ...rest }) => rest);
 }
 
 async function insertEvent(event) {
