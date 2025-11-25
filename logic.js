@@ -551,9 +551,7 @@ async function getTop10Week(yw, limit = 10) {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('user_id, display_name, points, timestamp')
-    .gte('timestamp', range.startUtc)
-    .lt('timestamp', range.endUtc);
+    .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to load weekly events');
   return sortAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
@@ -563,10 +561,11 @@ async function getDistinctMonths() {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('month_key')
-    .not('month_key', 'is', null);
+    .select('month_key, timestamp');
   if (error) throw new Error(error.message || 'Failed to load months');
-  const unique = Array.from(new Set((data || []).map((row) => row.month_key).filter(Boolean)));
+  const unique = Array.from(new Set((data || [])
+    .map((row) => deriveMonthKey(row))
+    .filter(Boolean)));
   unique.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
   return unique;
 }
@@ -575,14 +574,13 @@ async function getDistinctWeeks() {
   await dbReady;
   const { data, error } = await supabase
     .from('events')
-    .select('timestamp')
-    .not('timestamp', 'is', null);
+    .select('timestamp');
   if (error) throw new Error(error.message || 'Failed to load weeks');
   const set = new Set();
   for (const row of data || []) {
-    const dt = row.timestamp ? new Date(row.timestamp) : null;
-    if (!dt || Number.isNaN(dt.getTime())) continue;
-    set.add(isoWeekKey(dt));
+    const key = deriveWeekKey(row);
+    if (!key) continue;
+    set.add(key);
   }
   const list = Array.from(set);
   list.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
