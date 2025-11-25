@@ -321,17 +321,23 @@ async function push(text) {
 function aggregateEventsByUser(rows = []) {
   const map = new Map();
   for (const row of rows) {
-    const name = (row.display_name || '').trim();
-    const key = name || row.user_id;
-    if (!key) continue;
-
-    const current = map.get(key) || { user_id: row.user_id || key, display_name: name || row.user_id || '', points: 0 };
-    current.user_id = current.user_id || row.user_id || key;
-    current.display_name = name || current.display_name || row.user_id || '';
+    const id = row.user_id;
+    if (!id) continue;
+    const current = map.get(id) || { user_id: id, display_name: '', points: 0, latest: null };
+    const name = row.display_name || '';
+    const ts = row.timestamp ? Number(new Date(row.timestamp)) : null;
+    if (ts !== null && Number.isFinite(ts)) {
+      if (current.latest === null || ts >= current.latest) {
+        current.display_name = name || current.display_name;
+        current.latest = ts;
+      }
+    } else if (!current.display_name && name) {
+      current.display_name = name;
+    }
     current.points += Number(row.points || 0);
     map.set(key, current);
   }
-  return Array.from(map.values());
+  return Array.from(map.values()).map(({ latest, ...rest }) => rest);
 }
 
 async function insertEvent(event) {
