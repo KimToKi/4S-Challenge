@@ -1149,8 +1149,8 @@ const messagePools = {
     'เดือน {month} ยังไม่มีใครเก็บคะแนนเลยนะ'
   ],
   rank_header: [
-    '🏆 Top 3 เดือน {month}',
-    '🏅 3 อันดับแรกของเดือน {month}'
+    '🏆 Top 10 เดือน {month}',
+    '🏅 10 อันดับแรกของเดือน {month}'
   ]
 };
 
@@ -1344,15 +1344,15 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/rank') {
-    const top = await getTop10(mk);
+    const top = await getTop10(mk, 10);
     if (!top.length) {
       await reply(evt.replyToken, pickMsg('rank_no_data', { month: mk }));
       return;
     }
-    const header = pickMsg('rank_header', { month: mk }) || `🏆 Top 3 เดือน ${mk}`;
+    const header = pickMsg('rank_header', { month: mk }) || `🏆 Top 10 เดือน ${mk}`;
     const lines = [header];
-    top.slice(0, 3).forEach((row, idx) => {
-      lines.push(`${idx + 1}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`);
+    top.forEach((row) => {
+      lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`);
     });
     lines.push('');
     lines.push(`ดู Top 10 แบบเรียลไทม์: ${publicBaseUrl()}/`);
