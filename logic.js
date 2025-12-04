@@ -288,13 +288,35 @@ async function replyWithInspire(replyToken, text, displayName) {
   await reply(replyToken, composeInspireText(text, displayName));
 }
 
-async function replyWithInspireAndTotal(replyToken, baseMessage, displayName, userId, mk, points) {
-  let message = baseMessage;
-  if (Number.isFinite(points) && points !== 0) {
-    const total = await sumUserMonth(userId, mk);
-    message = `${baseMessage}\n💎 คะแนนสะสมรวม: ${formatPoints(total)} คะแนน`;
+async function replyWithInspireAndTotal(replyToken, baseMessage, displayName, userId, mk, points, options = {}) {
+  const lines = [];
+  const shouldAnnounceRank = options.announceRankChange !== false;
+  let messageWithTotal = baseMessage;
+  let rankingAfter;
+
+  if (Number.isFinite(points) && points !== 0 && mk) {
+    try {
+      rankingAfter = await getMonthRanking(mk);
+      const self = rankingAfter.find((r) => r.user_id === userId);
+      if (self) {
+        messageWithTotal = `${baseMessage}\n💎 คะแนนสะสมรวม: ${formatPoints(self.points)} คะแนน`;
+        if (shouldAnnounceRank) {
+          const notice = buildRankChangeNotice(rankingAfter, userId, displayName, points);
+          if (notice) lines.push(notice);
+        }
+      }
+    } catch (err) {
+      console.warn('Rank announcement unavailable:', err?.message || err);
+    }
   }
-  await replyWithInspire(replyToken, message, displayName);
+
+  if (messageWithTotal === baseMessage && Number.isFinite(points) && points !== 0) {
+    const totalFallback = await sumUserMonth(userId, mk);
+    messageWithTotal = `${baseMessage}\n💎 คะแนนสะสมรวม: ${formatPoints(totalFallback)} คะแนน`;
+  }
+
+  lines.unshift(messageWithTotal);
+  await replyWithInspire(replyToken, lines.filter(Boolean).join('\n'), displayName);
 }
 
 async function push(text) {
@@ -338,9 +360,31 @@ function aggregateEventsByUser(rows = []) {
       current.display_name = row.user_id || '';
     }
     current.points += Number(row.points || 0);
-    map.set(key, current);
+    map.set(id, current);
   }
   return Array.from(map.values()).map(({ latest, ...rest }) => rest);
+}
+
+function sortEntries(rows = []) {
+  return rows.sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')));
+}
+
+function addDenseRanks(sortedRows = []) {
+  let lastPoints = null;
+  let currentRank = 0;
+  return sortedRows.map((row, idx) => {
+    if (lastPoints === null || row.points < lastPoints) {
+      currentRank = idx + 1;
+      lastPoints = row.points;
+    }
+    return { ...row, rank: currentRank };
+  });
+}
+
+function rankAndLimit(rows = [], limit) {
+  const ranked = addDenseRanks(sortEntries(rows));
+  if (!limit || limit <= 0) return ranked;
+  return ranked.slice(0, limit);
 }
 
 async function insertEvent(event) {
@@ -518,12 +562,6 @@ function isoWeekRangeUTC(yw) {
   };
 }
 
-function sortAndLimit(rows, limit) {
-  const sorted = rows.sort((a, b) => (b.points !== a.points ? b.points - a.points : (a.display_name || '').localeCompare(b.display_name || '')));
-  if (!limit || limit <= 0) return sorted;
-  return sorted.slice(0, limit);
-}
-
 async function getTop10(mk, limit = 10) {
   await dbReady;
   const { data, error } = await supabase
@@ -531,7 +569,7 @@ async function getTop10(mk, limit = 10) {
     .select('user_id, display_name, points, timestamp')
     .eq('month_key', mk);
   if (error) throw new Error(error.message || 'Failed to fetch events');
-  return sortAndLimit(aggregateEventsByUser(data), limit)
+  return rankAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
@@ -541,7 +579,7 @@ async function getTop10All(limit = 10) {
     .from('events')
     .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to fetch all events');
-  return sortAndLimit(aggregateEventsByUser(data), limit)
+  return rankAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
@@ -553,8 +591,61 @@ async function getTop10Week(yw, limit = 10) {
     .from('events')
     .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to load weekly events');
-  return sortAndLimit(aggregateEventsByUser(data), limit)
+  return rankAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
+}
+
+async function getMonthRanking(mk) {
+  await dbReady;
+  const { data, error } = await supabase
+    .from('events')
+    .select('user_id, display_name, points, timestamp')
+    .eq('month_key', mk);
+  if (error) throw new Error(error.message || 'Failed to load month ranking');
+  return rankAndLimit(aggregateEventsByUser(data))
+    .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
+}
+
+function buildRankChangeNotice(rankingAfter, userId, displayName, addedPoints) {
+  if (!Number.isFinite(addedPoints) || addedPoints <= 0) return '';
+  const selfIdx = rankingAfter.findIndex((r) => r.user_id === userId);
+  if (selfIdx === -1) return '';
+  const self = rankingAfter[selfIdx];
+
+  const beforeRows = rankingAfter
+    .map((row) => {
+      if (row.user_id !== userId) return row;
+      const previous = roundTo(row.points - addedPoints, 2);
+      if (previous <= 0) return null;
+      return { ...row, points: previous };
+    })
+    .filter(Boolean);
+
+  const rankingBefore = rankAndLimit(beforeRows);
+  const before = rankingBefore.find((r) => r.user_id === userId);
+  const beforeRank = before?.rank ?? null;
+  const afterRank = self.rank;
+
+  if (beforeRank !== null && afterRank >= beforeRank) return '';
+
+  const lines = [];
+  const fromText = beforeRank ? `อันดับ ${beforeRank}` : 'นอกตาราง';
+  lines.push(`📈 อันดับของ ${displayName || 'คุณ'} ขยับจาก ${fromText} มาเป็นอันดับ ${afterRank} (+${formatPoints(addedPoints)} คะแนน)`);
+
+  const above = rankingAfter[selfIdx - 1];
+  const below = rankingAfter[selfIdx + 1];
+  const neighborLines = [];
+  if (above) {
+    neighborLines.push(`อันดับข้างบน: ${above.rank}. ${above.display_name || above.user_id} — ${formatPoints(above.points)} คะแนน`);
+  }
+  if (below) {
+    neighborLines.push(`อันดับข้างล่าง: ${below.rank}. ${below.display_name || below.user_id} — ${formatPoints(below.points)} คะแนน`);
+  }
+  if (neighborLines.length) {
+    lines.push(neighborLines.join('\n'));
+  }
+
+  return lines.join('\n');
 }
 
 async function getDistinctMonths() {
