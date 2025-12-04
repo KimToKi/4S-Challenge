@@ -544,24 +544,6 @@ async function consumePending(userId, command) {
   return entry;
 }
 
-function isoWeekRangeUTC(yw) {
-  const match = /^([0-9]{4})-W([0-9]{2})$/.exec(yw || '');
-  if (!match) return null;
-  const year = Number(match[1]);
-  const week = Number(match[2]);
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Day = (jan4.getUTCDay() + 6) % 7;
-  const week1Monday = new Date(Date.UTC(year, 0, 4 - jan4Day));
-  const start = new Date(week1Monday);
-  start.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
-  const end = new Date(start);
-  end.setUTCDate(start.getUTCDate() + 7);
-  return {
-    startUtc: start.toISOString(),
-    endUtc: end.toISOString()
-  };
-}
-
 async function getTop10(mk, limit = 10) {
   await dbReady;
   const { data, error } = await supabase
@@ -579,18 +561,6 @@ async function getTop10All(limit = 10) {
     .from('events')
     .select('user_id, display_name, points, timestamp');
   if (error) throw new Error(error.message || 'Failed to fetch all events');
-  return rankAndLimit(aggregateEventsByUser(data), limit)
-    .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
-}
-
-async function getTop10Week(yw, limit = 10) {
-  const range = isoWeekRangeUTC(yw);
-  if (!range) return [];
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('user_id, display_name, points, timestamp');
-  if (error) throw new Error(error.message || 'Failed to load weekly events');
   return rankAndLimit(aggregateEventsByUser(data), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
@@ -661,23 +631,6 @@ async function getDistinctMonths() {
   return unique;
 }
 
-async function getDistinctWeeks() {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('timestamp');
-  if (error) throw new Error(error.message || 'Failed to load weeks');
-  const set = new Set();
-  for (const row of data || []) {
-    const key = deriveWeekKey(row);
-    if (!key) continue;
-    set.add(key);
-  }
-  const list = Array.from(set);
-  list.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-  return list;
-}
-
 async function monthsHandler(req, res) {
   try {
     res.set('Cache-Control', 'no-store');
@@ -687,18 +640,6 @@ async function monthsHandler(req, res) {
     res.json({ months: unique, current });
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Failed to load months' });
-  }
-}
-
-async function weeksHandler(req, res) {
-  try {
-    res.set('Cache-Control', 'no-store');
-    const weeks = await getDistinctWeeks();
-    const current = isoWeekKey();
-    const unique = Array.from(new Set([current, ...weeks]));
-    res.json({ weeks: unique, current });
-  } catch (err) {
-    res.status(500).json({ error: err?.message || 'Failed to load weeks' });
   }
 }
 
@@ -1650,17 +1591,10 @@ async function top10Handler(req, res) {
     res.set('Cache-Control', 'no-store');
     const scope = (req.query?.scope || '').toLowerCase();
     const ym = (req.query?.ym || '').toLowerCase();
-    const yw = (req.query?.yw || '').toUpperCase();
     const full = (req.query?.full ?? '').toString().toLowerCase();
     const limitRaw = req.query?.limit ?? null;
     const unlimited = full === '1' || full === 'true' || limitRaw === '0' || limitRaw === 'all';
     const limit = unlimited ? 0 : Number(limitRaw || 10);
-    if (scope === 'week' || yw) {
-      const targetWeek = yw || isoWeekKey();
-      const data = await getTop10Week(targetWeek, Number.isFinite(limit) ? limit : 10);
-      res.json({ meta: { scope: 'week', yw: targetWeek }, data });
-      return;
-    }
     if (scope === 'all' || ym === 'all') {
       const data = await getTop10All(Number.isFinite(limit) ? limit : 10);
       res.json({ meta: { scope: 'all' }, data });
@@ -1681,7 +1615,6 @@ module.exports = {
   buildWeeklySummaryText,
   push,
   monthsHandler,
-  weeksHandler,
   scoreRulesHandler,
   finalizeLink30dMonth,
   finalizeBookMonth,

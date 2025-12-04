@@ -122,7 +122,6 @@
 
     <div class="seg" role="tablist" aria-label="Leaderboard scope">
       <button type="button" class="active" data-scope="month" aria-selected="true">รายเดือน</button>
-      <button type="button" data-scope="week" aria-selected="false">รายสัปดาห์</button>
       <button type="button" data-scope="all" aria-selected="false">ทั้งหมด</button>
     </div>
     <div id="period" class="period"></div>
@@ -130,10 +129,6 @@
       <label id="label-month" style="display:none">
         เลือกเดือน:
         <input id="monthPick" type="month" />
-      </label>
-      <label id="label-week" style="display:none">
-        เลือกสัปดาห์:
-        <input id="weekPick" type="week" />
       </label>
     </div>
 
@@ -152,9 +147,7 @@
     const periodEl = document.getElementById('period');
     const seg = document.querySelector('.seg');
     const monthWrap = document.getElementById('label-month');
-    const weekWrap = document.getElementById('label-week');
     const monthPick = document.getElementById('monthPick');
-    const weekPick = document.getElementById('weekPick');
 
     let activeScope = 'month';
 
@@ -175,14 +168,12 @@
 
     function labelFor(meta){
       if(!meta) return '';
-      if(meta.scope==='week') return `สัปดาห์: ${meta.yw}`;
       if(meta.scope==='month') return `เดือน: ${meta.ym}`;
       return 'รวมทั้งหมด';
     }
 
     function toggleFilters(scope){
       monthWrap.style.display = scope==='month' ? 'inline-flex' : 'none';
-      weekWrap.style.display = scope==='week' ? 'inline-flex' : 'none';
     }
 
     async function load(scope){
@@ -193,7 +184,6 @@
       periodEl.textContent = '';
       const params = new URLSearchParams({ scope, limit: 0 });
       if(scope==='month' && monthPick.value) params.set('ym', monthPick.value);
-      if(scope==='week' && weekPick.value) params.set('yw', weekPick.value);
       const res = await fetch(`/top10?${params.toString()}`, { cache: 'no-store' });
       const payload = await res.json();
       const rows = payload.data || [];
@@ -226,33 +216,13 @@
 
     async function initFilters(){
       try {
-        const [mRes, wRes] = await Promise.all([
-          fetch('/months', { cache: 'no-store' }), fetch('/weeks', { cache: 'no-store' })
-        ]);
+        const mRes = await fetch('/months', { cache: 'no-store' });
         const m = await mRes.json();
-        const w = await wRes.json();
         if(m?.current){ monthPick.value = m.current; } else { monthPick.valueAsDate = new Date(); }
-        if(w?.current){ weekPick.value = w.current; } else {
-          // derive current ISO week value
-          const now = new Date();
-          const y = now.getFullYear();
-          // build approximate ISO week using JS (fallback only)
-          const tmp = new Date(now.getTime());
-          const day = (tmp.getDay() + 6) % 7; // Mon=0
-          tmp.setDate(tmp.getDate() - day + 3);
-          const weekYear = tmp.getFullYear();
-          const jan4 = new Date(weekYear,0,4);
-          const jan4Day = (jan4.getDay()+6)%7;
-          const week1Mon = new Date(weekYear,0,4-jan4Day);
-          const week = 1 + Math.floor((tmp - week1Mon)/604800000);
-          const ww = String(week).padStart(2,'0');
-          weekPick.value = `${weekYear}-W${ww}`;
-        }
       } catch {}
     }
 
     monthPick.addEventListener('change', ()=> load('month'));
-    weekPick.addEventListener('change', ()=> load('week'));
 
     (async () => {
       await initFilters();
