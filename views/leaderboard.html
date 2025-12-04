@@ -21,9 +21,6 @@
     .actions{flex-shrink:0;display:flex;gap:12px}
     .actions a{display:inline-flex;align-items:center;justify-content:center;min-width:120px;background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.6);padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600;transition:background .2s ease,color .2s ease}
     .actions a:hover{background:#f1f5ff}
-    .seg{margin-top:18px;display:inline-flex;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:999px;overflow:hidden;box-shadow:0 4px 12px rgba(15,23,42,0.06)}
-    .seg button{appearance:none;border:0;background:transparent;padding:8px 16px;font-weight:700;color:#334155;cursor:pointer;flex:1 0 auto}
-    .seg button.active{background:#0b1a4a;color:#fff}
     .period{margin-top:8px;color:#334155;font-size:12px}
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .filters label{font-size:12px;color:#334155;display:inline-flex;align-items:center;gap:6px}
@@ -66,8 +63,6 @@
       .brand .sub{font-size:11px}
       .actions{width:100%}
       .actions a{width:100%;font-size:15px;padding:12px}
-      .seg{width:100%;border-radius:18px}
-      .seg button{flex:1 1 33%;font-size:14px}
       .filters{flex-direction:column;align-items:flex-start}
       .filters label{width:100%}
       .filters input{width:100%;font-size:14px}
@@ -100,7 +95,6 @@
       .brand{flex-direction:row;align-items:flex-start}
       .brand .emoji{font-size:24px}
       .brand .title{font-size:16px}
-      .seg button{padding:10px 12px;font-size:13px}
       .badge{min-width:40px;height:36px}
     }
   </style>
@@ -120,10 +114,6 @@
       </div>
     </div>
 
-    <div class="seg" role="tablist" aria-label="Leaderboard scope">
-      <button type="button" class="active" data-scope="month" aria-selected="true">รายเดือน</button>
-      <button type="button" data-scope="all" aria-selected="false">ทั้งหมด</button>
-    </div>
     <div id="period" class="period"></div>
     <div class="filters">
       <label id="label-month" style="display:none">
@@ -145,11 +135,8 @@
   <script>
     const tbody = document.getElementById('tbody');
     const periodEl = document.getElementById('period');
-    const seg = document.querySelector('.seg');
     const monthWrap = document.getElementById('label-month');
     const monthPick = document.getElementById('monthPick');
-
-    let activeScope = 'month';
 
     function formatPoints(value){
       const num = Number(value);
@@ -158,32 +145,16 @@
       return num.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
     }
 
-    function setActive(scope){
-      seg.querySelectorAll('button').forEach(btn=>{
-        const on = btn.dataset.scope===scope;
-        btn.classList.toggle('active', on);
-        btn.setAttribute('aria-selected', String(on));
-      });
-    }
-
     function labelFor(meta){
       if(!meta) return '';
-      if(meta.scope==='month') return `เดือน: ${meta.ym}`;
-      return 'รวมทั้งหมด';
+      return `เดือน: ${meta.ym || monthPick.value || ''}`;
     }
 
-    function toggleFilters(scope){
-      monthWrap.style.display = scope==='month' ? 'inline-flex' : 'none';
-    }
-
-    async function load(scope){
-      activeScope = scope;
-      setActive(scope);
-      toggleFilters(scope);
+    async function loadMonth(){
       tbody.innerHTML='';
       periodEl.textContent = '';
-      const params = new URLSearchParams({ scope, limit: 0 });
-      if(scope==='month' && monthPick.value) params.set('ym', monthPick.value);
+      const params = new URLSearchParams({ limit: 0 });
+      if(monthPick.value) params.set('ym', monthPick.value);
       const res = await fetch(`/top10?${params.toString()}`, { cache: 'no-store' });
       const payload = await res.json();
       const rows = payload.data || [];
@@ -208,26 +179,21 @@
       });
     }
 
-    seg.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button[data-scope]');
-      if(!btn) return;
-      load(btn.dataset.scope);
-    });
-
     async function initFilters(){
       try {
         const mRes = await fetch('/months', { cache: 'no-store' });
         const m = await mRes.json();
         if(m?.current){ monthPick.value = m.current; } else { monthPick.valueAsDate = new Date(); }
       } catch {}
+      monthWrap.style.display = 'inline-flex';
     }
 
-    monthPick.addEventListener('change', ()=> load('month'));
+    monthPick.addEventListener('change', loadMonth);
 
     (async () => {
       await initFilters();
-      load('month');
-      setInterval(()=> load(activeScope), 15000);
+      loadMonth();
+      setInterval(loadMonth, 15000);
     })();
   </script>
 </body>
