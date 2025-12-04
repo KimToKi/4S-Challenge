@@ -555,16 +555,6 @@ async function getTop10(mk, limit = 10) {
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
-async function getTop10All(limit = 10) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('user_id, display_name, points, timestamp');
-  if (error) throw new Error(error.message || 'Failed to fetch all events');
-  return rankAndLimit(aggregateEventsByUser(data), limit)
-    .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
-}
-
 async function getMonthRanking(mk) {
   await dbReady;
   const { data, error } = await supabase
@@ -1592,17 +1582,11 @@ async function handleImageEvent(evt) {
 async function top10Handler(req, res) {
   try {
     res.set('Cache-Control', 'no-store');
-    const scope = (req.query?.scope || '').toLowerCase();
     const ym = (req.query?.ym || '').toLowerCase();
     const full = (req.query?.full ?? '').toString().toLowerCase();
     const limitRaw = req.query?.limit ?? null;
     const unlimited = full === '1' || full === 'true' || limitRaw === '0' || limitRaw === 'all';
     const limit = unlimited ? 0 : Number(limitRaw || 10);
-    if (scope === 'all' || ym === 'all') {
-      const data = await getTop10All(Number.isFinite(limit) ? limit : 10);
-      res.json({ meta: { scope: 'all' }, data });
-      return;
-    }
     const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
     const data = await getTop10(targetMonth, Number.isFinite(limit) ? limit : 10);
     res.json({ meta: { scope: 'month', ym: targetMonth }, data });
