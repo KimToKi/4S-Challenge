@@ -1306,7 +1306,28 @@ async function handleEvent(evt) {
     return;
   }
 
-  if (cmd === '/pack3' || cmd === '/old_member' || cmd === '/sop' || cmd === '/meet') {
+  if (cmd === '/meet') {
+    const pts = (await loadRulePoints(cmd)) ?? 1;
+    const baseMsg = pickMsg('meet', { displayName, pts: `+${formatPoints(pts)}` });
+    await insertEvent({
+      user_id: userId,
+      display_name: displayName,
+      command: cmd,
+      detail: detail || null,
+      points: pts,
+      month_key: mk
+    });
+    const total = await sumUserMonth(userId, mk);
+    const knowledgeLine = '📚 ความรู้จากการประชุมช่วยต่อยอดการเติบโตของคุณได้เสมอ สู้ๆ!';
+    const message = composeInspireText(
+      `${baseMsg}\n${knowledgeLine}\n💎 คะแนนล่าสุด: ${formatPoints(total)} คะแนน`,
+      displayName
+    );
+    await reply(evt.replyToken, message);
+    return;
+  }
+
+  if (cmd === '/pack3' || cmd === '/old_member' || cmd === '/sop') {
     const pts = (await loadRulePoints(cmd)) ?? (cmd === '/pack3' ? 4 : cmd === '/sop' ? 2 : 1);
     const key = cmd.slice(1);
     const msg = pickMsg(key, { displayName, pts: `+${formatPoints(pts)}` });
