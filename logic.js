@@ -600,19 +600,22 @@ function buildRankChangeNotice(rankingAfter, userId, displayName, addedPoints) {
 
   const lines = [];
   const fromText = beforeRank ? `อันดับ ${beforeRank}` : 'นอกตาราง';
-  lines.push(`📈 อันดับของ ${displayName || 'คุณ'} ขยับจาก ${fromText} มาเป็นอันดับ ${afterRank} (+${formatPoints(addedPoints)} คะแนน)`);
+  lines.push('📈 อันดับขยับ!');
+  lines.push(`• จาก ${fromText} ➜ อันดับ ${afterRank} (+${formatPoints(addedPoints)} คะแนน)`);
 
   const above = rankingAfter[selfIdx - 1];
   const below = rankingAfter[selfIdx + 1];
   const neighborLines = [];
   if (above) {
-    neighborLines.push(`อันดับข้างบน: ${above.rank}. ${above.display_name || above.user_id} — ${formatPoints(above.points)} คะแนน`);
+    neighborLines.push(`⬆️ ${above.rank}. ${normalizeName(above.display_name || above.user_id)} — ${formatPoints(above.points)} คะแนน`);
   }
   if (below) {
-    neighborLines.push(`อันดับข้างล่าง: ${below.rank}. ${below.display_name || below.user_id} — ${formatPoints(below.points)} คะแนน`);
+    neighborLines.push(`⬇️ ${below.rank}. ${normalizeName(below.display_name || below.user_id)} — ${formatPoints(below.points)} คะแนน`);
   }
   if (neighborLines.length) {
-    lines.push(neighborLines.join('\n'));
+    lines.push('');
+    lines.push('คู่แข่งใกล้เคียง:');
+    lines.push(...neighborLines);
   }
 
   return lines.join('\n');
