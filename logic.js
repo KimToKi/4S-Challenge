@@ -910,6 +910,11 @@ const messagePools = {
     'โปรดนัดเคสและส่งรูปหลักฐานตามหลัง /schedule ในแชทนี้นะ',
     'พิมพ์ /schedule แล้วอย่าลืมส่งภาพยืนยันตารางเคสต่อเลยน้า'
   ],
+  meet: [
+    'ขอบคุณที่สรุปประเด็นจากการประชุม แชร์ต่อยอดได้ดีมาก\n+{pts} คะแนน',
+    'อัปเดตสิ่งที่ได้จากการประชุมให้ทีมแล้ว ขอบคุณมาก\n+{pts} คะแนน',
+    'ทีมได้รับข้อมูลจากการประชุมครบถ้วน เยี่ยมมาก\n+{pts} คะแนน'
+  ],
   pack3: [
     'จัด 3 Pack เรียบร้อย\n+{pts} คะแนน',
     'DL ฟังลิงค์จบ 3Packแล้ว ติดตามได้ดีมากครับ\n+{pts} คะแนน',
@@ -1167,6 +1172,7 @@ async function handleEvent(evt) {
       '/schedule (ส่งรูปตาม)',
       '/old_member',
       '/sop',
+      '/meet',
       '/connection+N',
       '/use_product <รายงาน> (ส่งรูปตาม)',
       '/plan_update',
@@ -1300,7 +1306,7 @@ async function handleEvent(evt) {
     return;
   }
 
-  if (cmd === '/pack3' || cmd === '/old_member' || cmd === '/sop') {
+  if (cmd === '/pack3' || cmd === '/old_member' || cmd === '/sop' || cmd === '/meet') {
     const pts = (await loadRulePoints(cmd)) ?? (cmd === '/pack3' ? 4 : cmd === '/sop' ? 2 : 1);
     const key = cmd.slice(1);
     const msg = pickMsg(key, { displayName, pts: `+${formatPoints(pts)}` });

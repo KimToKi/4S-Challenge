@@ -133,6 +133,7 @@ async function seedScoreRules() {
     { command: '/pack3', subtype: '', points: 4 },
     { command: '/old_member', subtype: '', points: 1 },
     { command: '/sop', subtype: '', points: 2 },
+    { command: '/meet', subtype: '', points: 1 },
     { command: '/plan_update', subtype: 'success', points: 1 },
     { command: '/plan_update', subtype: 'fail', points: 0 },
     { command: '/use_product', subtype: '', points: 0.1 },
