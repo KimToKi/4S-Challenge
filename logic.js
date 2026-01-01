@@ -190,6 +190,17 @@ function monthKey(date = new Date()) {
   return `${parts.year}-${parts.month}`;
 }
 
+function decemberMonthKey(year = null) {
+  const numericYear = Number(year);
+  if (Number.isFinite(numericYear) && numericYear > 0) {
+    return `${String(Math.floor(numericYear)).padStart(4, '0')}-12`;
+  }
+  const parts = getZonedDateParts();
+  const currentYear = Number(parts.year) || new Date().getFullYear();
+  const currentMonth = Number(parts.month) || (new Date().getMonth() + 1);
+  const targetYear = currentMonth === 12 ? currentYear : currentYear - 1;
+  return `${String(targetYear).padStart(4, '0')}-12`;
+}
 function isoWeekKey(date = new Date()) {
   const parts = getZonedDateParts(date);
   const y = Number(parts.year);
@@ -1207,6 +1218,7 @@ async function handleEvent(evt) {
       '/new_follow_up',
       '/score',
       '/rank',
+      '/settle_dec <secret>',
       '/rules',
       '',
       `อ่านกติกาเต็ม: ${base}/rules`
@@ -1244,6 +1256,55 @@ async function handleEvent(evt) {
     let targetMonth = monthKey();
     if (/^\d{4}-\d{2}$/.test(args[0])) {
       targetMonth = args.shift();
+    }
+    const secret = args.join(' ').trim();
+    if (!secret) {
+      await reply(evt.replyToken, pickMsg('settle_need_secret'));
+      return;
+    }
+    if (secret !== manualSettleSecret) {
+      await reply(evt.replyToken, pickMsg('settle_wrong_secret'));
+      return;
+    }
+    try {
+      const linkResult = await finalizeLink30dMonth(targetMonth);
+      const planResult = await finalizePlanUpdateMonth(targetMonth);
+      const bookResult = await finalizeBookMonth(targetMonth);
+      const summary = buildManualSettlementMessage(targetMonth, linkResult, planResult, bookResult);
+      await push(summary);
+      await reply(evt.replyToken, pickMsg('settle_success', { month: targetMonth }));
+    } catch (err) {
+      await reply(evt.replyToken, `เกิดข้อผิดพลาด: ${err?.message || err}`);
+    }
+    return;
+  }
+
+  if (cmd === '/settle_dec' || cmd.startsWith('/settle_dec+')) {
+    if (sourceType !== 'user') {
+      await reply(evt.replyToken, pickMsg('settle_dm_only'));
+      return;
+    }
+    const args = [];
+    if (cmd.startsWith('/settle_dec+')) {
+      const inline = parts[0].slice('/settle_dec+'.length).trim();
+      if (inline) {
+        inline.split('+').forEach((token) => {
+          const value = token.trim();
+          if (value) args.push(value);
+        });
+      }
+    }
+    args.push(...parts.slice(1));
+    if (!args.length) {
+      await reply(evt.replyToken, pickMsg('settle_need_secret'));
+      return;
+    }
+    let targetMonth = decemberMonthKey();
+    if (/^\d{4}-\d{2}$/.test(args[0])) {
+      targetMonth = args.shift();
+    } else if (/^\d{4}$/.test(args[0])) {
+      const targetYear = args.shift();
+      targetMonth = decemberMonthKey(targetYear);
     }
     const secret = args.join(' ').trim();
     if (!secret) {
