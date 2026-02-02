@@ -1218,7 +1218,7 @@ async function handleEvent(evt) {
       '/new_follow_up',
       '/score',
       '/rank',
-      '/settle_dec <secret>',
+      '/settle_jan <secret>',
       '/rules',
       '',
       `อ่านกติกาเต็ม: ${base}/rules`
@@ -1279,14 +1279,14 @@ async function handleEvent(evt) {
     return;
   }
 
-  if (cmd === '/settle_dec' || cmd.startsWith('/settle_dec+')) {
+  if (cmd === '/settle_jan' || cmd.startsWith('/settle_jan+')) {
     if (sourceType !== 'user') {
       await reply(evt.replyToken, pickMsg('settle_dm_only'));
       return;
     }
     const args = [];
-    if (cmd.startsWith('/settle_dec+')) {
-      const inline = parts[0].slice('/settle_dec+'.length).trim();
+    if (cmd.startsWith('/settle_jan+')) {
+      const inline = parts[0].slice('/settle_jan+'.length).trim();
       if (inline) {
         inline.split('+').forEach((token) => {
           const value = token.trim();
