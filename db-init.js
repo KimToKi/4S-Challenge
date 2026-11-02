@@ -127,28 +127,9 @@ async function ensureEventsPointsNumeric() {
   }
 }
 
-async function seedScoreRules() {
-  const rows = [
-    { command: '/bm_product', subtype: '', points: 1 },
-    { command: '/pack3', subtype: '', points: 4 },
-    { command: '/old_member', subtype: '', points: 1 },
-    { command: '/sop', subtype: '', points: 2 },
-    { command: '/meet', subtype: '', points: 1 },
-    { command: '/plan_update', subtype: 'success', points: 1 },
-    { command: '/plan_update', subtype: 'fail', points: 0 },
-    { command: '/use_product', subtype: '', points: 0.1 },
-    { command: '/link_30d', subtype: 'success', points: 0.1 },
-    { command: '/link_30d', subtype: 'fail', points: 0 },
-    { command: '/link_30d', subtype: 'none', points: 0 }
-  ];
-  const { error } = await supabase.from('score_rules').upsert(rows, { onConflict: 'command,subtype' });
-  if (error) throw error;
-}
-
 (async () => {
   try {
     await ensureTable('events');
-    await ensureTable('score_rules');
     await ensureTable('pending', `
       CREATE TABLE IF NOT EXISTS public.pending (
         user_id TEXT NOT NULL,
@@ -168,11 +149,5 @@ async function seedScoreRules() {
     process.exit(1);
   }
 
-  try {
-    await seedScoreRules();
-    console.log('✅ Supabase tables verified and score rules seeded.');
-  } catch (err) {
-    console.error('Failed to seed score rules:', err?.message || err);
-    process.exit(1);
-  }
+  console.log('✅ Supabase tables verified.');
 })();

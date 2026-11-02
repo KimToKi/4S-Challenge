@@ -2,8 +2,6 @@ const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 require('dotenv').config();
 
-const manualSettleSecret = process.env.MANUAL_SETTLE_SECRET || 'NewSilver21%';
-
 const supabaseUrl = process.env.SUPABASE_URL
   || process.env.SUPABASE_REST_URL
   || process.env.SUPABASE_PROJECT_URL;
@@ -190,50 +188,6 @@ function monthKey(date = new Date()) {
   return `${parts.year}-${parts.month}`;
 }
 
-function decemberMonthKey(year = null) {
-  const numericYear = Number(year);
-  if (Number.isFinite(numericYear) && numericYear > 0) {
-    return `${String(Math.floor(numericYear)).padStart(4, '0')}-12`;
-  }
-  const parts = getZonedDateParts();
-  const currentYear = Number(parts.year) || new Date().getFullYear();
-  const currentMonth = Number(parts.month) || (new Date().getMonth() + 1);
-  const targetYear = currentMonth === 12 ? currentYear : currentYear - 1;
-  return `${String(targetYear).padStart(4, '0')}-12`;
-}
-function isoWeekKey(date = new Date()) {
-  const parts = getZonedDateParts(date);
-  const y = Number(parts.year);
-  const m = Number(parts.month) - 1;
-  const d = Number(parts.day);
-  const local = new Date(Date.UTC(y, m, d));
-  const weekday = (local.getUTCDay() + 6) % 7; // Monday=0
-  local.setUTCDate(local.getUTCDate() - weekday + 3); // move to Thursday
-  const weekYear = local.getUTCFullYear();
-  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
-  const jan4Weekday = (jan4.getUTCDay() + 6) % 7;
-  const week1Monday = new Date(Date.UTC(weekYear, 0, 4 - jan4Weekday));
-  const weekNumber = 1 + Math.floor((local - week1Monday) / 604800000);
-  return `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
-}
-
-function getZonedWeekdayIndex(date = new Date()) {
-  if (!cachedWeekdayFormatter) {
-    cachedWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: activeTimeZone,
-      weekday: 'short'
-    });
-  }
-  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-  const value = cachedWeekdayFormatter.format(date);
-  return map[value] ?? 0;
-}
-
-function isWeekend(date = new Date()) {
-  const idx = getZonedWeekdayIndex(date);
-  return idx === 0 || idx === 6;
-}
-
 function roundTo(value, precision = 2) {
   const factor = Math.pow(10, precision);
   return Math.round(Number(value || 0) * factor) / factor;
@@ -277,15 +231,6 @@ async function replyMessages(replyToken, messages) {
 async function reply(replyToken, text) {
   if (!text) return;
   await replyMessages(replyToken, [{ type: 'text', text }]);
-}
-
-async function replyImage(replyToken, url) {
-  if (!url) return;
-  await replyMessages(replyToken, [{
-    type: 'image',
-    originalContentUrl: url,
-    previewImageUrl: url
-  }]);
 }
 
 function composeInspireText(text, displayName) {
@@ -430,6 +375,31 @@ async function insertEvent(event) {
   }
 }
 
+async function insertEvents(events) {
+  await dbReady;
+  const payloads = events.map((event) => ({
+    user_id: event.user_id,
+    display_name: event.display_name,
+    command: event.command,
+    detail: event.detail ?? null,
+    points: roundTo(event.points, 2),
+    month_key: event.month_key ?? monthKey()
+  }));
+  const attempt = async () => {
+    const { error } = await supabase.from('events').insert(payloads);
+    if (error) throw error;
+  };
+  try {
+    await attempt();
+  } catch (err) {
+    const msg = `${err?.message || err?.error_description || err?.details || ''}`.toLowerCase();
+    const looksNumeric = msg.includes('integer') || msg.includes('numeric');
+    if (!looksNumeric) throw err;
+    await ensureEventsPointsNumericType();
+    await attempt();
+  }
+}
+
 async function sumUserMonth(userId, mk) {
   await dbReady;
   const { data, error } = await supabase
@@ -442,117 +412,116 @@ async function sumUserMonth(userId, mk) {
   return roundTo(total, 2);
 }
 
-async function loadRulePoints(command, subtype = '') {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('score_rules')
-    .select('points')
-    .ilike('command', command)
-    .ilike('subtype', subtype || '')
-    .limit(1)
-    .maybeSingle();
-  if (error && error.code !== 'PGRST116') {
-    throw new Error(error.message || 'Failed to load score rule');
-  }
-  return data ? Number(data.points) : null;
-}
+const FOUR_S_PHOTO_COMMANDS = new Set([
+  '/ppv',
+  '/s1',
+  '/for',
+  '/opp',
+  '/abo',
+  '/m',
+  '/s2',
+  '/s4'
+]);
 
-async function countUserCommandThisMonth(userId, command, mk) {
+async function queueFourSPhoto(userId, command, evt, metadata = {}) {
   await dbReady;
-  const query = supabase
-    .from('events')
-    .select('id', { head: true, count: 'exact' })
-    .eq('user_id', userId)
-    .eq('month_key', mk)
-    .ilike('command', command);
-  const { count, error } = await query;
-  if (error) throw new Error(error.message || 'Failed to count events');
-  return count || 0;
-}
-
-async function hasLink30dToday(userId) {
-  await dbReady;
-  const mk = monthKey();
-  const today = localDateKey();
-  const { data, error } = await supabase
-    .from('events')
-    .select('timestamp')
-    .eq('user_id', userId)
-    .eq('month_key', mk)
-    .ilike('command', '/link_30d')
-    .order('timestamp', { ascending: false })
-    .limit(30);
-  if (error) throw new Error(error.message || 'Failed to check /link_30d');
-  return (data || []).some((row) => localDateKey(new Date(row.timestamp)) === today);
-}
-
-async function hasUseProductToday(userId) {
-  await dbReady;
-  const mk = monthKey();
-  const today = localDateKey();
-  const { data, error } = await supabase
-    .from('events')
-    .select('timestamp')
-    .eq('user_id', userId)
-    .eq('month_key', mk)
-    .ilike('command', '/use_product')
-    .order('timestamp', { ascending: false })
-    .limit(30);
-  if (error) throw new Error(error.message || 'Failed to check /use_product');
-  return (data || []).some((row) => localDateKey(new Date(row.timestamp)) === today);
-}
-
-async function listPlanUpdateEvents(userId, mk) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('id, timestamp, points, detail')
-    .eq('user_id', userId)
-    .eq('month_key', mk)
-    .ilike('command', '/plan_update')
-    .order('timestamp', { ascending: true });
-  if (error) throw new Error(error.message || 'Failed to load /plan_update events');
-  return data || [];
-}
-
-async function upsertPending(userId, command, metadata = null) {
-  await dbReady;
+  const messageId = evt?.message?.id || `${Date.now()}-${Math.random()}`;
   const entry = {
     user_id: userId,
-    command,
+    command: `${command}:${messageId}`,
     date_key: localDateKey(),
     month_key: monthKey(),
-    metadata: metadata ? JSON.stringify(metadata) : null,
+    metadata: JSON.stringify({ ...metadata, command }),
     created_at: new Date().toISOString()
   };
-  const { error } = await supabase
-    .from('pending')
-    .upsert(entry, { onConflict: 'user_id,command,date_key' });
-  if (error) throw new Error(error.message || 'Failed to upsert pending');
-  return entry;
+  const { error } = await supabase.from('pending').insert(entry);
+  if (error) throw new Error(error.message || `Failed to queue ${command} photo`);
 }
 
-async function consumePending(userId, command) {
+async function consumeNextFourSPhoto(userId) {
   await dbReady;
   const { data, error } = await supabase
     .from('pending')
-    .delete()
+    .select('user_id, command, date_key, month_key, metadata, created_at')
     .eq('user_id', userId)
-    .eq('command', command)
     .eq('date_key', localDateKey())
-    .select()
-    .limit(1);
-  if (error) throw new Error(error.message || 'Failed to consume pending');
-  if (!data || data.length === 0) {
-    return null;
-  }
-  const entry = data[0];
-  if (typeof entry.metadata === 'string') {
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message || 'Failed to load pending 4S photos');
+
+  for (const entry of data || []) {
+    let metadata = {};
     try {
-      entry.metadata = JSON.parse(entry.metadata);
-    } catch (_) {}
+      metadata = typeof entry.metadata === 'string'
+        ? JSON.parse(entry.metadata)
+        : (entry.metadata || {});
+    } catch (err) {
+      console.warn('Invalid pending 4S metadata:', err?.message || err);
+      continue;
+    }
+    if (!FOUR_S_PHOTO_COMMANDS.has(metadata.command)) continue;
+
+    const { data: removed, error: removeError } = await supabase
+      .from('pending')
+      .delete()
+      .eq('user_id', entry.user_id)
+      .eq('command', entry.command)
+      .eq('date_key', entry.date_key)
+      .select('command');
+    if (removeError) throw new Error(removeError.message || 'Failed to consume pending 4S photo');
+    if (!removed?.length) continue;
+    return { ...entry, metadata };
   }
-  return entry;
+  return null;
+}
+
+async function hasCommandToday(userId, command) {
+  await dbReady;
+  const today = localDateKey();
+  const mk = monthKey();
+  const { data, error } = await supabase
+    .from('events')
+    .select('timestamp')
+    .eq('user_id', userId)
+    .eq('month_key', mk)
+    .eq('command', command)
+    .order('timestamp', { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message || `Failed to check ${command}`);
+  return (data || []).some((row) => localDateKey(new Date(row.timestamp)) === today);
+}
+
+async function sumUserMonthPpv(userId, mk) {
+  await dbReady;
+  const { data, error } = await supabase
+    .from('events')
+    .select('detail')
+    .eq('user_id', userId)
+    .eq('month_key', mk)
+    .eq('command', '/ppv');
+  if (error) throw new Error(error.message || 'Failed to sum monthly PV');
+  const total = (data || []).reduce((sum, row) => {
+    const match = String(row.detail || '').match(/^pv:(\d+(?:\.\d+)?)(?:\||$)/);
+    return match ? sum + Number(match[1]) : sum;
+  }, 0);
+  return roundTo(total, 2);
+}
+
+function ppvMilestonesCrossed(previousPpv, currentPpv) {
+  const milestones = [
+    { ppv: 600, points: 1 },
+    { ppv: 3000, points: 4 },
+    { ppv: 6000, points: 5 },
+    { ppv: 9000, points: 5 },
+    { ppv: 12000, points: 5 },
+    { ppv: 15000, points: 5 }
+  ];
+  return milestones.filter((milestone) => previousPpv < milestone.ppv && currentPpv >= milestone.ppv);
+}
+
+function isLastDayOfMonth(date = new Date()) {
+  const parts = getZonedDateParts(date);
+  const lastDay = new Date(Date.UTC(Number(parts.year), Number(parts.month), 0)).getUTCDate();
+  return Number(parts.day) === lastDay;
 }
 
 async function getTop10(mk, limit = 10) {
@@ -575,6 +544,10 @@ async function getMonthRanking(mk) {
   if (error) throw new Error(error.message || 'Failed to load month ranking');
   return rankAndLimit(aggregateEventsByUser(data))
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
+}
+
+function normalizeName(name) {
+  return String(name || '').replace(/\s+/g, ' ').trim() || 'สมาชิก';
 }
 
 function buildRankChangeNotice(rankingAfter, userId, displayName, addedPoints) {
@@ -622,6 +595,12 @@ function buildRankChangeNotice(rankingAfter, userId, displayName, addedPoints) {
   return lines.join('\n');
 }
 
+function deriveMonthKey(row) {
+  if (/^\d{4}-\d{2}$/.test(String(row.month_key || ''))) return row.month_key;
+  const timestamp = new Date(row.timestamp);
+  return Number.isNaN(timestamp.getTime()) ? null : monthKey(timestamp);
+}
+
 async function getDistinctMonths() {
   await dbReady;
   const { data, error } = await supabase
@@ -647,29 +626,6 @@ async function monthsHandler(req, res) {
   }
 }
 
-async function listScoreRules() {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('score_rules')
-    .select('command, subtype, points');
-  if (error) throw new Error(error.message || 'Failed to load score rules');
-  return (data || []).map((row) => ({
-    command: row.command,
-    subtype: row.subtype || '',
-    points: Number(row.points)
-  }));
-}
-
-async function scoreRulesHandler(req, res) {
-  try {
-    res.set('Cache-Control', 'no-store');
-    const rules = await listScoreRules();
-    res.json({ rules });
-  } catch (err) {
-    res.status(500).json({ error: err?.message || 'Failed to load score rules' });
-  }
-}
-
 async function buildWeeklySummaryText() {
   const mk = monthKey();
   const top = await getTop10(mk);
@@ -687,224 +643,6 @@ async function buildWeeklySummaryText() {
   return lines.join('\n');
 }
 
-async function distinctUsersWithLink30d(mk) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('user_id, display_name, timestamp')
-    .eq('month_key', mk)
-    .ilike('command', '/link_30d');
-  if (error) throw new Error(error.message || 'Failed to load /link_30d records');
-  const map = new Map();
-  for (const row of data || []) {
-    if (!row.user_id) continue;
-    const existing = map.get(row.user_id) || { user_id: row.user_id, display_name: row.display_name || '', timestamps: [] };
-    if (row.timestamp) existing.timestamps.push(row.timestamp);
-    if (row.display_name && row.display_name > existing.display_name) {
-      existing.display_name = row.display_name;
-    }
-    map.set(row.user_id, existing);
-  }
-  return Array.from(map.values());
-}
-
-async function getSettlementEvent(command, userId, mk) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('id, points, detail')
-    .eq('user_id', userId)
-    .eq('month_key', mk)
-    .ilike('command', command)
-    .order('timestamp', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error && error.code !== 'PGRST116') {
-    throw new Error(error.message || 'Failed to load settlement event');
-  }
-  return data ? { ...data, points: Number(data.points || 0) } : null;
-}
-
-function daysInMonthKey(mk) {
-  const [y, m] = mk.split('-').map(Number);
-  if (!y || !m) return 30;
-  return new Date(y, m, 0).getDate();
-}
-
-async function finalizeLink30dMonth(mk) {
-  const users = await distinctUsersWithLink30d(mk);
-  const dim = daysInMonthKey(mk);
-  const results = [];
-  for (const entry of users) {
-    const set = new Set();
-    for (const ts of entry.timestamps || []) {
-      const dt = ts ? new Date(ts) : null;
-      if (dt && !Number.isNaN(dt.getTime())) {
-        set.add(localDateKey(dt));
-      }
-    }
-    const days = set.size;
-    const missing = Math.max(0, dim - days);
-    const full = days > 0 && missing === 0;
-    const existing = await getSettlementEvent('/link_30d_settle', entry.user_id, mk);
-    const detail = `settlement ${mk}: ${days}/${dim} days${full ? ', full attendance bonus' : missing ? `, missing ${missing}` : ''}`;
-    if (existing) {
-      if (existing.points !== (full ? 1 : 0) || existing.detail !== detail) {
-        await supabase
-          .from('events')
-          .update({ points: full ? 1 : 0, detail })
-          .eq('id', existing.id);
-      }
-    } else if (full) {
-      await insertEvent({
-        user_id: entry.user_id,
-        display_name: entry.display_name,
-        command: '/link_30d_settle',
-        detail,
-        points: 1,
-        month_key: mk
-      });
-    }
-    results.push({
-      user_id: entry.user_id,
-      display_name: entry.display_name,
-      days,
-      missing,
-      total_days: dim,
-      points: full ? 1 : 0
-    });
-  }
-  return { month: mk, settled: results };
-}
-
-function parseBookPages(detail, points) {
-  if (!detail && Number.isFinite(points)) {
-    const guess = roundTo(Number(points) / 0.01, 2);
-    return Number.isFinite(guess) ? guess : 0;
-  }
-  if (typeof detail === 'string') {
-    try {
-      const json = JSON.parse(detail);
-      if (json && Number.isFinite(json.pages)) return Number(json.pages);
-    } catch (_) {
-      const match = detail.match(/(-?\d+(?:\.\d+)?)/);
-      if (match) {
-        const parsed = Number(match[1]);
-        if (Number.isFinite(parsed)) return parsed;
-      }
-    }
-  } else if (detail && typeof detail === 'object' && Number.isFinite(detail.pages)) {
-    return Number(detail.pages);
-  }
-  return 0;
-}
-
-async function distinctUsersInMonth(mk) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('user_id, display_name')
-    .eq('month_key', mk);
-  if (error) throw new Error(error.message || 'Failed to load users');
-  const map = new Map();
-  for (const row of data || []) {
-    if (!row.user_id) continue;
-    const existing = map.get(row.user_id) || { user_id: row.user_id, display_name: row.display_name || '' };
-    if (row.display_name && row.display_name > existing.display_name) {
-      existing.display_name = row.display_name;
-    }
-    map.set(row.user_id, existing);
-  }
-  return Array.from(map.values());
-}
-
-async function sumBookPagesInMonth(userId, mk) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('detail, points')
-    .eq('user_id', userId)
-    .eq('month_key', mk)
-    .ilike('command', '/book');
-  if (error) throw new Error(error.message || 'Failed to load /book events');
-  let pages = 0;
-  for (const row of data || []) {
-    const value = parseBookPages(row.detail, row.points);
-    if (Number.isFinite(value) && value > 0) {
-      pages += value;
-    }
-  }
-  return roundTo(pages, 2);
-}
-
-async function finalizeBookMonth(mk) {
-  const users = await distinctUsersInMonth(mk);
-  const settled = [];
-  for (const user of users) {
-    const pages = await sumBookPagesInMonth(user.user_id, mk);
-    if (pages <= 300) continue;
-    const existing = await getSettlementEvent('/book_bonus', user.user_id, mk);
-    const detail = JSON.stringify({ pages });
-    if (existing) {
-      if (existing.points !== 1 || existing.detail !== detail) {
-        await supabase
-          .from('events')
-          .update({ points: 1, detail })
-          .eq('id', existing.id);
-      }
-    } else {
-      await insertEvent({
-        user_id: user.user_id,
-        display_name: user.display_name,
-        command: '/book_bonus',
-        detail,
-        points: 1,
-        month_key: mk
-      });
-    }
-    settled.push({ user_id: user.user_id, display_name: user.display_name, pages, points: 1 });
-  }
-  return { month: mk, settled };
-}
-
-async function finalizePlanUpdateMonth(mk) {
-  return { month: mk, settled: [] };
-}
-
-function normalizeName(name) {
-  return (typeof name === 'string' && name.trim()) ? name.trim() : 'สมาชิกไม่ระบุชื่อ';
-}
-
-function buildManualSettlementMessage(mk, linkResult, planResult, bookResult) {
-  const lines = [`📊 สรุปคะแนนปลายเดือน ${mk}`];
-  const linkBonuses = (linkResult?.settled || []).filter((r) => Number(r.points) > 0);
-  const bookBonuses = (bookResult?.settled || []).filter((r) => Number(r.points) > 0);
-
-  if (linkBonuses.length) {
-    lines.push('🔗 โบนัส /link_30d ครบทุกวัน');
-    linkBonuses.forEach((row) => {
-      lines.push(`• ${normalizeName(row.display_name)} +${row.points}`);
-    });
-    lines.push('');
-  }
-
-  if (bookBonuses.length) {
-    lines.push('📚 โบนัสอ่านหนังสือ (เกิน 300 หน้า)');
-    bookBonuses.forEach((row) => {
-      lines.push(`• ${normalizeName(row.display_name)} +${row.points} (อ่าน ${formatNumber(row.pages, 1)} หน้า)`);
-    });
-    lines.push('');
-  }
-
-  if (lines[lines.length - 1] === '') lines.pop();
-  if (lines.length === 1) {
-    lines.push('เดือนนี้ยังไม่มีโบนัสปลายเดือนเพิ่มเติม 😊');
-  }
-  return lines.join('\n');
-}
-
-const PLAN_UPDATE_MONTHLY_CAP = 4;
-
 const messagePools = {
   inspire: [
     'วันนี้ทำได้ดีมากเลยนะ',
@@ -914,189 +652,9 @@ const messagePools = {
     'อัพไลน์เชื่อในตัวคุณนะ ✨',
     'พักหายใจนิดนึง แล้วลุยต่อ'
   ],
-  multiplier: [
-    '{displayName} เก็บ {label} ครบครั้งที่ {count}!\n+{pts} คะแนน',
-    'ความสม่ำเสมอมาส่งข่าว {label} #{count}\n+{pts} คะแนน',
-    'ต่อเนื่องมากๆ {label} #{count}\n+{pts} คะแนน'
-  ],
-  connection: [
-    'ยอดเยี่ยม! เพิ่มคอนเนคชั่น {n} คน\n+{pts} คะแนน',
-    '{displayName} รู้จักคนเพิ่ม {n} รายชื่อ\n+{pts} คะแนน',
-    'คอนเนคชั่นใหม่ {n} คน เก็บต่อเนื่องเลย\n+{pts} คะแนน'
-  ],
-  bm_product: [
-    'รับรูปเคสแล้ว ขอบคุณมาก!\n+{pts} คะแนน',
-    'มีเคสมาแบบนี้ เข้าใกล้เป้าหมายมากขึ้นแล้วนะ!\n+{pts} คะแนน',
-    'ลุยต่อเลย คุณทำได้!\n+{pts} คะแนน',
-    'เล่าเคสวันนี้สุดปัง ✨\n+{pts} คะแนน'
-  ],
-  bm_product_prompt: [
-    'โปรดถ่ายรูปรายงานสำหรับ /bm_product แล้วส่งในแชทนี้นะ',
-    'พิมพ์ /bm_product แล้วอย่าลืมส่งรูปตามในห้องนี้ด้วยนะ',
-    'ส่งรูปรายงาน BM ในแชทนี้ได้เลย เพื่อบันทึก /bm_product ให้ครบ'
-  ],
-  schedule: [
-    'ล็อกตารางเคสไว้แล้ว สุดยอดมาก!\n+{pts} คะแนน',
-    'ลงตารางแบบนี้ FCAแน่นอน!\n+{pts} คะแนน',
-    'ลงตารางให้เต็มทั้งสัปดาห์ไปเลย\n+{pts} คะแนน',
-    'หลังเคสนี้เจอเพชรแน่นอน \n+{pts} คะแนน',
-    'จองคิวเคสล่วงหน้าพร้อมหลักฐานครบ\n+{pts} คะแนน'
-  ],
-  schedule_prompt: [
-    'โปรดนัดเคสและส่งรูปหลักฐานตามหลัง /schedule ในแชทนี้นะ',
-    'พิมพ์ /schedule แล้วอย่าลืมส่งภาพยืนยันตารางเคสต่อเลยน้า'
-  ],
-  meet: [
-    'ขอบคุณที่สรุปประเด็นจากการประชุม แชร์ต่อยอดได้ดีมาก\n+{pts} คะแนน',
-    'อัปเดตสิ่งที่ได้จากการประชุมให้ทีมแล้ว ขอบคุณมาก\n+{pts} คะแนน',
-    'ทีมได้รับข้อมูลจากการประชุมครบถ้วน เยี่ยมมาก\n+{pts} คะแนน'
-  ],
-  pack3: [
-    'จัด 3 Pack เรียบร้อย\n+{pts} คะแนน',
-    'DL ฟังลิงค์จบ 3Packแล้ว ติดตามได้ดีมากครับ\n+{pts} คะแนน',
-    'Pack 3 มาแล้ว เดินเครื่องต่อเลย\n+{pts} คะแนน'
-  ],
-  old_member: [
-    'ติดตามลูกค้าเก่าเรียบร้อย\n+{pts} คะแนน',
-    'สะสมฐานลูกค้าเก่า เดือนหน้าเข้าPride ง่ายขึ้นแน่นอน\n+{pts} คะแนน',
-    'ลูกค้าเก่า ปิดสินค้าเพิ่มอีกคนแล้ว เยี่ยมไปเลย\n+{pts} คะแนน',
-    'ดูแลฐานเก่าอย่างดี\n+{pts} คะแนน'
-  ],
-  sop: [
-    'SOP สำเร็จ เยี่ยมมาก\n+{pts} คะแนน',
-    'อย่าลืมแนะนำ GMN ให้ Member ด้วยนะ \n+{pts} คะแนน',
-    'SOP มาอีกชุด ธุรกิจมั่นคงแน่นอน \n+{pts} คะแนน',
-    'จัด SOP ให้ทีมแล้ว\n+{pts} คะแนน'
-  ],
-  use_product: [
-    'บันทึกการใช้สินค้าแล้ว ขอบคุณสำหรับรูป\n+{pts} คะแนน',
-    'สุขภาพที่ดีเริ่มต้นด้วยตัวเรา\n+{pts} คะแนน',
-    'รับรูปแล้ว ขอบคุณครับ\n+{pts} คะแนน',
-    'ใช้สินค้าแบบผู้ประกอบการ\n+{pts} คะแนน',
-    'ส่งรีวิวพร้อมรูปเรียบร้อย\n+{pts} คะแนน'
-  ],
-  follow_old: [
-    'ดูแลDLเก่าเรียบร้อย\n+{pts} คะแนน',
-    'ติดตามความคิดองค์กร ธุรกิจเติบโตแน่นอน\n+{pts} คะแนน',
-    'สายลึกเติบโตได้ด้วยมือคุณ\n+{pts} คะแนน',
-    'ติดตามคนเก่าแล้ว อย่าลืมติดตามคนใหม่ด้วยนะครับ \n+{pts} คะแนน',
-    'เก่าไม่หาย แล้วใหม่มายัง \n+{pts} คะแนน'
-  ],
-  follow_new: [
-    'ติดตามคนใหม่สำเร็จ\n+{pts} คะแนน',
-    'คนใหม่ ความหวังใหม่\n+{pts} คะแนน',
-    'มีคนใหม่เดือนละนิด moveขึ้นทุกเดือน\n+{pts} คะแนน',
-    'ความคิดคนใหม่แน่นขึ้น ธุรกิจโตขึ้นเช่นกัน\n+{pts} คะแนน',
-    'คนใหม่ไม่หลุดมือเลย\n+{pts} คะแนน'
-  ],
-  plan_success: [
-    'อัปเดตแผนสำเร็จ ดีมาก\n+{pts} คะแนน',
-    'ความคืบหน้ามาแล้ว\n+{pts} คะแนน'
-  ],
-  plan_update_completed: [
-    'เดือนนี้เก็บครบ +4 คะแนนจาก /plan_update แล้ว ไว้ลุยต่อเดือนหน้า 🌟',
-    'คะแนน /plan_update เดือนนี้เต็มแล้ว รอเริ่มใหม่เดือนหน้านะ'
-  ],
-  plan_update_weekend_only: [
-    'อัปเดตสัปดาห์ต้องส่งวันเสาร์หรืออาทิตย์นะ ลองกลับมาอีกครั้งช่วงสุดสัปดาห์ 😊',
-    'เก็บ /plan_update ได้เฉพาะเสาร์-อาทิตย์นะคะ กลับมาส่งอีกทีตอน weekend นะ'
-  ],
-  plan_update_already_week: [
-    'สัปดาห์นี้อัปเดตไว้แล้ว ลองเก็บคะแนนสัปดาห์หน้าได้เลย',
-    'อัปเดตสัปดาห์นี้เรียบร้อยแล้ว เจอกันรอบหน้าค่ะ'
-  ],
-  link_need_photo: [
-    'ขอรูปหลักฐานสำหรับ /link_30d วันนี้ด้วยนะ\n• {quote}',
-    'พิมพ์ /link_30d แล้วอย่าลืมส่งรูปต่อเลยน้า\n• {quote}'
-  ],
-  link_received: [
-    'ได้รับรูปแล้ว บันทึก /link_30d สำเร็จ\n• {quote}',
-    'ขอบคุณสำหรับรูปครับ /link_30d สำเร็จ\n• {quote}',
-    'รูปมาครบแล้ว ขอบคุณมาก\n• {quote}'
-  ],
-  link_already: [
-    'วันนี้บันทึก /link_30d ไว้แล้ว ขอบคุณมากนะ ✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว ความคิดแน่นขึ้นทุกวัน ✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว สิ่งที่ฟังวันนี้ไม่สูญเปล่าแน่นอน✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว ไม่มีเพชรคนไหนไม่ฟังลิงค์✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว คนสำเร็จรักการเรียนรู้✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว คุณคือนักเรียนรู้ที่ดีมากครับ✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว ยิ่งฟังลิงค์เยอะยิ่งพลังเยอะ✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว เติมพลังก่อนไปทำเคสเรียบร้อย✨',
-    'วันนี้บันทึก /link_30d ไว้แล้ว รับความคิดคนสำเร็จเรียบร้อย ✨',
-    'วันนี้ส่งเรียบร้อยแล้ว เก็บพลังไว้ลุยต่อพรุ่งนี้นะ ✨'
-  ],
-  link_today_done_with_quote: [
-    'วันนี้บันทึก /link_30d ไว้แล้ว ขอบคุณมากนะ ✨\n— {quote}',
-    'ส่งครบแล้วสำหรับ /link_30d วันนี้\n— {quote}'
-  ],
-  unknown: [
-    'ยังไม่รู้จักคำสั่งนี้ ลองพิมพ์ /help เพื่อดูรายการทั้งหมด',
-    'คำสั่งนี้ยังไม่รองรับ ลอง /help ดูนะ'
-  ],
-  settle_dm_only: [
-    'คำสั่ง /settle ใช้ได้เฉพาะแชทส่วนตัวกับบอทเท่านั้น',
-    'โปรดใช้คำสั่ง /settle ในห้องแชทส่วนตัวกับบอทนะคะ'
-  ],
-  settle_need_secret: [
-    'กรุณาระบุรหัสลับหลังคำสั่ง เช่น /settle รหัสลับ',
-    'อย่าลืมใส่รหัสลับต่อท้ายคำสั่ง /settle ด้วยนะ (ตัวอย่าง: /settle รหัสลับ)'
-  ],
-  settle_wrong_secret: [
-    'รหัสลับไม่ถูกต้อง',
-    'รหัสลับยังไม่ตรง ลองตรวจสอบอีกครั้งนะ'
-  ],
-  settle_success: [
-    'สรุปคะแนนปลายเดือน {month} ถูกส่งเรียบร้อยแล้ว',
-    'ส่งสรุปคะแนนเดือน {month} ให้ทีมเรียบร้อยแล้ว ✨'
-  ],
-  connection_need_number: [
-    'กรุณาระบุจำนวน เช่น /connection+3',
-    'ใส่จำนวนคนเป็นตัวเลขด้วยนะ เช่น /connection+5'
-  ],
-  use_product_need_detail: [
-    'กรุณาพิมพ์รีวิวสั้นๆ ต่อท้ายคำสั่ง เช่น /use_product ใช้สินค้า X แล้วรู้สึกสดชื่น',
-    'อธิบายสั้นๆ ต่อท้าย /use_product ด้วยนะ เช่น /use_product ใช้สินค้าแล้วสดชื่นขึ้น'
-  ],
-  use_product_already: [
-    'วันนี้บันทึก /use_product ไว้แล้ว (จำกัดวันละ 1 ครั้ง)',
-    'วันนี้บันทึกคะแนนไว้แล้ว (จำกัดวันละ 1 ครั้ง)',
-    'วันนี้ส่งรายงานการใช้สินค้าไว้แล้วนะ เจอกันพรุ่งนี้ ✨'
-  ],
-  use_product_wait_photo: [
-    'รับรายงานแล้ว โปรดส่งรูปประกอบ /use_product ภายในวันนี้ (จำกัดวันละ 1 ครั้ง)',
-    'โอเคเลย! ส่งรูปประกอบ /use_product ต่อในวันนี้เพื่อรับคะแนนนะ'
-  ],
-  use_product_already_image: [
-    'วันนี้ส่ง /use_product แล้ว ขอบคุณสำหรับรูป 😊',
-    'ได้รับรูป /use_product วันนี้ไปแล้ว ขอบคุณมากนะ'
-  ],
-  book_need_number: [
-    'กรุณาระบุจำนวนหน้าที่อ่าน เช่น /book 30',
-    'อย่าลืมระบุจำนวนหน้า เช่น /book 25'
-  ],
-  book_invalid_number: [
-    'จำนวนหน้าที่ระบุไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
-    'ตัวเลขจำนวนหน้าไม่ถูกต้อง ลองพิมพ์ใหม่อีกครั้งนะ'
-  ],
-  book_success: [
-    '📚 บันทึกการอ่าน {pages} หน้า ได้ +{points} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1',
-    '📚 อ่านไป {pages} หน้า ได้ +{points} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1',
-    '📚 อ่านหนังสือไป {pages} หน้า ได้ +{points} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1',
-    '📖 วันนี้อ่าน {pages} หน้า รับไปเลย +{points} คะแนน\n🎯 เก็บครบ 300 หน้าในเดือนนี้ลุ้นโบนัสปลายเดือน +1'
-  ],
-  score_summary: [
-    '💎 คะแนนของ {displayName} เดือน {month}\nรวม {total} คะแนน',
-    'สรุปคะแนนเดือน {month} ของ {displayName}: {total} คะแนน 💎'
-  ],
-  rank_no_data: [
-    'ยังไม่มีคะแนนเดือน {month}',
-    'เดือน {month} ยังไม่มีใครเก็บคะแนนเลยนะ'
-  ],
-  rank_header: [
-    '🏆 Top 10 เดือน {month}',
-    '🏅 10 อันดับแรกของเดือน {month}'
-  ]
+  score_summary: ['{displayName} เดือน {month} มีคะแนนสะสม {total} คะแนน'],
+  rank_no_data: ['ยังไม่มีคะแนนสำหรับเดือน {month}'],
+  rank_header: ['🏆 Top 10 เดือน {month}']
 };
 
 function pickMsg(pool, vars = {}) {
@@ -1146,8 +704,7 @@ async function handleEvent(evt) {
 
   const parts = text.split(/\s+/);
   const cmd = (parts[0] || '').toLowerCase();
-  const detail = parts.slice(1).join(' ');
-  const subtype = (parts[1] || '').toLowerCase();
+  const detail = parts.slice(1).join(' ').trim();
   const userId = evt?.source?.userId
     || evt?.source?.senderId
     || evt?.source?.memberId
@@ -1160,13 +717,11 @@ async function handleEvent(evt) {
   if (cmd === '/groupid' || cmd === '/group_id') {
     if (sourceType === 'group' && evt.source?.groupId) {
       await reply(evt.replyToken, `Group ID: ${evt.source.groupId}`);
-      return;
-    }
-    if (sourceType === 'room' && evt.source?.roomId) {
+    } else if (sourceType === 'room' && evt.source?.roomId) {
       await reply(evt.replyToken, `Room ID: ${evt.source.roomId}`);
-      return;
+    } else {
+      await reply(evt.replyToken, 'คำสั่งนี้ใช้ได้เฉพาะในห้องสนทนากลุ่มหรือ room เท่านั้น');
     }
-    await reply(evt.replyToken, 'คำสั่งนี้ใช้ได้เฉพาะในห้องสนทนากลุ่มหรือ room เท่านั้น');
     return;
   }
 
@@ -1179,161 +734,42 @@ async function handleEvent(evt) {
   let displayName = await safeGetDisplayName(userId, evt.source);
   if (!displayName || /\uFFFD/.test(displayName)) displayName = 'คุณ';
 
-  const respondWithTotal = async (msg, pts) => {
-    await replyWithInspireAndTotal(evt.replyToken, msg, displayName, userId, mk, pts);
-  };
-
-  const insertAndReply = async (command, pts, message, detailOverride) => {
+  const recordAndReply = async (command, points, message, eventDetail = detail) => {
     await insertEvent({
       user_id: userId,
       display_name: displayName,
       command,
-      detail: (detailOverride ?? detail) || null,
-      points: pts,
+      detail: eventDetail || null,
+      points,
       month_key: mk
     });
-    await respondWithTotal(message, pts);
+    await replyWithInspireAndTotal(evt.replyToken, message, displayName, userId, mk, points);
   };
 
   if (cmd === '/help') {
-    const base = publicBaseUrl();
     const lines = [
-      '📚 คำสั่งที่ใช้ได้ (พิมพ์ตามนี้):',
-      '/begin',
-      '/beyond_dec',
-      '/new_pride',
-      '/new_member',
-      '/pack3',
-      '/bm_product',
-      '/schedule (ส่งรูปตาม)',
-      '/old_member',
-      '/sop',
-      '/meet',
-      '/connection+N',
-      '/use_product <รายงาน> (ส่งรูปตาม)',
-      '/plan_update',
-      '/link_30d',
-      '/book <จำนวนหน้า>',
-      '/old_follow_up',
-      '/new_follow_up',
-      '/score',
-      '/rank',
-      '/settle_jan <secret>',
-      '/rules',
-      '',
-      `อ่านกติกาเต็ม: ${base}/rules`
+      '📚 คำสั่ง 4S:',
+      'S1: /ppv <PV> (ส่งรูปตาม), /s1 (ส่งรูปตาม)',
+      'S2: /for <จำนวนสาย>, /opp online|onsite, /abo, /m, /s2 (ทุกคำสั่งส่งรูปตาม)',
+      'S3: /pin <พิน...> (ใช้ได้วันสุดท้ายของเดือน)',
+      'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm HM1|HM2|HM3|HM4, /s4 (ส่งรูปตาม)',
+      '/score, /rank, /rules, /help'
     ];
     await reply(evt.replyToken, lines.join('\n'));
     return;
   }
 
   if (cmd === '/rules' || cmd === '/rule') {
-    const url = `${publicBaseUrl()}/rules-image.png`;
-    await replyImage(evt.replyToken, url);
-    return;
-  }
-
-  if (cmd === '/settle' || cmd.startsWith('/settle+')) {
-    if (sourceType !== 'user') {
-      await reply(evt.replyToken, pickMsg('settle_dm_only'));
-      return;
-    }
-    const args = [];
-    if (cmd.startsWith('/settle+')) {
-      const inline = parts[0].slice('/settle+'.length).trim();
-      if (inline) {
-        inline.split('+').forEach((token) => {
-          const value = token.trim();
-          if (value) args.push(value);
-        });
-      }
-    }
-    args.push(...parts.slice(1));
-    if (!args.length) {
-      await reply(evt.replyToken, pickMsg('settle_need_secret'));
-      return;
-    }
-    let targetMonth = monthKey();
-    if (/^\d{4}-\d{2}$/.test(args[0])) {
-      targetMonth = args.shift();
-    }
-    const secret = args.join(' ').trim();
-    if (!secret) {
-      await reply(evt.replyToken, pickMsg('settle_need_secret'));
-      return;
-    }
-    if (secret !== manualSettleSecret) {
-      await reply(evt.replyToken, pickMsg('settle_wrong_secret'));
-      return;
-    }
-    try {
-      const linkResult = await finalizeLink30dMonth(targetMonth);
-      const planResult = await finalizePlanUpdateMonth(targetMonth);
-      const bookResult = await finalizeBookMonth(targetMonth);
-      const summary = buildManualSettlementMessage(targetMonth, linkResult, planResult, bookResult);
-      await push(summary);
-      await reply(evt.replyToken, pickMsg('settle_success', { month: targetMonth }));
-    } catch (err) {
-      await reply(evt.replyToken, `เกิดข้อผิดพลาด: ${err?.message || err}`);
-    }
-    return;
-  }
-
-  if (cmd === '/settle_jan' || cmd.startsWith('/settle_jan+')) {
-    if (sourceType !== 'user') {
-      await reply(evt.replyToken, pickMsg('settle_dm_only'));
-      return;
-    }
-    const args = [];
-    if (cmd.startsWith('/settle_jan+')) {
-      const inline = parts[0].slice('/settle_jan+'.length).trim();
-      if (inline) {
-        inline.split('+').forEach((token) => {
-          const value = token.trim();
-          if (value) args.push(value);
-        });
-      }
-    }
-    args.push(...parts.slice(1));
-    if (!args.length) {
-      await reply(evt.replyToken, pickMsg('settle_need_secret'));
-      return;
-    }
-    let targetMonth = decemberMonthKey();
-    if (/^\d{4}-\d{2}$/.test(args[0])) {
-      targetMonth = args.shift();
-    } else if (/^\d{4}$/.test(args[0])) {
-      const targetYear = args.shift();
-      targetMonth = decemberMonthKey(targetYear);
-    }
-    const secret = args.join(' ').trim();
-    if (!secret) {
-      await reply(evt.replyToken, pickMsg('settle_need_secret'));
-      return;
-    }
-    if (secret !== manualSettleSecret) {
-      await reply(evt.replyToken, pickMsg('settle_wrong_secret'));
-      return;
-    }
-    try {
-      const linkResult = await finalizeLink30dMonth(targetMonth);
-      const planResult = await finalizePlanUpdateMonth(targetMonth);
-      const bookResult = await finalizeBookMonth(targetMonth);
-      const summary = buildManualSettlementMessage(targetMonth, linkResult, planResult, bookResult);
-      await push(summary);
-      await reply(evt.replyToken, pickMsg('settle_success', { month: targetMonth }));
-    } catch (err) {
-      await reply(evt.replyToken, `เกิดข้อผิดพลาด: ${err?.message || err}`);
-    }
+    await reply(evt.replyToken, `📘 กติกา 4S to Silver Challenge: ${publicBaseUrl()}/rules`);
     return;
   }
 
   if (cmd === '/score') {
-    const sum = await sumUserMonth(userId, mk);
+    const total = await sumUserMonth(userId, mk);
     await reply(evt.replyToken, pickMsg('score_summary', {
       displayName,
       month: mk,
-      total: formatPoints(sum)
+      total: formatPoints(total)
     }));
     return;
   }
@@ -1344,201 +780,147 @@ async function handleEvent(evt) {
       await reply(evt.replyToken, pickMsg('rank_no_data', { month: mk }));
       return;
     }
-    const header = pickMsg('rank_header', { month: mk }) || `🏆 Top 10 เดือน ${mk}`;
-    const lines = [header];
-    top.forEach((row) => {
-      lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`);
-    });
-    lines.push('');
-    lines.push(`ดู Top 10 แบบเรียลไทม์: ${publicBaseUrl()}/`);
+    const lines = [pickMsg('rank_header', { month: mk }) || `🏆 Top 10 เดือน ${mk}`];
+    top.forEach((row) => lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`));
+    lines.push('', `ดู Top 10 แบบเรียลไทม์: ${publicBaseUrl()}/`);
     await reply(evt.replyToken, lines.join('\n'));
     return;
   }
 
-  if (cmd.startsWith('/connection+')) {
-    const match = cmd.match(/\/connection\+(\d+(?:\.\d+)?)/);
-    const count = match ? Number(match[1]) : 0;
-    const pts = count;
-    if (!Number.isFinite(count) || count <= 0) {
-      await reply(evt.replyToken, pickMsg('connection_need_number'));
+  if (cmd === '/ppv') {
+    const pv = Number(detail);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(detail) || !Number.isFinite(pv) || pv <= 0) {
+      await reply(evt.replyToken, 'รูปแบบคำสั่งไม่ถูกต้อง กรุณาพิมพ์ /ppv ตามด้วยจำนวน PV แล้วส่งรูปตาม');
       return;
     }
-    const msg = pickMsg('connection', {
-      displayName,
-      n: formatNumber(count),
-      pts: `+${formatPoints(pts)}`
-    });
-    await insertAndReply('/connection', pts, msg);
+    await queueFourSPhoto(userId, cmd, evt, { pv });
+    await reply(evt.replyToken, `รับ ${formatNumber(pv)} PV แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึกคะแนน`);
     return;
   }
 
-  const multiplierCommands = {
-    '/begin': { label: 'Begin Onsite', base: 1 },
-    '/beyond_dec': { label: 'Beyond (ธ.ค.)', base: 2 },
-    '/new_pride': { label: 'New Pride', base: 2 },
-    '/new_member': { label: 'สมาชิกใหม่สมัคร + ซื้อครบ', base: 1 }
+  if (cmd === '/s1' || cmd === '/s2' || cmd === '/s4') {
+    const descriptions = {
+      '/s1': 'นำเสนอสินค้า/รายชื่อใหม่',
+      '/s2': 'สปอนเซอร์เล่า Business Model',
+      '/s4': 'อัปเดตงานและปรึกษาอัปไลน์ผ่านการโทรหรือพบกัน'
+    };
+    await queueFourSPhoto(userId, cmd, evt, {
+      points: 1,
+      detail: detail || descriptions[cmd],
+      description: descriptions[cmd]
+    });
+    await reply(evt.replyToken, `รับคำสั่ง ${cmd} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +1 คะแนน`);
+    return;
+  }
+
+  if (cmd === '/for') {
+    const calls = Number(detail);
+    if (!/^\d+$/.test(detail) || !Number.isSafeInteger(calls) || calls <= 0) {
+      await reply(evt.replyToken, 'กรุณาพิมพ์จำนวนสายเป็นจำนวนเต็ม เช่น /for 5 แล้วส่งรูปหลักฐานตาม');
+      return;
+    }
+    await queueFourSPhoto(userId, cmd, evt, {
+      points: calls,
+      detail: `${calls} สายโทรเช็ค FORM`
+    });
+    await reply(evt.replyToken, `รับ ${calls} สายโทรเช็ค FORM แล้ว กรุณาส่งรูปหลักฐานตาม`);
+    return;
+  }
+
+  if (cmd === '/opp') {
+    const type = detail.toLowerCase();
+    const opportunities = {
+      online: { points: 1, description: 'คนใหม่เข้าระบบออนไลน์' },
+      onsite: { points: 2, description: 'คนใหม่เข้าระบบเรียนรู้ onsite' }
+    };
+    const opportunity = opportunities[type];
+    if (!opportunity || parts.length !== 2) {
+      await reply(evt.replyToken, 'รูปแบบคำสั่งไม่ถูกต้อง ใช้ /opp online หรือ /opp onsite แล้วส่งรูปตาม');
+      return;
+    }
+    await queueFourSPhoto(userId, cmd, evt, {
+      points: opportunity.points,
+      detail: opportunity.description,
+      scoreCommand: `/opp ${type}`
+    });
+    await reply(evt.replyToken, `รับคำสั่ง /opp ${type} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${opportunity.points} คะแนน`);
+    return;
+  }
+
+  if (cmd === '/abo' || cmd === '/m') {
+    const points = cmd === '/abo' ? 5 : 1;
+    const description = cmd === '/abo' ? 'คนใหม่สมัครนักธุรกิจ' : 'คนใหม่สมัครสมาชิก';
+    await queueFourSPhoto(userId, cmd, evt, { points, detail: description });
+    await reply(evt.replyToken, `รับคำสั่ง ${cmd.toUpperCase()} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${points} คะแนน`);
+    return;
+  }
+
+  if (cmd === '/pin') {
+    if (!isLastDayOfMonth()) {
+      await reply(evt.replyToken, 'คำสั่ง /pin ใช้ได้เฉพาะวันสุดท้ายของเดือนเท่านั้น');
+      return;
+    }
+    const pinPoints = new Map([
+      ['3%', 1], ['6%', 2], ['9%', 3], ['12%', 4], ['15%', 5], ['18%', 6], ['21%', 7],
+      ['elite', 1], ['elite+', 2], ['tp', 2], ['tp+', 4], ['tyong', 1], ['tjoe', 1]
+    ]);
+    const pins = parts.slice(1).map((pin) => pin.replace(/,$/, '').toLowerCase());
+    if (!pins.length || pins.some((pin) => !pinPoints.has(pin))) {
+      await reply(evt.replyToken, 'ระบุพินที่มูฟเพิ่มหลัง /pin เช่น /pin 3% 6% Elite TP+');
+      return;
+    }
+    const points = pins.reduce((total, pin) => total + pinPoints.get(pin), 0);
+    const message = `บันทึกพินที่มูฟเพิ่ม ${pins.map((pin) => `${pin} (+${pinPoints.get(pin)})`).join(', ')} รวม +${formatPoints(points)} คะแนน`;
+    await recordAndReply('/pin', points, message, pins.join(' '));
+    return;
+  }
+
+  const dailyScores = {
+    '/link': { points: 0.5, description: 'พัฒนาตัวเองด้วยการส่ง Link' },
+    '/product': { points: 0.1, description: 'ใช้สินค้า' },
+    '/ct': { points: 1, description: 'เข้าประชุม Center หรือ Beyond และแชร์ After' }
   };
-
-  if (multiplierCommands[cmd]) {
-    const count = await countUserCommandThisMonth(userId, cmd, mk);
-    const pts = multiplierCommands[cmd].base * Math.pow(2, count);
-    const msg = pickMsg('multiplier', {
-      displayName,
-      label: multiplierCommands[cmd].label,
-      count: count + 1,
-      pts: `+${formatPoints(pts)}`
-    });
-    await insertAndReply(cmd, pts, msg);
-    return;
-  }
-
-  if (cmd === '/meet') {
-    const pts = (await loadRulePoints(cmd)) ?? 1;
-    const baseMsg = pickMsg('meet', { displayName, pts: `+${formatPoints(pts)}` });
-    await insertEvent({
-      user_id: userId,
-      display_name: displayName,
-      command: cmd,
-      detail: detail || null,
-      points: pts,
-      month_key: mk
-    });
-    const total = await sumUserMonth(userId, mk);
-    const knowledgeLine = '📚 ความรู้จากการประชุมช่วยต่อยอดการเติบโตของคุณได้เสมอ สู้ๆ!';
-    const message = composeInspireText(
-      `${baseMsg}\n${knowledgeLine}\n💎 คะแนนล่าสุด: ${formatPoints(total)} คะแนน`,
-      displayName
-    );
-    await reply(evt.replyToken, message);
-    return;
-  }
-
-  if (cmd === '/pack3' || cmd === '/old_member' || cmd === '/sop') {
-    const pts = (await loadRulePoints(cmd)) ?? (cmd === '/pack3' ? 4 : cmd === '/sop' ? 2 : 1);
-    const key = cmd.slice(1);
-    const msg = pickMsg(key, { displayName, pts: `+${formatPoints(pts)}` });
-    await insertAndReply(cmd, pts, msg);
-    return;
-  }
-
-  if (cmd === '/schedule') {
-    await upsertPending(userId, '/schedule');
-    await reply(evt.replyToken, pickMsg('schedule_prompt'));
-    return;
-  }
-
-  if (cmd === '/bm_product') {
-    await upsertPending(userId, '/bm_product');
-    await reply(evt.replyToken, pickMsg('bm_product_prompt'));
-    return;
-  }
-
-  if (cmd === '/use_product') {
-    if (!detail) {
-      await reply(evt.replyToken, pickMsg('use_product_need_detail'));
+  if (dailyScores[cmd]) {
+    const rule = dailyScores[cmd];
+    if (await hasCommandToday(userId, cmd)) {
+      await reply(evt.replyToken, `วันนี้บันทึก ${cmd} ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง`);
       return;
     }
-    if (await hasUseProductToday(userId)) {
-      await reply(evt.replyToken, pickMsg('use_product_already'));
-      return;
-    }
-    await upsertPending(userId, '/use_product', { report: detail });
-    await reply(evt.replyToken, pickMsg('use_product_wait_photo'));
-    return;
-  }
-
-  if (cmd === '/plan_update') {
-    const events = await listPlanUpdateEvents(userId, mk);
-    const awarded = events.filter((row) => Number(row.points) > 0);
-    if (awarded.length >= PLAN_UPDATE_MONTHLY_CAP) {
-      await reply(evt.replyToken, pickMsg('plan_update_completed'));
-      return;
-    }
-    if (awarded.length === 0) {
-      const message = pickMsg('plan_success', { pts: '+1' });
-      await insertAndReply('/plan_update', 1, `${message}\n📊 ความคืบหน้า 1/${PLAN_UPDATE_MONTHLY_CAP}`);
-      return;
-    }
-    const now = new Date();
-    if (!isWeekend(now)) {
-      await reply(evt.replyToken, pickMsg('plan_update_weekend_only'));
-      return;
-    }
-    const currentWeek = isoWeekKey(now);
-    const weekendUpdates = awarded.slice(1);
-    const alreadyWeek = weekendUpdates.some((row) => isoWeekKey(new Date(row.timestamp)) === currentWeek);
-    if (alreadyWeek) {
-      await reply(evt.replyToken, pickMsg('plan_update_already_week'));
-      return;
-    }
-    const progress = `${awarded.length + 1}/${PLAN_UPDATE_MONTHLY_CAP}`;
-    const message = pickMsg('plan_success', { pts: '+1' });
-    await insertAndReply('/plan_update', 1, `${message}\n📊 ความคืบหน้า ${progress}`);
-    return;
-  }
-
-  if (cmd === '/link_30d') {
-    if (await hasLink30dToday(userId)) {
-      await reply(evt.replyToken, pickMsg('link_already'));
-      return;
-    }
-    await upsertPending(userId, '/link_30d');
-    const quote = pick(messagePools.inspire) || '';
-    await reply(evt.replyToken, pickMsg('link_need_photo', { quote }));
-    return;
-  }
-
-  if (cmd === '/old_follow_up' || cmd === '/new_follow_up') {
-    const pts = cmd === '/old_follow_up' ? 1 : 2;
-    const msg = pickMsg(cmd === '/old_follow_up' ? 'follow_old' : 'follow_new', {
-      displayName,
-      pts: `+${formatPoints(pts)}`
-    });
-    await insertAndReply(cmd, pts, msg);
+    await recordAndReply(cmd, rule.points, `${rule.description} รับ +${formatPoints(rule.points)} คะแนน`);
     return;
   }
 
   if (cmd === '/book') {
-    const raw = parts.slice(1).join(' ').trim();
-    let pages = 10;
-    if (raw) {
-      const match = raw.match(/(\d+(?:\.\d+)?)/);
-      if (match) {
-        const parsed = Number(match[1]);
-        if (Number.isFinite(parsed) && parsed > 0) {
-          pages = roundTo(parsed, 2);
-        }
-      }
-    }
-    if (!Number.isFinite(pages) || pages <= 0) {
-      await reply(evt.replyToken, pickMsg('book_need_number'));
+    const pages = detail ? Number(detail) : 10;
+    if ((detail && !/^\d+$/.test(detail)) || !Number.isSafeInteger(pages) || pages < 10) {
+      await reply(evt.replyToken, 'อ่านหนังสืออย่างน้อย 10 หน้าต่อวัน แล้วพิมพ์ /book หรือระบุจำนวนหน้า เช่น /book 10 (วันละ 1 ครั้ง)');
       return;
     }
-    const points = roundTo(pages * 0.01, 2);
-    if (points <= 0) {
-      await reply(evt.replyToken, pickMsg('book_invalid_number'));
+    if (await hasCommandToday(userId, cmd)) {
+      await reply(evt.replyToken, 'วันนี้บันทึก /book ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง');
       return;
     }
-    const detailPayload = JSON.stringify({ pages, raw: raw || null });
-    const message = pickMsg('book_success', {
-      pages: formatNumber(pages, 1),
-      points: formatPoints(points)
-    }) || `📚 บันทึกการอ่าน ${formatNumber(pages, 1)} หน้า ได้ +${formatPoints(points)} คะแนน\n🎯 อ่านครบ 300 หน้าในเดือนนี้รับโบนัสปลายเดือน +1`;
-    await insertEvent({
-      user_id: userId,
-      display_name: displayName,
-      command: '/book',
-      detail: detailPayload,
-      points,
-      month_key: mk
-    });
-    await respondWithTotal(message, points);
+    const pageDetail = detail ? `${pages} หน้า` : 'อย่างน้อย 10 หน้า';
+    await recordAndReply('/book', 0.5, `บันทึกอ่านหนังสือ ${pageDetail} รับ +0.5 คะแนน`, pageDetail);
     return;
   }
 
-  if (!isGroupOrRoom) {
-    await reply(evt.replyToken, pickMsg('unknown'));
+  if (cmd === '/follow') {
+    await recordAndReply('/follow', 1, 'บันทึกการโทรติดตาม DL/ลูกค้าและอัปเดตในกลุ่มอัปไลน์ รับ +1 คะแนน');
+    return;
   }
+
+  if (cmd === '/hm') {
+    const hm = (parts[1] || '').toUpperCase();
+    if (parts.length !== 2 || !/^HM[1-4]$/.test(hm)) {
+      await reply(evt.replyToken, 'ระบุหัวข้อที่เล่า เช่น /hm HM1 (เลือก HM1–HM4)');
+      return;
+    }
+    await recordAndReply('/hm', 1, `บันทึกการเล่า ${hm} ผู้เล่าได้รับ +1 คะแนน`, hm);
+    return;
+  }
+
+  await reply(evt.replyToken, `ไม่รู้จักคำสั่ง ${parts[0]} แล้ว ดูคำสั่ง 4S ได้ที่ /rules หรือพิมพ์ /help`);
 }
 
 async function handleImageEvent(evt) {
@@ -1554,90 +936,66 @@ async function handleImageEvent(evt) {
     await reply(evt.replyToken, missingUserIdMessage(isGroupOrRoom));
     return;
   }
-  const mk = monthKey();
+
+  const pending = await consumeNextFourSPhoto(userId);
+  if (!pending) {
+    await reply(evt.replyToken, 'ไม่พบคำสั่ง 4S ที่รอรูป กรุณาพิมพ์คำสั่งก่อนส่งรูป');
+    return;
+  }
+
+  const mk = pending.month_key || monthKey();
   const imageId = evt?.message?.id || 'image';
   const displayName = await safeGetDisplayName(userId, evt.source);
+  const metadata = pending.metadata || {};
 
-  const pendingLink = await consumePending(userId, '/link_30d');
-  if (pendingLink) {
-    if (await hasLink30dToday(userId)) {
-      const quote = pick(messagePools.inspire) || '';
-      await reply(evt.replyToken, pickMsg('link_today_done_with_quote', { quote }));
-      return;
+  if (metadata.command === '/ppv') {
+    const previousPpv = await sumUserMonthPpv(userId, mk);
+    const currentPpv = roundTo(previousPpv + Number(metadata.pv), 2);
+    const milestones = ppvMilestonesCrossed(previousPpv, currentPpv);
+    await insertEvents([
+      {
+        user_id: userId,
+        display_name: displayName,
+        command: '/ppv',
+        detail: `pv:${metadata.pv}|evidence:${imageId}`,
+        points: 0,
+        month_key: mk
+      },
+      ...milestones.map((milestone) => ({
+        user_id: userId,
+        display_name: displayName,
+        command: '/ppv',
+        detail: `milestone:${milestone.ppv}pv`,
+        points: milestone.points,
+        month_key: mk
+      }))
+    ]);
+
+    const bonusPoints = milestones.reduce((total, milestone) => total + milestone.points, 0);
+    const milestoneText = milestones.length
+      ? `\n🎉 ถึงเกณฑ์ ${milestones.map((milestone) => `${formatNumber(milestone.ppv)} PV (+${milestone.points})`).join(', ')}`
+      : '';
+    const message = `บันทึก ${formatNumber(Number(metadata.pv))} PV พร้อมรูปแล้ว\n📊 PV สะสมเดือนนี้: ${formatNumber(currentPpv)} PV${milestoneText}${bonusPoints ? `\nรับเพิ่ม +${formatPoints(bonusPoints)} คะแนน` : ''}`;
+    if (bonusPoints) {
+      await replyWithInspireAndTotal(evt.replyToken, message, displayName, userId, mk, bonusPoints);
+    } else {
+      await replyWithInspire(evt.replyToken, message, displayName);
     }
-    const pts = (await loadRulePoints('/link_30d', 'success')) ?? 0.1;
-    await insertEvent({
-      user_id: userId,
-      display_name: displayName,
-      command: '/link_30d',
-      detail: `evidence:${imageId}`,
-      points: pts,
-      month_key: mk
-    });
-    const quote = pick(messagePools.inspire) || '';
-    await reply(evt.replyToken, pickMsg('link_received', { quote }));
     return;
   }
 
-  const pendingSchedule = await consumePending(userId, '/schedule');
-  if (pendingSchedule) {
-    const pts = (await loadRulePoints('/schedule', '')) ?? 1;
-    await insertEvent({
-      user_id: userId,
-      display_name: displayName,
-      command: '/schedule',
-      detail: `evidence:${imageId}`,
-      points: pts,
-      month_key: mk
-    });
-    const msg = pickMsg('schedule', { displayName, pts: `+${formatPoints(pts)}` });
-    await replyWithInspireAndTotal(evt.replyToken, msg, displayName, userId, mk, pts);
-    return;
-  }
-
-  const pendingBm = await consumePending(userId, '/bm_product');
-  if (pendingBm) {
-    const pts = (await loadRulePoints('/bm_product', '')) ?? 1;
-    await insertEvent({
-      user_id: userId,
-      display_name: displayName,
-      command: '/bm_product',
-      detail: `evidence:${imageId}`,
-      points: pts,
-      month_key: mk
-    });
-    const msg = pickMsg('bm_product', { displayName, pts: `+${formatPoints(pts)}` });
-    await replyWithInspire(evt.replyToken, msg, displayName);
-    return;
-  }
-
-  const pendingUse = await consumePending(userId, '/use_product');
-  if (pendingUse) {
-    if (await hasUseProductToday(userId)) {
-      await reply(evt.replyToken, pickMsg('use_product_already_image'));
-      return;
-    }
-    const pts = (await loadRulePoints('/use_product', '')) ?? 0.1;
-    const report = pendingUse.metadata?.report || '';
-    const detailParts = [];
-    if (report) detailParts.push(`report:${report}`);
-    detailParts.push(`evidence:${imageId}`);
-    await insertEvent({
-      user_id: userId,
-      display_name: displayName,
-      command: '/use_product',
-      detail: detailParts.join('|'),
-      points: pts,
-      month_key: mk
-    });
-    const msg = pickMsg('use_product', { displayName, pts: `+${formatPoints(pts)}` });
-    await replyWithInspire(evt.replyToken, msg, displayName);
-    return;
-  }
-
-  if (!isGroupOrRoom) {
-    await reply(evt.replyToken, 'หากเป็นรูปประกอบคะแนน โปรดพิมพ์คำสั่งก่อน เช่น /schedule, /bm_product, /use_product หรือ /link_30d');
-  }
+  const command = metadata.scoreCommand || metadata.command;
+  const points = Number(metadata.points);
+  await insertEvent({
+    user_id: userId,
+    display_name: displayName,
+    command,
+    detail: [metadata.detail, `evidence:${imageId}`].filter(Boolean).join('|'),
+    points,
+    month_key: mk
+  });
+  const message = `${metadata.description || metadata.detail || `บันทึก ${command}`} รับ +${formatPoints(points)} คะแนน`;
+  await replyWithInspireAndTotal(evt.replyToken, message, displayName, userId, mk, points);
 }
 
 async function top10Handler(req, res) {
@@ -1662,9 +1020,5 @@ module.exports = {
   top10Handler,
   buildWeeklySummaryText,
   push,
-  monthsHandler,
-  scoreRulesHandler,
-  finalizeLink30dMonth,
-  finalizeBookMonth,
-  finalizePlanUpdateMonth
+  monthsHandler
 };

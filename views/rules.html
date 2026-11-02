@@ -2,200 +2,143 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>Disneyland Challenge — Rules</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="กติกาคะแนน 4S to Silver Challenge">
+  <meta name="color-scheme" content="light only">
+  <title>4S to Silver Challenge — กติกา 4S</title>
   <style>
     :root{
-      --bg:#f6f7fc; --ink:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e5e7eb;
-      --primary:#1d4ed8; --purple:#6d28d9; --gold:#f59e0b; --row:#f8fafc; --row2:#f1f5f9; --hover:#eef2ff;
-      --good:#065f46; --bad:#7f1d1d; --chip:#f1f5f9; --chipb:#e5e7eb;
+      --ink:#14213d;--muted:#52627a;--line:#e4e9f1;--bg:#f4f7fb;--card:#fff;
+      --blue:#2457d6;--purple:#6d42bd;--teal:#148477;--orange:#c76a12;
     }
-    html,body{height:100%}
-    body{font-family:sans-serif;background:radial-gradient(1200px 600px at 10% -10%, #e0e7ff 0, transparent 60%),radial-gradient(900px 500px at 110% -20%, #fae8ff 0, transparent 55%),var(--bg);margin:0;color:var(--ink)}
-    .wrap{width:min(960px,100%);margin:0 auto;padding:clamp(24px,4vw,40px) clamp(20px,6vw,36px)}
-    .hero{background:linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%);color:#fff;border-radius:16px;padding:clamp(18px,4vw,26px) clamp(20px,5vw,28px);display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(29,78,216,0.25);gap:clamp(12px,3vw,24px);flex-wrap:wrap}
-    .brand{display:flex;align-items:center;gap:12px;flex:1 1 260px;min-width:0}
-    .brand .emoji{font-size:26px}
-    .brand .title{font-size:18px;font-weight:700;letter-spacing:.3px}
-    .brand .sub{font-size:12px;opacity:.9}
-    .actions{display:flex;gap:12px}
-    .actions a{background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.6);padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;justify-content:center;min-width:120px}
-    .actions a:hover{background:#f1f5ff}
-    .card{margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.06)}
-    .card .head{padding:clamp(14px,3vw,20px) clamp(16px,4vw,24px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-    .chip{background:var(--chip);border:1px solid var(--chipb);padding:2px 8px;border-radius:999px;font-size:12px;color:#334155}
-    .table-scroll{overflow:auto;-webkit-overflow-scrolling:touch}
-    table{width:100%;min-width:640px;border-collapse:separate;border-spacing:0}
-    thead th{background:#0b1a4a;color:#fff;text-align:left;padding:14px 16px;position:sticky;top:0}
-    tbody td{padding:14px 16px;border-top:1px solid var(--border)}
-    tbody tr:nth-child(even){background:var(--row)}
-    tbody tr:nth-child(odd){background:var(--row2)}
-    tbody tr:hover{background:var(--hover)}
-    .score{font-weight:700;color:var(--good)}
-    .penalty{font-weight:700;color:var(--bad)}
-    code{background:#f1f5f9;border:1px solid #e5e7eb;border-radius:6px;padding:1px 6px}
-    .muted{color:var(--muted);font-size:12px;padding:14px 16px}
-
-    @media (max-width:1024px){
-      .hero{gap:18px}
-      .brand .title{font-size:clamp(17px,2.8vw,20px)}
-      .actions{width:100%}
-      .actions a{flex:1 1 180px;min-width:0}
-      table{min-width:0}
-      thead th,tbody td{padding:12px 14px}
-    }
-
-    @media (max-width:768px){
-      .wrap{padding:clamp(22px,5vw,32px) clamp(16px,6vw,28px)}
-      .hero{flex-direction:column;align-items:flex-start;text-align:left}
-      .actions{justify-content:flex-start}
-      .card{border-radius:16px}
-      .muted{text-align:left}
-    }
-
-    @media (max-width:640px){
-      table{border-spacing:0 14px}
-      thead{display:none}
-      tbody{display:block;padding:4px 0}
-      tbody tr{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 10px 24px rgba(15,23,42,0.08)}
-      tbody tr:nth-child(even),tbody tr:nth-child(odd){background:var(--card)}
-      tbody td{display:flex;justify-content:space-between;align-items:flex-start;border:0;padding:0;font-size:15px}
-      tbody td::before{content:attr(data-label);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:12px}
-      tbody td[data-label="เงื่อนไข"]{flex-direction:column;gap:6px}
-      tbody td[data-label="เงื่อนไข"]::before{margin-right:0;margin-bottom:4px}
-      tbody td[data-label="คะแนน"]{justify-content:flex-end;font-weight:700;text-align:right}
-      tbody td[data-label="คะแนน"]::before{margin-right:0;margin-bottom:0}
-    }
-
-    @media (max-width:480px){
-      .brand .emoji{font-size:24px}
-      .brand .title{font-size:16px}
-      .actions a{padding:12px}
-      tbody tr{padding:14px}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(150deg,#edf3ff 0,#f8f6ff 42%,var(--bg) 100%);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .wrap{width:min(100% - 32px,1000px);margin:0 auto;padding:28px 0 48px}
+    .hero{padding:26px;border-radius:22px;background:linear-gradient(125deg,#1748bd,#7042b8);color:#fff;box-shadow:0 12px 32px #334e9a30}
+    .hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    h1{font-size:clamp(24px,5vw,36px);margin:0 0 8px}
+    .hero p{margin:0;color:#e3eaff;line-height:1.6}
+    .home{display:inline-block;padding:10px 14px;border-radius:11px;background:#fff;color:#2148a8;text-decoration:none;font-weight:700;white-space:nowrap}
+    .overview{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+    .overview a{padding:14px;border:1px solid #ffffff55;border-radius:14px;background:#ffffff16;color:#fff;text-decoration:none}
+    .overview strong{display:block;font-size:20px;margin-bottom:3px}
+    .overview span{font-size:13px;color:#e5eaff}
+    .section{margin-top:20px;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px #1c31500c}
+    .section-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+    .badge{width:44px;height:44px;display:grid;place-items:center;flex:none;border-radius:13px;background:#edf2ff;color:var(--blue);font-size:20px;font-weight:800}
+    .s2 .badge{background:#e8f7f4;color:var(--teal)}
+    .s3 .badge{background:#fff4e8;color:var(--orange)}
+    .s4 .badge{background:#f3edff;color:var(--purple)}
+    h2{margin:0;font-size:22px}
+    .subtitle{margin:0 0 14px 56px;color:var(--muted);font-size:14px}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:560px}
+    th,td{padding:12px 14px;text-align:left;vertical-align:top;border-top:1px solid var(--line);line-height:1.55}
+    th{font-size:13px;color:var(--muted);background:#f8faff}
+    td:first-child{width:190px}
+    td:last-child{width:165px;font-weight:750;color:#17624f}
+    code{padding:2px 6px;border-radius:6px;background:#eef2f8;border:1px solid #dfe5ef;color:#17233b;white-space:nowrap}
+    .note{margin:14px 0 0;padding:12px 14px;border-radius:10px;background:#f6f8fc;color:var(--muted);font-size:14px;line-height:1.6}
+    .evidence{color:#8b3d16;font-weight:700}
+    @media(max-width:680px){
+      .wrap{width:min(100% - 22px,1000px);padding-top:12px}
+      .hero,.section{padding:18px}
+      .overview{grid-template-columns:repeat(2,1fr)}
+      .subtitle{margin-left:0}
+      td:first-child{width:150px}
     }
   </style>
-  <meta name="color-scheme" content="light only">
-  <meta name="description" content="Disneyland Challenge Rules — Small win to SUCCESS">
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="referrer" content="no-referrer">
-  <meta name="format-detection" content="telephone=no">
-  <link rel="preconnect" href="/static" />
-  </head>
+</head>
 <body>
-  <div class="wrap">
-    <div class="hero">
-      <div class="brand">
-        <div class="emoji">🏰</div>
+  <main class="wrap">
+    <header class="hero">
+      <div class="hero-top">
         <div>
-          <div class="title">Disneyland Challenge — Rules</div>
-          <div class="sub">Small win to SUCCESS · กติกาและคะแนน</div>
+          <h1>4S to Silver Challenge</h1>
+          <p>สะสมคะแนนรายเดือน แบ่งเป็น 4 ด้าน: PV และการนำเสนอ · การเพิ่มคน · Moving Up Pin · การพัฒนาตัวเอง</p>
         </div>
+        <a class="home" href="/">🏆 ดูอันดับ Top 10</a>
       </div>
-      <div class="actions"><a href="/" aria-label="กลับ Top 10">🏆 Top 10</a></div>
-    </div>
-    <div class="card">
-      <div class="head">
-        <div>⚡️ ระบบสะสมคะแนนรายเดือน · November · December · January</div>
-        <span class="chip">TOP10 มีรางวัล · รางวัลใหญ่จบ January</span>
-      </div>
-      <div class="table-scroll">
+      <nav class="overview" aria-label="ภาพรวม 4S">
+        <a href="#s1"><strong>S1</strong><span>PV &amp; นำเสนอ</span></a>
+        <a href="#s2"><strong>S2</strong><span>การเพิ่มคน</span></a>
+        <a href="#s3"><strong>S3</strong><span>Moving Up Pin</span></a>
+        <a href="#s4"><strong>S4</strong><span>พัฒนาตัวเอง</span></a>
+      </nav>
+    </header>
+
+    <section class="section s1" id="s1">
+      <div class="section-head"><div class="badge">S1</div><h2>PV และการนำเสนอสินค้า</h2></div>
+      <p class="subtitle">สะสม PV จากคำสั่ง /ppv ภายในเดือนเดียวกัน ระบบให้คะแนนเมื่อยอดสะสมข้ามแต่ละเกณฑ์</p>
+      <div class="table-wrap">
         <table>
-          <thead>
-            <tr><th style="width:160px">คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th style="width:160px">คะแนน</th></tr>
-          </thead>
+          <thead><tr><th>คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th>คะแนน</th></tr></thead>
           <tbody>
-          <tr><td data-label="คำสั่ง"><code>/bm_product</code></td><td data-label="เงื่อนไข">ทำเคส BM หรือเล่าเคสสินค้า ถ่ายรูป รายงานลงกลุ่ม</td><td data-label="คะแนน" class="score" data-command="/bm_product">+1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/schedule</code></td><td data-label="เงื่อนไข">นัดเคส BM หรือเคสสินค้าลงตารางล่วงหน้า และ <b>ส่งรูปหลักฐาน</b> ถึงจะได้คะแนน</td><td data-label="คะแนน" class="score">+1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/pack3</code></td><td data-label="เงื่อนไข">คนใหม่ฟังลิงก์จบ 3 Pack (ต่อ 1 คนที่ฟังจบ)</td><td data-label="คะแนน" class="score" data-command="/pack3" data-suffix="/คน">+4/คน</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/begin</code></td><td data-label="เงื่อนไข">พาคนใหม่เข้าระบบ Begin Onsite: คนที่ 1 +1, คนที่ 2 +2, คนที่ 3 +4, คนที่ 4 +8 … </td><td data-label="คะแนน" class="score">+1 → +2 → +4 → +8 …</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/beyond_dec</code></td><td data-label="เงื่อนไข">พาคนใหม่เข้างาน Beyond เดือนธันวาคม: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2 ตามจำนวนคน)</td><td data-label="คะแนน" class="score">+2 / +4 / +8</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/new_pride</code></td><td data-label="เงื่อนไข">เราเป็น New Pride หรือมีคนใหม่เข้างาน Pride: 1 คน +2, 2 คน +4, 3 คน +8 (คูณ 2)</td><td data-label="คะแนน" class="score">+2 / +4 / +8</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/new_member</code></td><td data-label="เงื่อนไข">ลูกค้าใหม่สมัครสมาชิกและซื้อของ 1,000 pv: คนที่ 1 +1, คนที่ 2 +2, คนที่ 3 +4, คนที่ 4 +8 …</td><td data-label="คะแนน" class="score">+1 / +2 / +4 / +8 / +16</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/old_member</code></td><td data-label="เงื่อนไข">ลูกค้าเก่าซื้อของในเดือนนั้น</td><td data-label="คะแนน" class="score" data-command="/old_member">+1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/sop</code></td><td data-label="เงื่อนไข">เดือนนี้เราซื้อ SOP หรือมี new member สมัครและซื้อ SOP</td><td data-label="คะแนน" class="score" data-command="/sop">+2</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/meet</code></td><td data-label="เงื่อนไข">แชร์สิ่งที่ได้จากการประชุม ทั้ง Online Meeting และ Center ลงในกลุ่มอัพไลน์</td><td data-label="คะแนน" class="score" data-command="/meet">+1</td></tr>
-          <tr>
-            <td data-label="คำสั่ง"><code>/plan_update</code></td>
-            <td data-label="เงื่อนไข">
-              ส่งเป้าหมายต้นเดือน (ครั้งแรกของเดือน) และอัปเดทรายสัปดาห์ช่วงวันเสาร์/อาทิตย์ (นับได้ 1 ครั้งต่อสัปดาห์)
-            </td>
-            <td data-label="คะแนน">
-              ครั้งแรกของเดือน <span class="score" data-command="/plan_update" data-subtype="success">+1</span> · รายงานเสาร์/อาทิตย์สัปดาห์ละ 1 ครั้ง <span class="score" data-command="/plan_update" data-subtype="success">+1</span> (สูงสุด
-              <span class="score">+4</span> ต่อเดือน และคิดคะแนนทันที)
-            </td>
-          </tr>
-          <tr><td data-label="คำสั่ง"><code>/old_follow_up</code></td><td data-label="เงื่อนไข">โทรติดตามคนเก่า (จบ hm 4)</td><td data-label="คะแนน" class="score">+1/คน</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/new_follow_up</code></td><td data-label="เงื่อนไข">โทรติดตามคนใหม่ (อยู่ในกระบวนการ bm–hm4)</td><td data-label="คะแนน" class="score">+2/คน</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/connection+N</code></td><td data-label="เงื่อนไข">รู้จักเพื่อนใหม่/รายชื่อใหม่ ใส่จำนวนหลัง + เพื่อบันทึก</td><td data-label="คะแนน" class="score">+N</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/use_product</code></td><td data-label="เงื่อนไข">ใช้สินค้าแล้วพิมพ์อธิบายว่าใช้อะไร พร้อมส่งรูปลงกลุ่ม (วันละ 1 ครั้ง)</td><td data-label="คะแนน" class="score" data-command="/use_product">+0.1</td></tr>
-          <tr><td data-label="คำสั่ง"><code>/link_30d</code></td><td data-label="เงื่อนไข">เช็คอินการส่งลิงก์ประจำวัน <b>ต้องแนบรูปหลักฐาน</b> (พิมพ์ <code>/link_30d</code> แล้วส่งรูปทันที)</td><td data-label="คะแนน"><span class="score" data-command="/link_30d" data-subtype="success">+0.1</span> ต่อครั้งที่บันทึก ครบทุกวันในเดือนรับโบนัสปลายเดือน <span class="score">+1</span></td></tr>
-          <tr>
-            <td data-label="คำสั่ง"><code>/book</code></td>
-            <td data-label="เงื่อนไข">บันทึกจำนวนหน้าที่อ่าน (0.1 คะแนนต่อ 10 หน้า) · อ่านเกิน 300 หน้าในเดือนเดียวรับโบนัส <span class="score">+1</span> ปลายเดือน</td>
-            <td data-label="คะแนน"><span class="score">+0.1</span> ต่อ 10 หน้า</td>
-          </tr>
+            <tr><td><code>/ppv &lt;จำนวน PV&gt;</code></td><td>รายงาน PV สินค้าเพื่อสะสมยอดทั้งเดือน <span class="evidence">ต้องส่งรูปตามคำสั่ง</span></td><td>600 PV +1; 3,000 PV +4 เพิ่มเติม; จากนั้นทุก 3,000 PV ถึง 15,000 PV เพิ่ม +5</td></tr>
+            <tr><td><code>/s1</code></td><td>นำเสนอสินค้าให้รายชื่อใหม่ <span class="evidence">ต้องส่งรูปตามคำสั่ง</span></td><td>+1 ต่อครั้ง</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="muted">หมายเหตุ: คะแนนและอันดับยึดตามข้อมูลที่รายงานผ่านบอทในเดือนนั้นๆ</div>
-    </div>
-      <div class="card">
-        <div class="head"><div>🖼️ หลักฐานรูปภาพสำหรับคำสั่ง /link_30d</div></div>
-        <div class="muted" style="font-size:14px">
-          - พิมพ์ <code>/link_30d</code> แล้วส่งรูปหลักฐานทันทีในข้อความถัดไป<br>
-          - ถ้าพิมพ์คำสั่งแล้ว “ยังไม่ส่งรูป” บอทจะแจ้งเตือนให้ส่งรูปเพื่อบันทึกวันนี้ให้ครบ<br>
-          - ระบบกันการบันทึกซ้ำวันเดียวกัน หากทำครบแล้วจะมีข้อความแจ้งว่า “บันทึกไว้แล้ว”<br>
-          - การคิดคะแนน: ส่งคำสั่งสำเร็จแต่ละครั้งได้ <span class="score">+0.1</span> และหากทำครบทุกวันในเดือนจะได้โบนัสเพิ่มปลายเดือน <span class="score">+1</span>
-        </div>
+      <p class="note">เกณฑ์ PV ที่เพิ่มคะแนน: 600 (+1), 3,000 (+4), 6,000 (+5), 9,000 (+5), 12,000 (+5) และ 15,000 (+5) คะแนนที่ได้จากเกณฑ์รวมสูงสุด 25 คะแนน</p>
+    </section>
+
+    <section class="section s2" id="s2">
+      <div class="section-head"><div class="badge">S2</div><h2>การเพิ่มคน</h2></div>
+      <p class="subtitle">ทุกคำสั่งในหมวด S2 ต้องส่งรูปตาม ระบบจึงจะบันทึกคะแนน</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th>คะแนน</th></tr></thead>
+          <tbody>
+            <tr><td><code>/for &lt;จำนวนสาย&gt;</code></td><td>โทรเช็ค FORM ระบุจำนวนสายที่โทร</td><td>+1 ต่อสาย (+N)</td></tr>
+            <tr><td><code>/opp online</code></td><td>มีคนใหม่เข้าระบบออนไลน์</td><td>+1</td></tr>
+            <tr><td><code>/opp onsite</code></td><td>มีคนใหม่เข้าระบบเรียนรู้ onsite</td><td>+2</td></tr>
+            <tr><td><code>/ABO</code></td><td>มีคนใหม่สมัครนักธุรกิจ</td><td>+5</td></tr>
+            <tr><td><code>/M</code></td><td>มีคนใหม่สมัครสมาชิก</td><td>+1</td></tr>
+            <tr><td><code>/s2</code></td><td>สปอนเซอร์เล่า Business Model</td><td>+1</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="card">
-        <div class="head"><div>📘 กติกา: /book</div></div>
-        <div class="muted" style="font-size:14px">
-          - พิมพ์ <code>/book</code> ตามด้วยจำนวนหน้าที่อ่าน เช่น <code>/book 30</code> (ไม่ระบุก็จะนับ 10 หน้า = <span class="score">+0.1</span>)<br>
-          - ระบบคิด <span class="score">+0.1</span> ต่อ 10 หน้า (0.01 คะแนนต่อหน้า) และบันทึกทันที ไม่ต้องพิมพ์ success/fail<br>
-          - ถ้าเดือนนั้นอ่านรวมเกิน 300 หน้า จะได้รับโบนัสพิเศษ <span class="score">+1</span> ในวันสุดท้ายของเดือน
-        </div>
+      <p class="note">ตัวอย่าง: พิมพ์ <code>/for 5</code> แล้วส่งรูปเพื่อบันทึก 5 สายโทรเช็ค FORM ได้ +5 คะแนน</p>
+    </section>
+
+    <section class="section s3" id="s3">
+      <div class="section-head"><div class="badge">S3</div><h2>Moving Up Pin</h2></div>
+      <p class="subtitle">ใช้คำสั่งได้เฉพาะวันสุดท้ายของเดือน ระบุพินที่มูฟเพิ่มหลายรายการต่อท้าย /pin ได้ ระบบรวมคะแนนให้</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>พินที่มูฟเพิ่ม</th><th>คะแนน</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="6"><code>/pin &lt;พิน...&gt;</code></td><td>3%, 6%, 9%, 12%, 15%, 18%, 21%</td><td>+1, +2, +3, +4, +5, +6, +7 ตามลำดับ</td></tr>
+            <tr><td>Elite</td><td>+1</td></tr>
+            <tr><td>Elite+</td><td>+2</td></tr>
+            <tr><td>TP</td><td>+2</td></tr>
+            <tr><td>TP+</td><td>+4</td></tr>
+            <tr><td>TYong, TJoe</td><td>+1 ต่อพิน</td></tr>
+          </tbody>
+        </table>
       </div>
-  </div>
-  <script>
-    function formatPoints(value){
-      const num = Number(value);
-      if(!Number.isFinite(num)) return null;
-      if(Number.isInteger(num)) return String(num);
-      return num.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
-    }
+      <p class="note">ตัวอย่าง: <code>/pin 3% 6% Elite TP+</code> รวมเป็น +8 คะแนน</p>
+    </section>
 
-    async function syncScoreTable(){
-      try{
-        const res = await fetch('/score-rules', { cache: 'no-store' });
-        const payload = await res.json();
-        const rules = Array.isArray(payload.rules) ? payload.rules : [];
-        const map = new Map();
-        rules.forEach(rule => {
-          const key = `${rule.command || ''}::${(rule.subtype || '').toLowerCase()}`;
-          map.set(key, Number(rule.points));
-        });
-
-        document.querySelectorAll('[data-command]').forEach(el => {
-          const command = el.dataset.command || '';
-          const subtype = (el.dataset.subtype || '').toLowerCase();
-          const key = `${command}::${subtype}`;
-          const fallbackKey = `${command}::`;
-          const points = map.has(key) ? map.get(key) : map.get(fallbackKey);
-          const formatted = formatPoints(points);
-          if(formatted === null) return;
-          const prefix = el.dataset.prefix || '+';
-          const suffix = el.dataset.suffix || '';
-          el.textContent = `${prefix}${formatted}${suffix}`;
-        });
-      }catch(err){
-        console.warn('Failed to sync scores from Supabase', err);
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', syncScoreTable);
-  </script>
+    <section class="section s4" id="s4">
+      <div class="section-head"><div class="badge">S4</div><h2>การพัฒนาตัวเอง</h2></div>
+      <p class="subtitle">คะแนนรายวันจำกัดตามเงื่อนไขของแต่ละคำสั่ง ส่วน /follow และ /hm ให้คะแนนผู้ที่ทำกิจกรรมนั้น</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th>คะแนน</th></tr></thead>
+          <tbody>
+            <tr><td><code>/link</code></td><td>ส่งคำสั่งได้วันละ 1 ครั้ง</td><td>+0.5 ต่อวัน</td></tr>
+            <tr><td><code>/book</code> หรือ <code>/book 10</code></td><td>อ่านหนังสืออย่างน้อย 10 หน้าต่อวัน ส่งได้วันละ 1 ครั้ง (ระบุจำนวนหน้าได้)</td><td>+0.5 ต่อวัน</td></tr>
+            <tr><td><code>/product</code></td><td>ใช้สินค้า ส่งได้วันละ 1 ครั้ง</td><td>+0.1 ต่อวัน</td></tr>
+            <tr><td><code>/ct</code></td><td>เข้าประชุม Center หรือ Beyond และแชร์ After ส่งได้วันละ 1 ครั้ง</td><td>+1 ต่อวัน</td></tr>
+            <tr><td><code>/follow</code></td><td>โทรติดตาม DL/ลูกค้าเรื่องสินค้า และอัปเดตในกลุ่มอัปไลน์</td><td>+1 ให้ผู้โทร</td></tr>
+            <tr><td><code>/hm HM1</code>, <code>/hm HM2</code>, <code>/hm HM3</code>, <code>/hm HM4</code></td><td>เล่า HM1–HM4</td><td>+1 ให้ผู้เล่า</td></tr>
+            <tr><td><code>/s4</code></td><td>อัปเดตงานและปรึกษาอัปไลน์ผ่านการโทรหรือพบกัน <span class="evidence">ต้องส่งรูปตามคำสั่ง</span></td><td>+1</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <p class="note">ส่งรูปเฉพาะคำสั่งที่ระบุว่าต้องแนบรูป โดยพิมพ์คำสั่งก่อนแล้วส่งรูปในข้อความถัดไป คะแนนและอันดับรวมตามข้อมูลที่บันทึกในเดือนนั้น</p>
+  </main>
 </body>
 </html>
-
-

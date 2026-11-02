@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
 const path = require('path');
 const cron = require('node-cron');
 const {
@@ -9,11 +8,7 @@ const {
   top10Handler,
   buildWeeklySummaryText,
   push,
-  monthsHandler,
-  scoreRulesHandler,
-  finalizeLink30dMonth,
-  finalizeBookMonth,
-  finalizePlanUpdateMonth
+  monthsHandler
 } = require('./logic');
 
 const PORT = process.env.PORT || 3000;
@@ -63,27 +58,10 @@ app.get('/webhook', (req, res) => res.status(200).send('OK'));
 // Leaderboard endpoints
 app.get('/top10', top10Handler);
 app.get('/months', monthsHandler);
-app.get('/score-rules', scoreRulesHandler);
 
 // Static pages
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'leaderboard.html')));
 app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, 'views', 'rules.html')));
-app.get('/rules-image.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'rulesdn.png'));
-});
-
-// Helper: format /link_30d monthly announcement with emojis
-function buildLink30dAnnouncement(monthKey, settled) {
-  const bonuses = settled.filter(r => Number(r.points) > 0);
-  const lines = [`🗓️ สรุปคะแนน /link_30d ประจำเดือน ${monthKey}`];
-  if (bonuses.length) {
-    lines.push('✅ โบนัสครบ 30 วัน (+1):');
-    bonuses.forEach(r => lines.push(`• ✨ ${r.display_name} +${Number(r.points)}`));
-  } else {
-    lines.push('ℹ️ เดือนนี้ยังไม่มีใครทำครบทุกวัน');
-  }
-  return lines;
-}
 
 // Start server
 app.listen(PORT, () => {
@@ -121,71 +99,5 @@ if (process.env.ADMIN_KEY) {
     }
   });
 
-  app.get('/admin/link30d-settle', async (req, res) => {
-    if (req.query.key !== process.env.ADMIN_KEY) return res.status(403).send('Forbidden');
-    try {
-      const ym = (req.query.ym || '').match(/^\d{4}-\d{2}$/) ? req.query.ym : new Date().toISOString().slice(0,7);
-      const result = await finalizeLink30dMonth(ym);
-      if ((req.query.push || '').toLowerCase() === 'true' || req.query.push === '1') {
-        const lines = buildLink30dAnnouncement(ym, result.settled);
-        if (lines.length > 1) await push(lines.join('\n'));
-      }
-      res.json(result);
-    } catch (e) {
-      res.status(500).send('Error');
-    }
-  });
-
-  app.get('/admin/book-settle', async (req, res) => {
-    if (req.query.key !== process.env.ADMIN_KEY) return res.status(403).send('Forbidden');
-    try {
-      const ym = (req.query.ym || '').match(/^\d{4}-\d{2}$/) ? req.query.ym : new Date().toISOString().slice(0,7);
-      const result = await finalizeBookMonth(ym);
-      res.json(result);
-    } catch (e) {
-      res.status(500).send('Error');
-    }
-  });
-
   console.log('🔐 Admin endpoint: GET /admin/weekly-push?key=***');
-  console.log('🔐 Admin endpoint: GET /admin/link30d-settle?key=***&ym=YYYY-MM&push=1');
-  console.log('🔐 Admin endpoint: GET /admin/book-settle?key=***&ym=YYYY-MM (apply /book bonus)');
-}
-
-// Monthly settlement via cron (last day of month, 23:55 local time)
-const monthlyCron = process.env.MONTHLY_CRON || '55 23 * * *';
-const monthlyTz = process.env.MONTHLY_TZ || 'Asia/Bangkok';
-try {
-  cron.schedule(monthlyCron, async () => {
-    try {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      const isMonthEnd = tomorrow.getMonth() !== now.getMonth();
-      if (!isMonthEnd) return;
-      const mk = now.toISOString().slice(0,7);
-      const result = await finalizeLink30dMonth(mk);
-      try {
-        const book = await finalizeBookMonth(mk);
-        if (book?.settled?.length) {
-          console.log(`📚 Monthly book bonus awarded to ${book.settled.length} member(s)`);
-        }
-      } catch (err) {
-        console.error('Monthly book bonus error:', err?.message);
-      }
-      try {
-        await finalizePlanUpdateMonth(mk); // /plan_update ให้คะแนนทันที ฟังก์ชันนี้คงไว้เพื่อความเข้ากันได้
-      } catch (err) {
-        console.error('Monthly plan_update settle error:', err?.message);
-      }
-      const lines = buildLink30dAnnouncement(mk, result.settled);
-      if (lines.length > 1) await push(lines.join('\n'));
-      console.log(`📅 Monthly link_30d settled for ${mk}`);
-    } catch (err) {
-      console.error('Monthly settle error:', err?.message);
-    }
-  }, { timezone: monthlyTz });
-  console.log(`🕒 Monthly settle scheduled: '${monthlyCron}' TZ ${monthlyTz} (last day only)`);
-} catch (err) {
-  console.warn('Monthly cron invalid or failed to start:', err?.message);
 }
