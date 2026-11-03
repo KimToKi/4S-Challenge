@@ -4,46 +4,62 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="กติกาคะแนน 4S to Silver Challenge">
-  <meta name="color-scheme" content="light only">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b0908">
   <title>4S to Silver Challenge — กติกา 4S</title>
   <style>
     :root{
-      --ink:#14213d;--muted:#52627a;--line:#e4e9f1;--bg:#f4f7fb;--card:#fff;
-      --blue:#2457d6;--purple:#6d42bd;--teal:#148477;--orange:#c76a12;
+      color-scheme:dark;
+      --ink:#f5efe5;--muted:#b9ad9b;--line:#3a3329;--bg:#0b0908;--card:#171411;
+      --gold:#d8b44a;--red:#a51e2b;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(150deg,#edf3ff 0,#f8f6ff 42%,var(--bg) 100%);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{margin:0;background:radial-gradient(1000px 600px at 5% -15%,#4c151c88 0,transparent 58%),radial-gradient(800px 500px at 100% -20%,#82611a30 0,transparent 55%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
     .wrap{width:min(100% - 32px,1000px);margin:0 auto;padding:28px 0 48px}
-    .hero{padding:26px;border-radius:22px;background:linear-gradient(125deg,#1748bd,#7042b8);color:#fff;box-shadow:0 12px 32px #334e9a30}
+    .hero{padding:30px;border:1px solid #6f572b;border-radius:26px;background:linear-gradient(120deg,#171411 0%,#211714 60%,#55151b 100%);color:#fff;box-shadow:0 16px 40px #0008,0 0 32px #a77b2520}
     .hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
     h1{font-size:clamp(24px,5vw,36px);margin:0 0 8px}
-    .hero p{margin:0;color:#e3eaff;line-height:1.6}
-    .home{display:inline-block;padding:10px 14px;border-radius:11px;background:#fff;color:#2148a8;text-decoration:none;font-weight:700;white-space:nowrap}
-    .overview{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
-    .overview a{padding:14px;border:1px solid #ffffff55;border-radius:14px;background:#ffffff16;color:#fff;text-decoration:none}
-    .overview strong{display:block;font-size:20px;margin-bottom:3px}
-    .overview span{font-size:13px;color:#e5eaff}
-    .section{margin-top:20px;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px #1c31500c}
+    .hero-content{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:center;gap:26px;margin-top:22px}
+    .hero-copy{max-width:560px}
+    .hero-copy p{margin:0;color:#e5d7c2;font-size:clamp(16px,2vw,19px);line-height:1.7}
+    .home{display:inline-block;padding:10px 14px;border:1px solid #9a792c;border-radius:11px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700;white-space:nowrap}
+    .home:hover{background:#342713;color:#ffe9a7}
+    .overview{position:relative;justify-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));width:min(100%,320px);aspect-ratio:1;border:3px solid #d8b44a;border-radius:50%;overflow:hidden;box-shadow:0 12px 30px #0009}
+    .overview a{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0;padding:24px 30px;color:#fff;text-decoration:none;border:1px solid #ffffff70;transition:filter .18s ease}
+    .overview a:hover{filter:brightness(1.13)}
+    .overview a:focus-visible{position:relative;z-index:1;outline:3px solid #fff;outline-offset:-5px}
+    .overview a:nth-child(1){align-items:flex-start;text-align:left;background:#a51e2b}
+    .overview a:nth-child(2){align-items:flex-end;text-align:right;background:#171411}
+    .overview a:nth-child(3){align-items:flex-start;text-align:left;background:#c5a044;color:#1b160d}
+    .overview a:nth-child(4){align-items:flex-end;text-align:right;background:#4b171c}
+    .overview strong{font-size:clamp(20px,3vw,26px);line-height:1.1}
+    .overview a span{font-size:clamp(12px,1.7vw,15px);color:#f0e8db}
+    .overview a:nth-child(3) span{color:#2c220f}
+    .overview-center{position:absolute;top:50%;left:50%;display:grid;place-content:center;width:88px;aspect-ratio:1;transform:translate(-50%,-50%);border:4px solid #d8b44a;border-radius:50%;background:#11100e;color:#f1d27a;text-align:center;font-size:24px;font-weight:850;line-height:1;box-shadow:0 4px 16px #000b;pointer-events:none}
+    .overview-center span{margin-top:4px;font-size:8px;letter-spacing:.08em}
+    .section{margin-top:20px;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px #0005}
     .section-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
-    .badge{width:44px;height:44px;display:grid;place-items:center;flex:none;border-radius:13px;background:#edf2ff;color:var(--blue);font-size:20px;font-weight:800}
-    .s2 .badge{background:#e8f7f4;color:var(--teal)}
-    .s3 .badge{background:#fff4e8;color:var(--orange)}
-    .s4 .badge{background:#f3edff;color:var(--purple)}
+    .badge{width:44px;height:44px;display:grid;place-items:center;flex:none;border:1px solid #8e712d;border-radius:13px;background:#332912;color:#f1d27a;font-size:20px;font-weight:800}
+    .s2 .badge{background:#39191c;color:#f0b5ac;border-color:#71333a}
+    .s3 .badge{background:#271f12;color:#e8ca72}
+    .s4 .badge{background:#32191a;color:#e7c56e;border-color:#6a3834}
     h2{margin:0;font-size:22px}
     .subtitle{margin:0 0 14px 56px;color:var(--muted);font-size:14px}
     .table-wrap{overflow-x:auto}
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:12px 14px;text-align:left;vertical-align:top;border-top:1px solid var(--line);line-height:1.55}
-    th{font-size:13px;color:var(--muted);background:#f8faff}
+    th{font-size:13px;color:#d9c99f;background:#211d17}
     td:first-child{width:190px}
-    td:last-child{width:165px;font-weight:750;color:#17624f}
-    code{padding:2px 6px;border-radius:6px;background:#eef2f8;border:1px solid #dfe5ef;color:#17233b;white-space:nowrap}
-    .note{margin:14px 0 0;padding:12px 14px;border-radius:10px;background:#f6f8fc;color:var(--muted);font-size:14px;line-height:1.6}
-    .evidence{color:#8b3d16;font-weight:700}
-    @media(max-width:680px){
+    td:last-child{width:165px;font-weight:750;color:#e4c15e}
+    code{padding:2px 6px;border-radius:6px;background:#211d17;border:1px solid #51432a;color:#f1e7d2;white-space:nowrap}
+    .note{margin:14px 0 0;padding:12px 14px;border:1px solid #3a3329;border-radius:10px;background:#211d17;color:var(--muted);font-size:14px;line-height:1.6}
+    .evidence{color:#ff948b;font-weight:700}
+    @media(max-width:760px){
       .wrap{width:min(100% - 22px,1000px);padding-top:12px}
       .hero,.section{padding:18px}
-      .overview{grid-template-columns:repeat(2,1fr)}
+      .hero-content{grid-template-columns:1fr;gap:20px}
+      .overview{justify-self:center;width:min(100%,300px)}
+      .overview a{padding:24px 28px}
       .subtitle{margin-left:0}
       td:first-child{width:150px}
     }
@@ -53,22 +69,25 @@
   <main class="wrap">
     <header class="hero">
       <div class="hero-top">
-        <div>
-          <h1>4S to Silver Challenge</h1>
-          <p>สะสมคะแนนรายเดือน แบ่งเป็น 4 ด้าน: PV และการนำเสนอ · การเพิ่มคน · Moving Up Pin · การพัฒนาตัวเอง</p>
-        </div>
-        <a class="home" href="/">🏆 ดูอันดับ Top 10</a>
+        <h1>4S to Silver Challenge</h1>
+        <a class="home" href="/">🏆 ดูอันดับคะแนนทุกคน</a>
       </div>
-      <nav class="overview" aria-label="ภาพรวม 4S">
-        <a href="#s1"><strong>S1</strong><span>PV &amp; นำเสนอ</span></a>
-        <a href="#s2"><strong>S2</strong><span>การเพิ่มคน</span></a>
-        <a href="#s3"><strong>S3</strong><span>Moving Up Pin</span></a>
-        <a href="#s4"><strong>S4</strong><span>พัฒนาตัวเอง</span></a>
-      </nav>
+      <div class="hero-content">
+        <div class="hero-copy">
+          <p>สะสมคะแนนรายเดือน ครบทั้ง 4 ด้านของการเติบโต: ยอดสินค้า · คน · Moving Up · พัฒนา</p>
+        </div>
+        <nav class="overview" aria-label="ภาพรวม 4S เลือกหมวดเพื่อดูรายละเอียด">
+          <a href="#s1" aria-label="S1 ยอดสินค้า"><strong>S1</strong><span>ยอดสินค้า</span></a>
+          <a href="#s2" aria-label="S2 คน"><strong>S2</strong><span>คน</span></a>
+          <a href="#s3" aria-label="S3 Moving Up"><strong>S3</strong><span>Moving Up</span></a>
+          <a href="#s4" aria-label="S4 พัฒนา"><strong>S4</strong><span>พัฒนา</span></a>
+          <div class="overview-center" aria-hidden="true">4S<span>TO SILVER</span></div>
+        </nav>
+      </div>
     </header>
 
     <section class="section s1" id="s1">
-      <div class="section-head"><div class="badge">S1</div><h2>PV และการนำเสนอสินค้า</h2></div>
+      <div class="section-head"><div class="badge">S1</div><h2>ยอดสินค้าและการนำเสนอ</h2></div>
       <p class="subtitle">สะสม PV จากคำสั่ง /ppv ภายในเดือนเดียวกัน ระบบให้คะแนนเมื่อยอดสะสมข้ามแต่ละเกณฑ์</p>
       <div class="table-wrap">
         <table>
@@ -83,7 +102,7 @@
     </section>
 
     <section class="section s2" id="s2">
-      <div class="section-head"><div class="badge">S2</div><h2>การเพิ่มคน</h2></div>
+      <div class="section-head"><div class="badge">S2</div><h2>คนและการเพิ่มคน</h2></div>
       <p class="subtitle">ทุกคำสั่งในหมวด S2 ต้องส่งรูปตาม ระบบจึงจะบันทึกคะแนน</p>
       <div class="table-wrap">
         <table>
@@ -121,7 +140,7 @@
     </section>
 
     <section class="section s4" id="s4">
-      <div class="section-head"><div class="badge">S4</div><h2>การพัฒนาตัวเอง</h2></div>
+      <div class="section-head"><div class="badge">S4</div><h2>พัฒนาตัวเอง</h2></div>
       <p class="subtitle">คะแนนรายวันจำกัดตามเงื่อนไขของแต่ละคำสั่ง ส่วน /follow และ /hm ให้คะแนนผู้ที่ทำกิจกรรมนั้น</p>
       <div class="table-wrap">
         <table>
@@ -132,7 +151,7 @@
             <tr><td><code>/product</code></td><td>ใช้สินค้า ส่งได้วันละ 1 ครั้ง</td><td>+0.1 ต่อวัน</td></tr>
             <tr><td><code>/ct</code></td><td>เข้าประชุม Center หรือ Beyond และแชร์ After ส่งได้วันละ 1 ครั้ง</td><td>+1 ต่อวัน</td></tr>
             <tr><td><code>/follow</code></td><td>โทรติดตาม DL/ลูกค้าเรื่องสินค้า และอัปเดตในกลุ่มอัปไลน์</td><td>+1 ให้ผู้โทร</td></tr>
-            <tr><td><code>/hm HM1</code>, <code>/hm HM2</code>, <code>/hm HM3</code>, <code>/hm HM4</code></td><td>เล่า HM1–HM4</td><td>+1 ให้ผู้เล่า</td></tr>
+            <tr><td><code>/hm</code></td><td>เล่า HM</td><td>+1 ให้ผู้เล่า</td></tr>
             <tr><td><code>/s4</code></td><td>อัปเดตงานและปรึกษาอัปไลน์ผ่านการโทรหรือพบกัน <span class="evidence">ต้องส่งรูปตามคำสั่ง</span></td><td>+1</td></tr>
           </tbody>
         </table>

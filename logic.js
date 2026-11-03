@@ -119,6 +119,55 @@ async function ensurePendingTable() {
   }
 }
 
+async function ensureDailyAnnouncementsTable() {
+  const check = await supabase
+    .from('daily_announcements')
+    .select('chat_id', { head: true, count: 'exact' })
+    .limit(1);
+
+  if (!check.error) return;
+
+  const msg = `${check.error?.message || check.error?.details || ''}`.toLowerCase();
+  if (!msg.includes('daily_announcements') || (!msg.includes('does not exist') && !msg.includes('schema cache'))) {
+    throw new Error(`Failed to access daily_announcements table: ${check.error?.message || check.error}`);
+  }
+
+  const connectionString = resolveDatabaseUrl();
+  if (!connectionString) {
+    throw new Error('Supabase table "daily_announcements" is missing. Provide SUPABASE_DB_URL (or DATABASE_URL) or create it from schema.sql');
+  }
+
+  let pool;
+  try {
+    const { Pool } = require('pg');
+    const poolConfig = { connectionString };
+    if (shouldUseSsl(connectionString)) {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    pool = new Pool(poolConfig);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.daily_announcements (
+        chat_id TEXT NOT NULL,
+        date_key DATE NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (chat_id, date_key)
+      );
+    `);
+  } finally {
+    if (pool) {
+      await pool.end().catch(() => {});
+    }
+  }
+
+  const verify = await supabase
+    .from('daily_announcements')
+    .select('chat_id', { head: true, count: 'exact' })
+    .limit(1);
+  if (verify.error) {
+    throw new Error(`Daily announcements table created but still not accessible: ${verify.error?.message || verify.error}`);
+  }
+}
+
 async function ensureEventsPointsNumericType() {
   const connectionString = resolveDatabaseUrl();
   if (!connectionString) return;
@@ -144,6 +193,7 @@ async function ensureEventsPointsNumericType() {
 const dbReady = (async () => {
   await ensureEventsPointsNumericType();
   await ensurePendingTable();
+  await ensureDailyAnnouncementsTable();
 })().catch((err) => {
   console.error('Database initialization error:', err?.message || err);
 });
@@ -211,12 +261,19 @@ function pick(arr) {
   return arr[idx];
 }
 
+const dailyAnnouncementsByReplyToken = new Map();
+
 async function replyMessages(replyToken, messages) {
   if (!replyToken || !Array.isArray(messages) || !messages.length) return;
+  const dailyAnnouncements = dailyAnnouncementsByReplyToken.get(replyToken) || [];
+  const outgoingMessages = dailyAnnouncements.length
+    ? [...messages, ...dailyAnnouncements.map((text) => ({ type: 'text', text }))]
+    : messages;
+  dailyAnnouncementsByReplyToken.delete(replyToken);
   try {
     await axios.post('https://api.line.me/v2/bot/message/reply', {
       replyToken,
-      messages
+      messages: outgoingMessages
     }, {
       headers: {
         Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
@@ -233,15 +290,14 @@ async function reply(replyToken, text) {
   await replyMessages(replyToken, [{ type: 'text', text }]);
 }
 
-function composeInspireText(text, displayName) {
+function composeInspireText(text) {
   const quote = pick(messagePools.inspire) || '';
   if (!quote) return text;
-  const name = displayName ? `✨ ${displayName}` : '✨';
-  return `${text}\n${name} ${quote}`;
+  return `${text}\n✨ ฝากไว้ให้คิด: “${quote}”`;
 }
 
-async function replyWithInspire(replyToken, text, displayName) {
-  await reply(replyToken, composeInspireText(text, displayName));
+async function replyWithInspire(replyToken, text) {
+  await reply(replyToken, composeInspireText(text));
 }
 
 async function replyWithInspireAndTotal(replyToken, baseMessage, displayName, userId, mk, points, options = {}) {
@@ -272,7 +328,7 @@ async function replyWithInspireAndTotal(replyToken, baseMessage, displayName, us
   }
 
   lines.unshift(messageWithTotal);
-  await replyWithInspire(replyToken, lines.filter(Boolean).join('\n'), displayName);
+  await replyWithInspire(replyToken, lines.filter(Boolean).join('\n'));
 }
 
 async function push(text) {
@@ -524,24 +580,87 @@ function isLastDayOfMonth(date = new Date()) {
   return Number(parts.day) === lastDay;
 }
 
-async function getTop10(mk, limit = 10) {
+async function getMonthEvents(mk) {
   await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('user_id, display_name, points, timestamp')
-    .eq('month_key', mk);
-  if (error) throw new Error(error.message || 'Failed to fetch events');
-  return rankAndLimit(aggregateEventsByUser(data), limit)
+  const pageSize = 1000;
+  const rows = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, user_id, display_name, command, points, timestamp')
+      .eq('month_key', mk)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(error.message || 'Failed to fetch events');
+
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return rows;
+    offset += pageSize;
+  }
+}
+
+function monthlyCountdownStatus(events, eventId = null, eventCommand = '') {
+  const productEvents = events.filter((event) => String(event.command || '').trim().toLowerCase() === '/s1');
+  const businessEvents = events.filter((event) => {
+    const command = String(event.command || '').trim().toLowerCase();
+    return command === '/s2' || command === '/opp onsite';
+  });
+  const command = String(eventCommand || '').trim().toLowerCase();
+  const eventList = command === '/s1' ? productEvents
+    : command === '/s2' || command === '/opp onsite' ? businessEvents
+      : [];
+  const eventIndex = eventId === null
+    ? -1
+    : eventList.findIndex((event) => String(event.id) === String(eventId));
+
+  return {
+    productCasesRemaining: Math.max(0, 50 - productEvents.length),
+    businessCasesRemaining: Math.max(0, 50 - businessEvents.length),
+    decremented: eventIndex >= 0 && eventIndex < 50
+  };
+}
+
+async function getMonthlyCountdownStatus(mk, eventId = null, eventCommand = '') {
+  return monthlyCountdownStatus(await getMonthEvents(mk), eventId, eventCommand);
+}
+
+function formatCountdownStatus(status) {
+  return `📦 เคสสินค้า: เหลือ ${status.productCasesRemaining}/50\n💼 เคสเล่า Business Model: เหลือ ${status.businessCasesRemaining}/50`;
+}
+
+async function getTop10(mk, limit = 10) {
+  const data = await getMonthEvents(mk);
+  const scoreCommandCategories = new Map([
+    ['/ppv', 's1'], ['/s1', 's1'],
+    ['/for', 's2'], ['/opp', 's2'], ['/opp online', 's2'], ['/opp onsite', 's2'],
+    ['/abo', 's2'], ['/m', 's2'], ['/s2', 's2'],
+    ['/pin', 's3'],
+    ['/link', 's4'], ['/book', 's4'], ['/product', 's4'], ['/ct', 's4'],
+    ['/follow', 's4'], ['/hm', 's4'], ['/s4', 's4']
+  ]);
+  const pointsByUser = new Map();
+  for (const row of data || []) {
+    const command = String(row.command || '').trim().toLowerCase();
+    const category = scoreCommandCategories.get(command);
+    if (!category) continue;
+    const points = pointsByUser.get(row.user_id) || { s1: 0, s2: 0, s3: 0, s4: 0 };
+    points[category] += Number(row.points || 0);
+    pointsByUser.set(row.user_id, points);
+  }
+  return rankAndLimit(aggregateEventsByUser(data).map((row) => ({
+    ...row,
+    s1: roundTo(pointsByUser.get(row.user_id)?.s1 || 0, 2),
+    s2: roundTo(pointsByUser.get(row.user_id)?.s2 || 0, 2),
+    s3: roundTo(pointsByUser.get(row.user_id)?.s3 || 0, 2),
+    s4: roundTo(pointsByUser.get(row.user_id)?.s4 || 0, 2)
+  })), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
 async function getMonthRanking(mk) {
-  await dbReady;
-  const { data, error } = await supabase
-    .from('events')
-    .select('user_id, display_name, points, timestamp')
-    .eq('month_key', mk);
-  if (error) throw new Error(error.message || 'Failed to load month ranking');
+  const data = await getMonthEvents(mk);
   return rankAndLimit(aggregateEventsByUser(data))
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
@@ -644,17 +763,53 @@ async function buildWeeklySummaryText() {
 }
 
 const messagePools = {
+  countdown_cheer: [
+    'เยี่ยมครับ อีกหนึ่งเคสที่ทุกคนช่วยกันพาภารกิจเข้าใกล้เป้าหมาย',
+    'ขยับไปอีกหนึ่งก้าวแล้วครับ ทำต่อทีละเคส เดี๋ยวครบเอง',
+    'ยอดลดลงอีกหนึ่งแล้วครับ พลังทีมดีแบบนี้ กาแฟยังต้องยอมแพ้',
+    'อีกหนึ่งเคสผ่านไปด้วยดีครับ ความสำเร็จชอบทีมที่ช่วยกันลงมือ',
+    'เก่งมากครับ เป้าหมายไม่ได้ใกล้ขึ้นเอง แต่ทีมเราช่วยกันทำให้ใกล้ขึ้น',
+    'อีกหนึ่งเคสในกระเป๋าความสำเร็จครับ ค่อย ๆ เก็บ เดี๋ยวครบ 50 แบบไม่รู้ตัว',
+    'เดินหน้าอีกหนึ่งแล้วครับ วันนี้ทีมเราไม่ได้แค่คุยเรื่องแผน แต่ทำให้เห็นด้วย',
+    'เยี่ยมเลยครับ หนึ่งเคสอาจดูเล็ก แต่พอช่วยกันหลายคนก็กลายเป็นเรื่องใหญ่',
+    'อีกหนึ่งความคืบหน้าครับ ทำต่อเนื่องไว้ เป้าหมายจะได้ไม่ต้องรอเรานาน',
+    'ลดไปอีกหนึ่งเคสแล้วครับ ทีมเวิร์กดีขนาดนี้ เป้าหมายมีหนาวแน่นอน'
+  ],
   inspire: [
-    'วันนี้ทำได้ดีมากเลยนะ',
-    'เติมพลังไว้ แล้วไปต่อกัน',
-    'ก้าวเล็กๆ วันนี้ คือชัยชนะของพรุ่งนี้',
-    'ทีมเราเชื่อในตัวคุณนะ ✨',
-    'อัพไลน์เชื่อในตัวคุณนะ ✨',
-    'พักหายใจนิดนึง แล้วลุยต่อ'
+    'อย่ารอให้มั่นใจแล้วค่อยเริ่ม บางทีความมั่นใจเขาก็มาตอนเห็นเราทำไปแล้วนี่แหละ',
+    'ฝันให้ไกลได้ แต่อย่าลืมตื่นมาลงมือทำด้วยนะ',
+    'คนเก่งไม่ใช่คนที่ไม่เคยพลาด แต่คือคนที่พลาดแล้วไม่สมัครเป็นลูกค้าประจำของความผิดพลาดเดิม',
+    'ชีวิตไม่มีทางลัด แต่มีทางที่เดินแล้วไม่ต้องย้อนกลับไปแก้ ถ้าคิดให้รอบก่อนเริ่ม',
+    'ก้าวช้าก็ยังดีกว่ายืนบ่นว่าทำไมถึงยังไม่ถึง',
+    'อย่าเอาวันที่แย่วันเดียวไปตัดสินทั้งชีวิต ชีวิตยังมีวันพรุ่งนี้ให้แก้มือ',
+    'ทำวันนี้ให้ดีที่สุด ที่เหลือพรุ่งนี้ค่อยว่ากัน แต่พรุ่งนี้อย่าลืมมาจริง ๆ ล่ะ',
+    'ความสำเร็จชอบคนลงมือทำ ส่วนข้ออ้างชอบคนที่มีเวลาว่างให้มัน',
+    'เหนื่อยได้ พักได้ แต่อย่าเพิ่งลาออกจากความฝันตอนที่แค่ต้องการนอน',
+    'อย่าเปรียบเทียบจุดเริ่มต้นของเรากับตอนที่คนอื่นเขาไปถึงครึ่งทางแล้ว',
+    'ประสบการณ์สอนเราเก่งมาก บางบทเรียนก็เก็บค่าเทอมแพงไปหน่อย',
+    'ถ้าแผนแรกยังไม่สำเร็จ ไม่ได้แปลว่าฝันผิด บางทีแค่ต้องเปลี่ยนวิธี ไม่ใช่เปลี่ยนเป้าหมาย',
+    'พูดให้น้อยลงนิด ทำให้มากขึ้นหน่อย เดี๋ยวผลงานช่วยแนะนำตัวเราเอง',
+    'ความสม่ำเสมออาจไม่หวือหวา แต่เป็นคนรู้จักที่ไว้ใจได้ที่สุดของความสำเร็จ',
+    'อยากไปให้ไกล อย่าเอาแต่ถามว่าทางยากไหม ลองถามว่าก้าวต่อไปคืออะไร',
+    'คนเราพลาดกันได้ แต่อย่าพลาดซ้ำจนความผิดพลาดเริ่มเรียกเราว่าลูกพี่',
+    'วันที่ยังไม่มีใครเห็นความพยายาม ก็ทำต่อไปก่อน วันหนึ่งผลลัพธ์จะพูดเสียงดังกว่าเรา',
+    'อย่ากลัวการเริ่มใหม่ เริ่มใหม่วันนี้ยังดีกว่ารอให้วันจันทร์ที่สมบูรณ์แบบมาถึง',
+    'เงินซื้อความสุขไม่ได้ทั้งหมด แต่ช่วยให้เรามีเวลาหาความสุขโดยไม่ต้องกังวลค่ากับข้าว',
+    'ความสำเร็จไม่ได้เกิดจากโชคอย่างเดียว โชคมักหาเจอคนที่เตรียมตัวไว้แล้ว',
+    'ฟังคำแนะนำได้ทุกคน แต่คนลงมือใช้ชีวิตคือเรา เลือกให้ดีแล้วรับผิดชอบให้ไหว',
+    'ไม่ต้องเก่งที่สุดในห้อง แค่เก่งกว่าเมื่อวานของตัวเองก็ถือว่ามาถูกทาง',
+    'อย่ารอจังหวะที่ใช่จนพลาดทุกจังหวะที่มี',
+    'ปัญหาบางอย่างไม่ได้หายไปเพราะเรากังวลเก่งขึ้น ลองลงมือแก้ดูสักข้อ',
+    'ความอดทนไม่ใช่การทนทุกอย่าง แต่คือรู้ว่าอะไรควรทำต่อ และอะไรควรวางลง',
+    'คนมีฝันต้องมีแผน คนมีแผนต้องลงมือ ส่วนคนมีข้ออ้าง...มีได้ แต่อย่าให้เยอะกว่าแผน',
+    'วันที่ทำได้เต็มร้อยก็ดี วันที่ทำได้แค่ครึ่งเดียวแต่ยังไม่ยอมแพ้ก็ดีเหมือนกัน',
+    'อย่าดูถูกก้าวเล็ก ๆ เดินไปเรื่อย ๆ เดี๋ยวก็ไกลจนคนขี้เกียจตามไม่ทัน',
+    'ความรู้ทำให้เราเริ่มได้ ประสบการณ์ทำให้เรารอบคอบ และอารมณ์ขันช่วยให้เราไม่เครียดกับสองอย่างแรกเกินไป',
+    'ไม่มีใครย้อนกลับไปเริ่มต้นใหม่ได้ แต่ทุกคนเริ่มทำให้ตอนจบดีขึ้นได้ตั้งแต่วันนี้'
   ],
   score_summary: ['{displayName} เดือน {month} มีคะแนนสะสม {total} คะแนน'],
   rank_no_data: ['ยังไม่มีคะแนนสำหรับเดือน {month}'],
-  rank_header: ['🏆 Top 10 เดือน {month}']
+  rank_header: ['🏆 Top 3 เดือน {month}']
 };
 
 function pickMsg(pool, vars = {}) {
@@ -671,6 +826,57 @@ function missingUserIdMessage(isGroupOrRoom) {
     return 'ระบบยังไม่ได้รับ userId โปรดเพิ่มบอทเป็นเพื่อนหรือส่งคำสั่งในแชทส่วนตัวค่ะ';
   }
   return 'ไม่สามารถระบุผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง';
+}
+
+async function prepareDailyTop10Announcement(evt) {
+  const date = getZonedDateParts();
+  if (Number(date.day) % 5 !== 0 || !evt?.replyToken) return;
+
+  const source = evt.source || {};
+  const chatId = source.type === 'group' ? source.groupId
+    : source.type === 'room' ? source.roomId
+      : source.userId || source.senderId || source.memberId || source.user?.id || source.user?.userId;
+  if (!chatId) return;
+
+  const dateKey = localDateKey();
+  const mk = monthKey();
+  const top = await getTop10(mk, 10);
+  const { error } = await supabase
+    .from('daily_announcements')
+    .insert({ chat_id: chatId, date_key: dateKey });
+  if (error?.code === '23505') return;
+  if (error) throw new Error(error.message || 'Failed to record daily Top 10 announcement');
+
+  const lines = [`📣 อันดับประจำวัน — Top 10 เดือน ${mk}`];
+  if (top.length) {
+    top.forEach((row) => lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`));
+  } else {
+    lines.push('ยังไม่มีคะแนนในเดือนนี้ มาเริ่มเก็บคะแนนกันเลย!');
+  }
+  lines.push('', `ดูอันดับแบบเรียลไทม์: ${publicBaseUrl()}/`);
+  queueDailyAnnouncement(evt.replyToken, lines.join('\n'));
+}
+
+async function prepareDailyCountdownAnnouncement(evt) {
+  if (!evt?.replyToken) return;
+
+  const status = await getMonthlyCountdownStatus(monthKey());
+  const { error } = await supabase
+    .from('daily_announcements')
+    .insert({ chat_id: 'global-countdown', date_key: localDateKey() });
+  if (error?.code === '23505') return;
+  if (error) throw new Error(error.message || 'Failed to record daily countdown announcement');
+
+  queueDailyAnnouncement(
+    evt.replyToken,
+    `📅 Countdown ภารกิจประจำเดือน\n${formatCountdownStatus(status)}`
+  );
+}
+
+function queueDailyAnnouncement(replyToken, text) {
+  const announcements = dailyAnnouncementsByReplyToken.get(replyToken) || [];
+  announcements.push(text);
+  dailyAnnouncementsByReplyToken.set(replyToken, announcements);
 }
 
 async function safeGetDisplayName(uid, source = {}) {
@@ -714,6 +920,18 @@ async function handleEvent(evt) {
   const sourceType = evt?.source?.type;
   const isGroupOrRoom = sourceType === 'group' || sourceType === 'room';
 
+  try {
+    await prepareDailyCountdownAnnouncement(evt);
+  } catch (err) {
+    console.error('Daily countdown announcement error:', err?.message || err);
+  }
+
+  try {
+    await prepareDailyTop10Announcement(evt);
+  } catch (err) {
+    console.error('Daily Top 10 announcement error:', err?.message || err);
+  }
+
   if (cmd === '/groupid' || cmd === '/group_id') {
     if (sourceType === 'group' && evt.source?.groupId) {
       await reply(evt.replyToken, `Group ID: ${evt.source.groupId}`);
@@ -752,8 +970,9 @@ async function handleEvent(evt) {
       'S1: /ppv <PV> (ส่งรูปตาม), /s1 (ส่งรูปตาม)',
       'S2: /for <จำนวนสาย>, /opp online|onsite, /abo, /m, /s2 (ทุกคำสั่งส่งรูปตาม)',
       'S3: /pin <พิน...> (ใช้ได้วันสุดท้ายของเดือน)',
-      'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm HM1|HM2|HM3|HM4, /s4 (ส่งรูปตาม)',
-      '/score, /rank, /rules, /help'
+      'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm, /s4 (ส่งรูปตาม)',
+      '/score, /rank (Top 3), /rules, /help',
+      'คำสั่งแรกของวันจะแจ้ง Countdown ภารกิจรวม และวันที่ 5, 10, 15, 20, 25 หรือ 30 จะแสดง Top 10 ด้วย'
     ];
     await reply(evt.replyToken, lines.join('\n'));
     return;
@@ -775,12 +994,12 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/rank') {
-    const top = await getTop10(mk, 10);
+    const top = await getTop10(mk, 3);
     if (!top.length) {
       await reply(evt.replyToken, pickMsg('rank_no_data', { month: mk }));
       return;
     }
-    const lines = [pickMsg('rank_header', { month: mk }) || `🏆 Top 10 เดือน ${mk}`];
+    const lines = [pickMsg('rank_header', { month: mk }) || `🏆 Top 3 เดือน ${mk}`];
     top.forEach((row) => lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`));
     lines.push('', `ดู Top 10 แบบเรียลไทม์: ${publicBaseUrl()}/`);
     await reply(evt.replyToken, lines.join('\n'));
@@ -911,12 +1130,7 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/hm') {
-    const hm = (parts[1] || '').toUpperCase();
-    if (parts.length !== 2 || !/^HM[1-4]$/.test(hm)) {
-      await reply(evt.replyToken, 'ระบุหัวข้อที่เล่า เช่น /hm HM1 (เลือก HM1–HM4)');
-      return;
-    }
-    await recordAndReply('/hm', 1, `บันทึกการเล่า ${hm} ผู้เล่าได้รับ +1 คะแนน`, hm);
+    await recordAndReply('/hm', 1, 'บันทึกการเล่า HM ผู้เล่าได้รับ +1 คะแนน', '');
     return;
   }
 
@@ -979,14 +1193,13 @@ async function handleImageEvent(evt) {
     if (bonusPoints) {
       await replyWithInspireAndTotal(evt.replyToken, message, displayName, userId, mk, bonusPoints);
     } else {
-      await replyWithInspire(evt.replyToken, message, displayName);
+      await replyWithInspire(evt.replyToken, message);
     }
     return;
   }
-
   const command = metadata.scoreCommand || metadata.command;
   const points = Number(metadata.points);
-  await insertEvent({
+  const eventId = await insertEvent({
     user_id: userId,
     display_name: displayName,
     command,
@@ -994,7 +1207,14 @@ async function handleImageEvent(evt) {
     points,
     month_key: mk
   });
-  const message = `${metadata.description || metadata.detail || `บันทึก ${command}`} รับ +${formatPoints(points)} คะแนน`;
+  let message = `${metadata.description || metadata.detail || `บันทึก ${command}`} รับ +${formatPoints(points)} คะแนน`;
+  if (['/s1', '/s2', '/opp onsite'].includes(command)) {
+    const countdown = await getMonthlyCountdownStatus(mk, eventId, command);
+    if (countdown.decremented) {
+      const cheer = pick(messagePools.countdown_cheer) || 'อีกหนึ่งก้าวของภารกิจร่วมกัน สำเร็จแล้วครับ';
+      message += `\n🎉 คุณพิบูลย์ขอเชียร์: ${cheer}\n${formatCountdownStatus(countdown)}`;
+    }
+  }
   await replyWithInspireAndTotal(evt.replyToken, message, displayName, userId, mk, points);
 }
 

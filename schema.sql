@@ -18,3 +18,10 @@ CREATE TABLE IF NOT EXISTS pending (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (user_id, command, date_key)
 );
+
+CREATE TABLE IF NOT EXISTS daily_announcements (
+  chat_id TEXT NOT NULL,
+  date_key DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (chat_id, date_key)
+);

@@ -2,45 +2,49 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>4S to Silver Challenge — Top 10</title>
+  <title>4S to Silver Challenge — Leaderboard</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c0a08">
   <style>
     :root{
-      --bg:#f6f7fc; --ink:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e5e7eb;
-      --primary:#1d4ed8; --purple:#6d28d9; --gold:#f59e0b; --silver:#9ca3af; --bronze:#b45309;
-      --row:#f8fafc; --row2:#f1f5f9; --hover:#eef2ff;
+      color-scheme:dark;
+      --bg:#0c0a08; --ink:#f7f1e7; --muted:#b9ad9b; --card:#171411; --border:#3b342a;
+      --gold:#d8b44a; --red:#a51e2b; --silver:#c4c0b9; --bronze:#b96b42;
+      --row:#1d1914; --row2:#15120f; --hover:#2a2117;
     }
     html,body{height:100%}
-    body{font-family:sans-serif;background:radial-gradient(1200px 600px at 10% -10%, #e0e7ff 0, transparent 60%),radial-gradient(900px 500px at 110% -20%, #fae8ff 0, transparent 55%),var(--bg);margin:0;color:var(--ink)}
+    body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(1000px 600px at 5% -15%,#4c151c88 0,transparent 58%),radial-gradient(800px 500px at 100% -20%,#82611a30 0,transparent 55%),var(--bg);margin:0;color:var(--ink)}
     .wrap{width:min(960px,100%);margin:0 auto;padding:clamp(20px,4vw,32px) clamp(18px,5vw,28px)}
-    .hero{background:linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%);color:#fff;border-radius:16px;padding:clamp(18px,4vw,26px) clamp(20px,5vw,28px);display:flex;align-items:center;gap:clamp(14px,3vw,24px);justify-content:space-between;box-shadow:0 6px 20px rgba(29,78,216,0.25);flex-wrap:wrap}
+    .hero{background:linear-gradient(120deg,#171411 0%,#211714 60%,#55151b 100%);color:var(--ink);border:1px solid #6f572b;border-radius:18px;padding:clamp(18px,4vw,26px) clamp(20px,5vw,28px);display:flex;align-items:center;gap:clamp(14px,3vw,24px);justify-content:space-between;box-shadow:0 12px 32px #0008,0 0 32px #a77b2520;flex-wrap:wrap}
     .brand{display:flex;align-items:center;gap:12px;flex:1;min-width:220px}
-    .brand .emoji{font-size:26px;flex-shrink:0}
-    .brand .title{font-size:18px;font-weight:700;letter-spacing:.3px}
-    .brand .sub{font-size:12px;opacity:.9}
+    .brand-mark{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border:1px solid var(--gold);border-radius:14px;color:var(--gold);font-size:16px;font-weight:900;letter-spacing:-.08em}
+    .brand .title{font-size:18px;font-weight:750;letter-spacing:.3px}
+    .brand .sub{font-size:12px;color:#d4c7b2}
     .actions{flex-shrink:0;display:flex;gap:12px}
-    .actions a{display:inline-flex;align-items:center;justify-content:center;min-width:120px;background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.6);padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600;transition:background .2s ease,color .2s ease}
-    .actions a:hover{background:#f1f5ff}
-    .period{margin-top:8px;color:#334155;font-size:12px}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;min-width:120px;background:#211b12;color:#f1d27a;border:1px solid #9a792c;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;transition:background .2s ease,color .2s ease}
+    .actions a:hover{background:#342713;color:#ffe9a7}
+    .period{margin-top:12px;color:#e3c66e;font-size:13px;font-weight:650}
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .filters label{font-size:12px;color:#334155;display:inline-flex;align-items:center;gap:6px}
-    .filters input{border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:#fff;color:#0f172a}
-    .table-wrap{margin-top:20px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:0 8px 24px rgba(15,23,42,0.06)}
+    .filters label{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
+    .filters input{border:1px solid #67542b;border-radius:8px;padding:7px 9px;background:#171411;color:var(--ink)}
+    .table-wrap{margin-top:20px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid #4a3c25;box-shadow:0 12px 30px #0006}
     .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-    table{width:100%;min-width:600px;border-collapse:separate;border-spacing:0}
-    thead th{background:#0b1a4a;color:#fff;text-align:left;padding:14px 16px;position:sticky;top:0}
+    table{width:100%;min-width:820px;border-collapse:separate;border-spacing:0}
+    thead th{background:#251d12;color:#e7ca72;text-align:left;padding:14px 12px;position:sticky;top:0;font-size:13px}
     tbody td{padding:14px 16px;border-top:1px solid var(--border)}
     tbody tr:nth-child(even){background:var(--row)}
     tbody tr:nth-child(odd){background:var(--row2)}
     tbody tr:hover{background:var(--hover)}
-    td.rank{width:90px}
+    td.rank{width:76px}
+    td.category-points{width:82px;text-align:center;color:#e7d8b7;font-variant-numeric:tabular-nums}
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:36px;padding:0 12px;border-radius:999px;font-weight:800}
-    .rank-1{background:linear-gradient(145deg,#fef3c7,#fde68a);color:#8a5800;border:1px solid #fbbf24}
-    .rank-2{background:linear-gradient(145deg,#f3f4f6,#e5e7eb);color:#374151;border:1px solid #d1d5db}
-    .rank-3{background:linear-gradient(145deg,#fde68a,#fcd34d);color:#7c2d12;border:1px solid #f59e0b}
-    .rank-n{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
-    .points{font-weight:700;color:#0b1a4a}
+    .rank-1{background:linear-gradient(145deg,#ffe99b,#c99725);color:#241a08;border:1px solid #f3d16d}
+    .rank-2{background:linear-gradient(145deg,#e2e0d9,#99958b);color:#191713;border:1px solid #c9c4b8}
+    .rank-3{background:linear-gradient(145deg,#d58a5b,#884327);color:#fff3e8;border:1px solid #d78c5d}
+    .rank-n{background:#2b1718;color:#f0b5ac;border:1px solid #71333a}
+    .points{font-weight:800;color:#f1d27a;font-variant-numeric:tabular-nums}
     .name{font-weight:600}
+    .empty-state{text-align:center;color:var(--muted);padding:28px}
     .muted{color:var(--muted);font-size:12px;margin-top:12px;text-align:right}
 
     @media (max-width:1024px){
@@ -50,12 +54,10 @@
       .brand{min-width:0}
       .actions{width:100%;justify-content:flex-start}
       .actions a{flex:1 1 160px;min-width:0}
-      table{min-width:0}
       thead th,tbody td{padding:12px 14px}
     }
 
     @media (max-width:720px){
-      body{background:var(--bg)}
       .wrap{padding:22px 16px}
       .hero{flex-direction:column;align-items:flex-start;text-align:left;padding:20px}
       .brand{width:100%;gap:10px}
@@ -67,8 +69,8 @@
       .filters label{width:100%}
       .filters input{width:100%;font-size:14px}
       .muted{text-align:left;margin-top:16px}
-      table{min-width:100%}
-      td.rank{width:72px}
+      table{min-width:0}
+      td.rank{width:auto}
     }
 
     @media (max-width:600px){
@@ -77,23 +79,27 @@
       table{min-width:0;border-spacing:0 14px}
       thead{display:none}
       tbody{display:block;padding:4px 0}
-      tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;border:1px solid var(--border);border-radius:14px;background:var(--card);box-shadow:0 10px 28px rgba(15,23,42,0.12);padding:16px 14px}
+      tbody tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;border:1px solid #4a3c25;border-radius:14px;background:var(--card);box-shadow:0 10px 28px #0007;padding:16px 14px}
       tbody tr:nth-child(even),tbody tr:nth-child(odd){background:var(--card)}
       tbody tr:hover{background:var(--card)}
       tbody td{border:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:15px;width:auto}
       tbody td[data-label]::before{content:attr(data-label);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
       tbody td.rank{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px;width:auto}
       tbody td.rank::before{content:none}
-      tbody td.name{font-weight:700;color:#0b1a4a}
-      tbody td.points{align-items:flex-end;font-size:18px;text-align:right}
-      tbody td.points::before{align-self:flex-end;text-align:right;display:block}
+      tbody td.rank{grid-column:1;flex-direction:row;align-items:center;gap:8px}
+      tbody td.name{grid-column:2/-1;align-self:center;font-weight:700;color:var(--ink)}
+      tbody td.category-points{align-items:center;text-align:center;padding:9px 3px;border:1px solid #3b342a;border-radius:9px;background:#201b15;font-size:14px}
+      tbody td.category-points::before{text-align:center}
+      tbody td.points{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #4a3c25;font-size:18px;text-align:left}
+      tbody td.points::before{display:block;color:var(--muted);font-size:12px}
+      tbody td.empty-state{grid-column:1/-1;display:block;text-align:center}
       .badge{min-width:46px;height:40px;font-size:18px}
     }
 
     @media (max-width:420px){
       .hero{gap:12px}
       .brand{flex-direction:row;align-items:flex-start}
-      .brand .emoji{font-size:24px}
+      .brand-mark{width:40px;height:40px}
       .brand .title{font-size:16px}
       .badge{min-width:40px;height:36px}
     }
@@ -103,10 +109,10 @@
   <div class="wrap">
     <div class="hero">
       <div class="brand">
-        <div class="emoji">🏆</div>
+        <div class="brand-mark" aria-hidden="true">4S</div>
         <div>
-          <div class="title">4S to Silver Challenge — Top 10</div>
-          <div class="sub">Small win to SUCCESS · Leaderboard</div>
+          <div class="title">4S to Silver Challenge — Leaderboard</div>
+          <div class="sub">อันดับคะแนนทุกคน · เรียงจากมากไปน้อย</div>
         </div>
       </div>
       <div class="actions">
@@ -125,7 +131,12 @@
     <div class="table-wrap">
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Rank</th><th>Name</th><th>Points</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Rank</th><th>Name</th><th>S1 ยอดสินค้า</th><th>S2 คน</th>
+              <th>S3 Moving Up</th><th>S4 พัฒนา</th><th>Total</th>
+            </tr>
+          </thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
@@ -161,7 +172,7 @@
       periodEl.textContent = labelFor(payload.meta);
       if(!rows.length){
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="3" style="text-align:center;color:#64748b;padding:28px">ยังไม่มีคะแนน</td>`;
+        tr.innerHTML = `<td colspan="7" class="empty-state">ยังไม่มีคะแนน</td>`;
         tbody.appendChild(tr);
         return;
       }
@@ -173,7 +184,11 @@
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
           <td class="name" data-label="ชื่อ">${r.display_name}</td>
-          <td class="points" data-label="คะแนน">${formatPoints(r.points)}</td>
+          <td class="category-points" data-label="S1" title="S1 ยอดสินค้า">${formatPoints(r.s1)}</td>
+          <td class="category-points" data-label="S2" title="S2 คน">${formatPoints(r.s2)}</td>
+          <td class="category-points" data-label="S3" title="S3 Moving Up">${formatPoints(r.s3)}</td>
+          <td class="category-points" data-label="S4" title="S4 พัฒนา">${formatPoints(r.s4)}</td>
+          <td class="points" data-label="คะแนนรวม">${formatPoints(r.points)}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -198,4 +213,3 @@
   </script>
 </body>
 </html>
-

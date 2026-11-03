@@ -141,6 +141,14 @@ async function ensureEventsPointsNumeric() {
         PRIMARY KEY (user_id, command, date_key)
       );
     `);
+    await ensureTable('daily_announcements', `
+      CREATE TABLE IF NOT EXISTS public.daily_announcements (
+        chat_id TEXT NOT NULL,
+        date_key DATE NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (chat_id, date_key)
+      );
+    `);
     await ensurePendingMetadataColumn();
     await ensureEventsPointsNumeric();
   } catch (err) {
