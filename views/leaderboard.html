@@ -150,15 +150,15 @@
       <p id="countdown-error" class="countdown-error" role="status" hidden></p>
       <div class="countdown-grid" aria-live="polite">
         <article class="countdown-item">
-          <span class="countdown-label">📦 เคสสินค้า</span>
-          <strong id="product-remaining" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
+          <span class="countdown-label">📦 เคสสินค้าที่ทำได้</span>
+          <strong id="product-done" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
           <div class="countdown-track" role="progressbar" aria-label="เคสสินค้าที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
             <div id="product-progress" class="countdown-progress"></div>
           </div>
         </article>
         <article class="countdown-item">
-          <span class="countdown-label">💼 เคสเล่าธุรกิจ</span>
-          <strong id="business-remaining" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
+          <span class="countdown-label">💼 เคสเล่าธุรกิจที่ทำได้</span>
+          <strong id="business-done" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
           <div class="countdown-track" role="progressbar" aria-label="เคสเล่าธุรกิจที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
             <div id="business-progress" class="countdown-progress"></div>
           </div>
@@ -199,8 +199,8 @@
       }
       const productDone = 50 - productRemaining;
       const businessDone = 50 - businessRemaining;
-      document.getElementById('product-remaining').innerHTML = `${productRemaining} <small>/ 50 เคสที่เหลือ</small>`;
-      document.getElementById('business-remaining').innerHTML = `${businessRemaining} <small>/ 50 เคสที่เหลือ</small>`;
+      document.getElementById('product-done').innerHTML = `${productDone} <small>/ 50 เคส</small>`;
+      document.getElementById('business-done').innerHTML = `${businessDone} <small>/ 50 เคส</small>`;
       document.getElementById('product-progress').style.width = `${productDone * 2}%`;
       document.getElementById('business-progress').style.width = `${businessDone * 2}%`;
       document.querySelector('[aria-label="เคสสินค้าที่ทำสำเร็จ"]').setAttribute('aria-valuenow', productDone);

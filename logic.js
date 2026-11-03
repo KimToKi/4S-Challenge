@@ -627,7 +627,7 @@ async function getMonthlyCountdownStatus(mk, eventId = null, eventCommand = '') 
 }
 
 function formatCountdownStatus(status) {
-  return `📦 เคสสินค้า: เหลือ ${status.productCasesRemaining}/50\n💼 เคสเล่าธุรกิจ: เหลือ ${status.businessCasesRemaining}/50`;
+  return `📦 เคสสินค้า: เหลือ ${status.productCasesRemaining}\n💼 เคสเล่าธุรกิจ: เหลือ ${status.businessCasesRemaining}`;
 }
 
 async function getTop10(mk, limit = 10) {
@@ -1142,7 +1142,7 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/hm') {
-    await recordAndReply('/hm', 1, 'บันทึกการเล่า HM ผู้เล่าได้รับ +1 คะแนน', '');
+    await recordAndReply('/hm', 1, 'บันทึกการนัดและเล่า HM คนนัดได้รับ +1 คะแนน และผู้เล่าได้รับ +1 คะแนน', '');
     return;
   }
 
