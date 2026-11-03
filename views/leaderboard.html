@@ -157,9 +157,9 @@
           </div>
         </article>
         <article class="countdown-item">
-          <span class="countdown-label">💼 เคสเล่า Business Model</span>
+          <span class="countdown-label">💼 เคสเล่าธุรกิจ</span>
           <strong id="business-remaining" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
-          <div class="countdown-track" role="progressbar" aria-label="เคส Business Model ที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
+          <div class="countdown-track" role="progressbar" aria-label="เคสเล่าธุรกิจที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
             <div id="business-progress" class="countdown-progress"></div>
           </div>
         </article>
@@ -204,7 +204,7 @@
       document.getElementById('product-progress').style.width = `${productDone * 2}%`;
       document.getElementById('business-progress').style.width = `${businessDone * 2}%`;
       document.querySelector('[aria-label="เคสสินค้าที่ทำสำเร็จ"]').setAttribute('aria-valuenow', productDone);
-      document.querySelector('[aria-label="เคส Business Model ที่ทำสำเร็จ"]').setAttribute('aria-valuenow', businessDone);
+      document.querySelector('[aria-label="เคสเล่าธุรกิจที่ทำสำเร็จ"]').setAttribute('aria-valuenow', businessDone);
       countdownPeriod.textContent = `เดือน ${payload.meta?.ym || monthPick.value || ''}`;
       countdownError.hidden = true;
     }

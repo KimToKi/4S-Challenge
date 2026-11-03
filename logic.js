@@ -627,7 +627,7 @@ async function getMonthlyCountdownStatus(mk, eventId = null, eventCommand = '') 
 }
 
 function formatCountdownStatus(status) {
-  return `📦 เคสสินค้า: เหลือ ${status.productCasesRemaining}/50\n💼 เคสเล่า Business Model: เหลือ ${status.businessCasesRemaining}/50`;
+  return `📦 เคสสินค้า: เหลือ ${status.productCasesRemaining}/50\n💼 เคสเล่าธุรกิจ: เหลือ ${status.businessCasesRemaining}/50`;
 }
 
 async function getTop10(mk, limit = 10) {
@@ -773,7 +773,18 @@ const messagePools = {
     'เดินหน้าอีกหนึ่งแล้วครับ วันนี้ทีมเราไม่ได้แค่คุยเรื่องแผน แต่ทำให้เห็นด้วย',
     'เยี่ยมเลยครับ หนึ่งเคสอาจดูเล็ก แต่พอช่วยกันหลายคนก็กลายเป็นเรื่องใหญ่',
     'อีกหนึ่งความคืบหน้าครับ ทำต่อเนื่องไว้ เป้าหมายจะได้ไม่ต้องรอเรานาน',
-    'ลดไปอีกหนึ่งเคสแล้วครับ ทีมเวิร์กดีขนาดนี้ เป้าหมายมีหนาวแน่นอน'
+    'ลดไปอีกหนึ่งเคสแล้วครับ ทีมเวิร์กดีขนาดนี้ เป้าหมายมีหนาวแน่นอน',
+    'อีกหนึ่งเคสแล้วครับ อย่ารอให้ Countdown ทักมาถามว่า “ยังทำภารกิจกันอยู่ไหม?”',
+    'ยอดลดแล้วครับ แผนดีเป็นจุดเริ่ม ลงมือทำคือจุดที่ปฏิทินเริ่มประทับใจ',
+    'อีกเคสเดียวที่เราชนะความขี้เกียจครับ วันนี้ความขี้เกียจขอพักร้อนแล้ว',
+    'ภารกิจคืบหน้าอีกนิดครับ ค่อย ๆ ทำ อย่าค่อย ๆ ผัด เดี๋ยวสิ้นเดือนจะลุ้นเกินไป',
+    'เยี่ยมครับ ทำก่อนค่อยฉลองก็ได้ แต่ถ้าฉลองก่อน อย่าลืมกลับมาทำต่อด้วยนะ',
+    'อีกหนึ่งเคสครับ เป้าหมายไม่กัด แต่ถ้าปล่อยไว้นานอาจมองแรงนิดหนึ่ง',
+    'ทีมช่วยกันดีมากครับ งานไม่เดินเอง แต่กาแฟอาจเดินมาหาเราได้',
+    'ยอดลงอีกแล้วครับ หลักฐานชัดเจนกว่าคำว่า “เดี๋ยวทำ” เสมอ',
+    'ความคืบหน้ามาแล้วครับ วันนี้ชนะทั้งภารกิจและปุ่มเลื่อนปลุก',
+    'อีกหนึ่งเคสครับ ทำทีละนิดดีกว่ารอฤกษ์ดีจนฤกษ์เปลี่ยนเดือน',
+    'เก่งมากครับ ถ้าความตั้งใจแปลงเป็นคะแนนได้ วันนี้ทีมเราคะแนนเต็มใจไปแล้ว'
   ],
   inspire: [
     'อย่ารอให้มั่นใจแล้วค่อยเริ่ม บางทีความมั่นใจเขาก็มาตอนเห็นเราทำไปแล้วนี่แหละ',
@@ -995,13 +1006,14 @@ async function handleEvent(evt) {
 
   if (cmd === '/rank') {
     const top = await getTop10(mk, 3);
+    const countdown = await getMonthlyCountdownStatus(mk);
     if (!top.length) {
-      await reply(evt.replyToken, pickMsg('rank_no_data', { month: mk }));
+      await reply(evt.replyToken, `${pickMsg('rank_no_data', { month: mk })}\n\n${formatCountdownStatus(countdown)}`);
       return;
     }
     const lines = [pickMsg('rank_header', { month: mk }) || `🏆 Top 3 เดือน ${mk}`];
     top.forEach((row) => lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`));
-    lines.push('', `ดู Top 10 แบบเรียลไทม์: ${publicBaseUrl()}/`);
+    lines.push('', formatCountdownStatus(countdown), '', `ดูอันดับแบบเรียลไทม์: ${publicBaseUrl()}/`);
     await reply(evt.replyToken, lines.join('\n'));
     return;
   }
@@ -1101,7 +1113,7 @@ async function handleEvent(evt) {
   };
   if (dailyScores[cmd]) {
     const rule = dailyScores[cmd];
-    if (await hasCommandToday(userId, cmd)) {
+    if (cmd !== '/link' && await hasCommandToday(userId, cmd)) {
       await reply(evt.replyToken, `วันนี้บันทึก ${cmd} ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง`);
       return;
     }
@@ -1212,7 +1224,7 @@ async function handleImageEvent(evt) {
     const countdown = await getMonthlyCountdownStatus(mk, eventId, command);
     if (countdown.decremented) {
       const cheer = pick(messagePools.countdown_cheer) || 'อีกหนึ่งก้าวของภารกิจร่วมกัน สำเร็จแล้วครับ';
-      message += `\n🎉 คุณพิบูลย์ขอเชียร์: ${cheer}\n${formatCountdownStatus(countdown)}`;
+      message += `\n🎉 ${cheer}\n${formatCountdownStatus(countdown)}`;
     }
   }
   await replyWithInspireAndTotal(evt.replyToken, message, displayName, userId, mk, points);

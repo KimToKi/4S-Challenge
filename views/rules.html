@@ -24,18 +24,20 @@
     .hero-copy p{margin:0;color:#e5d7c2;font-size:clamp(16px,2vw,19px);line-height:1.7}
     .home{display:inline-block;padding:10px 14px;border:1px solid #9a792c;border-radius:11px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700;white-space:nowrap}
     .home:hover{background:#342713;color:#ffe9a7}
-    .overview{position:relative;justify-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));width:min(100%,320px);aspect-ratio:1;border:3px solid #d8b44a;border-radius:50%;overflow:hidden;box-shadow:0 12px 30px #0009}
-    .overview a{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0;padding:24px 30px;color:#fff;text-decoration:none;border:1px solid #ffffff70;transition:filter .18s ease}
+    .overview{position:relative;isolation:isolate;justify-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));width:min(100%,320px);aspect-ratio:1;border:3px solid #d8b44a;border-radius:50%;overflow:hidden;box-shadow:0 12px 30px #0009}
+    .overview a{display:flex;flex-direction:column;gap:5px;min-width:0;padding:clamp(16px,4vw,24px) clamp(18px,6vw,30px);color:#fff;text-decoration:none;border:1px solid #ffffff70;transition:filter .18s ease}
     .overview a:hover{filter:brightness(1.13)}
     .overview a:focus-visible{position:relative;z-index:1;outline:3px solid #fff;outline-offset:-5px}
+    .overview a:nth-child(-n+2){justify-content:flex-start;padding-top:clamp(22px,6vw,40px)}
+    .overview a:nth-child(n+3){justify-content:flex-end;padding-bottom:clamp(22px,6vw,40px)}
     .overview a:nth-child(1){align-items:flex-start;text-align:left;background:#a51e2b}
     .overview a:nth-child(2){align-items:flex-end;text-align:right;background:#171411}
-    .overview a:nth-child(3){align-items:flex-start;text-align:left;background:#c5a044;color:#1b160d}
+    .overview a:nth-child(3){align-items:flex-start;text-align:left;background:#8b6b22}
     .overview a:nth-child(4){align-items:flex-end;text-align:right;background:#4b171c}
+    .overview strong,.overview a span{display:block;max-width:100%;overflow-wrap:anywhere}
     .overview strong{font-size:clamp(20px,3vw,26px);line-height:1.1}
-    .overview a span{font-size:clamp(12px,1.7vw,15px);color:#f0e8db}
-    .overview a:nth-child(3) span{color:#2c220f}
-    .overview-center{position:absolute;top:50%;left:50%;display:grid;place-content:center;width:88px;aspect-ratio:1;transform:translate(-50%,-50%);border:4px solid #d8b44a;border-radius:50%;background:#11100e;color:#f1d27a;text-align:center;font-size:24px;font-weight:850;line-height:1;box-shadow:0 4px 16px #000b;pointer-events:none}
+    .overview a span{font-size:clamp(12px,1.7vw,15px);line-height:1.35;color:#fff4df}
+    .overview-center{position:absolute;z-index:2;top:50%;left:50%;display:grid;place-content:center;width:88px;aspect-ratio:1;transform:translate(-50%,-50%);border:4px solid #d8b44a;border-radius:50%;background:#11100e;color:#f1d27a;text-align:center;font-size:24px;font-weight:850;line-height:1;box-shadow:0 4px 16px #000b;pointer-events:none}
     .overview-center span{margin-top:4px;font-size:8px;letter-spacing:.08em}
     .section{margin-top:20px;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px #0005}
     .section-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
@@ -59,7 +61,7 @@
       .hero,.section{padding:18px}
       .hero-content{grid-template-columns:1fr;gap:20px}
       .overview{justify-self:center;width:min(100%,300px)}
-      .overview a{padding:24px 28px}
+      .overview a{padding-right:clamp(18px,7vw,28px);padding-left:clamp(18px,7vw,28px)}
       .subtitle{margin-left:0}
       td:first-child{width:150px}
     }
@@ -146,7 +148,7 @@
         <table>
           <thead><tr><th>คำสั่ง</th><th>ความหมาย / เงื่อนไข</th><th>คะแนน</th></tr></thead>
           <tbody>
-            <tr><td><code>/link</code></td><td>ส่งคำสั่งได้วันละ 1 ครั้ง</td><td>+0.5 ต่อวัน</td></tr>
+            <tr><td><code>/link</code></td><td>ส่งได้หลายครั้ง ไม่มีจำกัดจำนวนต่อวัน</td><td>+0.5 ต่อคำสั่ง</td></tr>
             <tr><td><code>/book</code> หรือ <code>/book 10</code></td><td>อ่านหนังสืออย่างน้อย 10 หน้าต่อวัน ส่งได้วันละ 1 ครั้ง (ระบุจำนวนหน้าได้)</td><td>+0.5 ต่อวัน</td></tr>
             <tr><td><code>/product</code></td><td>ใช้สินค้า ส่งได้วันละ 1 ครั้ง</td><td>+0.1 ต่อวัน</td></tr>
             <tr><td><code>/ct</code></td><td>เข้าประชุม Center หรือ Beyond และแชร์ After ส่งได้วันละ 1 ครั้ง</td><td>+1 ต่อวัน</td></tr>
