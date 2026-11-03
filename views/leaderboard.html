@@ -27,6 +27,18 @@
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .filters label{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
     .filters input{border:1px solid #67542b;border-radius:8px;padding:7px 9px;background:#171411;color:var(--ink)}
+    .countdown{margin-top:20px;padding:18px;border:1px solid #4a3c25;border-radius:16px;background:linear-gradient(120deg,#171411,#211714 70%,#351719);box-shadow:0 12px 30px #0006}
+    .countdown-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .countdown h2{margin:0;color:#f1d27a;font-size:17px}
+    .countdown-period{color:var(--muted);font-size:12px}
+    .countdown-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .countdown-item{padding:14px;border:1px solid #4a3c25;border-radius:12px;background:#100e0c}
+    .countdown-label{display:block;color:#e8ddc8;font-size:14px;font-weight:650}
+    .countdown-remaining{display:block;margin:8px 0 10px;color:#f1d27a;font-size:24px;font-weight:850;font-variant-numeric:tabular-nums}
+    .countdown-remaining small{color:var(--muted);font-size:13px;font-weight:500}
+    .countdown-track{height:8px;overflow:hidden;border-radius:99px;background:#332b20}
+    .countdown-progress{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#a51e2b,#d8b44a);transition:width .3s ease}
+    .countdown-error{margin:0;color:#ffaaa1;font-size:13px}
     .table-wrap{margin-top:20px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid #4a3c25;box-shadow:0 12px 30px #0006}
     .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
     table{width:100%;min-width:820px;border-collapse:separate;border-spacing:0}
@@ -68,6 +80,8 @@
       .filters{flex-direction:column;align-items:flex-start}
       .filters label{width:100%}
       .filters input{width:100%;font-size:14px}
+      .countdown-head{align-items:flex-start;flex-direction:column;gap:4px}
+      .countdown-grid{grid-template-columns:1fr}
       .muted{text-align:left;margin-top:16px}
       table{min-width:0}
       td.rank{width:auto}
@@ -128,6 +142,30 @@
       </label>
     </div>
 
+    <section class="countdown" aria-labelledby="countdown-title">
+      <div class="countdown-head">
+        <h2 id="countdown-title">🎯 ภารกิจรวมประจำเดือน</h2>
+        <span id="countdown-period" class="countdown-period"></span>
+      </div>
+      <p id="countdown-error" class="countdown-error" role="status" hidden></p>
+      <div class="countdown-grid" aria-live="polite">
+        <article class="countdown-item">
+          <span class="countdown-label">📦 เคสสินค้า</span>
+          <strong id="product-remaining" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
+          <div class="countdown-track" role="progressbar" aria-label="เคสสินค้าที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
+            <div id="product-progress" class="countdown-progress"></div>
+          </div>
+        </article>
+        <article class="countdown-item">
+          <span class="countdown-label">💼 เคสเล่า Business Model</span>
+          <strong id="business-remaining" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
+          <div class="countdown-track" role="progressbar" aria-label="เคส Business Model ที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
+            <div id="business-progress" class="countdown-progress"></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <div class="table-wrap">
       <div class="table-scroll">
         <table>
@@ -141,13 +179,40 @@
         </table>
       </div>
     </div>
-    <div class="muted">อัปเดตอัตโนมัติทุก 15 วินาที (ไม่แคช)</div>
+    <div class="muted">อัปเดตอัตโนมัติทุก 1 นาที (ไม่แคช)</div>
   </div>
   <script>
     const tbody = document.getElementById('tbody');
     const periodEl = document.getElementById('period');
     const monthWrap = document.getElementById('label-month');
     const monthPick = document.getElementById('monthPick');
+    const countdownPeriod = document.getElementById('countdown-period');
+    const countdownError = document.getElementById('countdown-error');
+
+    function renderCountdown(payload){
+      const countdown = payload?.data;
+      if(!countdown) throw new Error('ข้อมูล Countdown ไม่ครบ');
+      const productRemaining = Math.min(50, Math.max(0, Number(countdown.productCasesRemaining)));
+      const businessRemaining = Math.min(50, Math.max(0, Number(countdown.businessCasesRemaining)));
+      if(!Number.isFinite(productRemaining) || !Number.isFinite(businessRemaining)) {
+        throw new Error('ข้อมูล Countdown ไม่ถูกต้อง');
+      }
+      const productDone = 50 - productRemaining;
+      const businessDone = 50 - businessRemaining;
+      document.getElementById('product-remaining').innerHTML = `${productRemaining} <small>/ 50 เคสที่เหลือ</small>`;
+      document.getElementById('business-remaining').innerHTML = `${businessRemaining} <small>/ 50 เคสที่เหลือ</small>`;
+      document.getElementById('product-progress').style.width = `${productDone * 2}%`;
+      document.getElementById('business-progress').style.width = `${businessDone * 2}%`;
+      document.querySelector('[aria-label="เคสสินค้าที่ทำสำเร็จ"]').setAttribute('aria-valuenow', productDone);
+      document.querySelector('[aria-label="เคส Business Model ที่ทำสำเร็จ"]').setAttribute('aria-valuenow', businessDone);
+      countdownPeriod.textContent = `เดือน ${payload.meta?.ym || monthPick.value || ''}`;
+      countdownError.hidden = true;
+    }
+
+    function renderCountdownError(){
+      countdownError.textContent = 'โหลด Countdown ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+      countdownError.hidden = false;
+    }
 
     function formatPoints(value){
       const num = Number(value);
@@ -166,8 +231,21 @@
       periodEl.textContent = '';
       const params = new URLSearchParams({ limit: 0 });
       if(monthPick.value) params.set('ym', monthPick.value);
-      const res = await fetch(`/top10?${params.toString()}`, { cache: 'no-store' });
+      const countdownParams = new URLSearchParams();
+      if(monthPick.value) countdownParams.set('ym', monthPick.value);
+      const [res, countdownRes] = await Promise.all([
+        fetch(`/top10?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/countdown?${countdownParams.toString()}`, { cache: 'no-store' })
+      ]);
+      if(!res.ok) throw new Error('โหลดอันดับไม่สำเร็จ');
       const payload = await res.json();
+      try {
+        if(!countdownRes.ok) throw new Error('โหลด Countdown ไม่สำเร็จ');
+        renderCountdown(await countdownRes.json());
+      } catch (error) {
+        console.error('Countdown load error:', error);
+        renderCountdownError();
+      }
       const rows = payload.data || [];
       periodEl.textContent = labelFor(payload.meta);
       if(!rows.length){
@@ -208,7 +286,7 @@
     (async () => {
       await initFilters();
       loadMonth();
-      setInterval(loadMonth, 15000);
+      setInterval(loadMonth, 60000);
     })();
   </script>
 </body>

@@ -6,6 +6,7 @@ const {
   handleEvent,
   handleImageEvent,
   top10Handler,
+  countdownHandler,
   buildWeeklySummaryText,
   push,
   monthsHandler
@@ -57,6 +58,7 @@ app.get('/webhook', (req, res) => res.status(200).send('OK'));
 
 // Leaderboard endpoints
 app.get('/top10', top10Handler);
+app.get('/countdown', countdownHandler);
 app.get('/months', monthsHandler);
 
 // Static pages

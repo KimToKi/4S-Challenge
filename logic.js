@@ -1234,10 +1234,23 @@ async function top10Handler(req, res) {
   }
 }
 
+async function countdownHandler(req, res) {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const ym = (req.query?.ym || '').toLowerCase();
+    const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
+    const countdown = await getMonthlyCountdownStatus(targetMonth);
+    res.json({ meta: { scope: 'month', ym: targetMonth }, data: countdown });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || 'Failed to load countdown' });
+  }
+}
+
 module.exports = {
   handleEvent,
   handleImageEvent,
   top10Handler,
+  countdownHandler,
   buildWeeklySummaryText,
   push,
   monthsHandler
