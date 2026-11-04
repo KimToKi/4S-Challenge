@@ -24,6 +24,8 @@
     .actions a{display:inline-flex;align-items:center;justify-content:center;min-width:120px;background:#211b12;color:#f1d27a;border:1px solid #9a792c;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;transition:background .2s ease,color .2s ease}
     .actions a:hover{background:#342713;color:#ffe9a7}
     .period{margin-top:12px;color:#e3c66e;font-size:13px;font-weight:650}
+    .qualification{margin-top:6px;color:#e7d8b7;font-size:13px}
+    .qualification strong{color:#f1d27a;font-variant-numeric:tabular-nums}
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .filters label{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
     .filters input{border:1px solid #67542b;border-radius:8px;padding:7px 9px;background:#171411;color:var(--ink)}
@@ -50,6 +52,7 @@
     tbody tr:hover{background:var(--hover)}
     td.rank{width:76px}
     td.category-points{width:82px;text-align:center;color:#e7d8b7;font-variant-numeric:tabular-nums}
+    td.category-points.category-leader{border-radius:8px;box-shadow:inset 0 0 0 1px var(--gold),0 0 10px #d8b44a30;color:#f1d27a}
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:36px;padding:0 12px;border-radius:999px;font-weight:800}
     .rank-1{background:linear-gradient(145deg,#ffe99b,#c99725);color:#241a08;border:1px solid #f3d16d}
     .rank-2{background:linear-gradient(145deg,#e2e0d9,#99958b);color:#191713;border:1px solid #c9c4b8}
@@ -136,6 +139,7 @@
     </div>
 
     <div id="period" class="period"></div>
+    <div id="qualification" class="qualification"></div>
     <div class="filters">
       <label id="label-month" style="display:none">
         เลือกเดือน:
@@ -187,6 +191,7 @@
   <script>
     const tbody = document.getElementById('tbody');
     const periodEl = document.getElementById('period');
+    const qualificationEl = document.getElementById('qualification');
     const monthWrap = document.getElementById('label-month');
     const monthPick = document.getElementById('monthPick');
     const countdownPeriod = document.getElementById('countdown-period');
@@ -248,6 +253,7 @@
     async function loadMonth(){
       tbody.innerHTML='';
       periodEl.textContent = '';
+      qualificationEl.textContent = '';
       const params = new URLSearchParams({ limit: 0 });
       if(monthPick.value) params.set('ym', monthPick.value);
       const countdownParams = new URLSearchParams();
@@ -268,23 +274,39 @@
       const rows = payload.data || [];
       periodEl.textContent = labelFor(payload.meta);
       if(!rows.length){
+        qualificationEl.textContent = 'คะแนนขั้นต่ำผ่านเกณฑ์: —';
         const tr = document.createElement('tr');
         tr.innerHTML = `<td colspan="7" class="empty-state">ยังไม่มีคะแนน</td>`;
         tbody.appendChild(tr);
         return;
       }
+      const topScore = Number(rows[0].points);
+      const qualifyingScore = Number.isFinite(topScore)
+        ? (topScore * 0.6).toFixed(1)
+        : '—';
+      qualificationEl.innerHTML = `คะแนนขั้นต่ำผ่านเกณฑ์ (60% ของอันดับ 1): <strong>${qualifyingScore}</strong> คะแนน`;
+      const categories = ['s1', 's2', 's3', 's4'];
+      const categoryLeaders = Object.fromEntries(categories.map((category) => {
+        const scores = rows.map((row) => Number(row[category])).filter(Number.isFinite);
+        return [category, scores.reduce((highest, score) => Math.max(highest, score), 0)];
+      }));
       rows.forEach((r,i)=>{
         const rank = i+1;
         const cls = rank===1? 'rank-1' : rank===2? 'rank-2' : rank===3? 'rank-3' : 'rank-n';
         const label = rank===1? '🥇 1' : rank===2? '🥈 2' : rank===3? '🥉 3' : String(rank);
+        const categoryCell = (category, label, title) => {
+          const score = Number(r[category]);
+          const isLeader = categoryLeaders[category] > 0 && score === categoryLeaders[category];
+          return `<td class="category-points${isLeader ? ' category-leader' : ''}" data-label="${label}" title="${title}${isLeader ? ' · คะแนนสูงสุด' : ''}">${formatPoints(r[category])}</td>`;
+        };
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
           <td class="name" data-label="ชื่อ">${r.display_name}</td>
-          <td class="category-points" data-label="S1" title="S1 ยอดสินค้า">${formatPoints(r.s1)}</td>
-          <td class="category-points" data-label="S2" title="S2 คน">${formatPoints(r.s2)}</td>
-          <td class="category-points" data-label="S3" title="S3 Moving Up">${formatPoints(r.s3)}</td>
-          <td class="category-points" data-label="S4" title="S4 พัฒนา">${formatPoints(r.s4)}</td>
+          ${categoryCell('s1', 'S1', 'S1 ยอดสินค้า')}
+          ${categoryCell('s2', 'S2', 'S2 คน')}
+          ${categoryCell('s3', 'S3', 'S3 Moving Up')}
+          ${categoryCell('s4', 'S4', 'S4 พัฒนา')}
           <td class="points" data-label="คะแนนรวม">${formatPoints(r.points)}</td>
         `;
         tbody.appendChild(tr);

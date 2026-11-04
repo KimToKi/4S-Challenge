@@ -1067,7 +1067,8 @@ async function handleEvent(evt) {
     }
     await queueFourSPhoto(userId, cmd, evt, {
       points: calls,
-      detail: withNote(`${calls} สายโทรเช็ค FORM`, callsMatch[2] || '')
+      detail: withNote(`${calls} สายโทรเช็ค FORM`, callsMatch[2] || ''),
+      description: `${calls} สายโทรเช็ค FORM`
     });
     await reply(evt.replyToken, `รับ ${calls} สายโทรเช็ค FORM แล้ว กรุณาส่งรูปหลักฐานตาม`);
     return;
@@ -1089,6 +1090,7 @@ async function handleEvent(evt) {
     await queueFourSPhoto(userId, cmd, evt, {
       points: opportunity.points,
       detail: withNote(opportunity.description, note),
+      description: opportunity.description,
       scoreCommand: `/opp ${normalizedType}`
     });
     await reply(evt.replyToken, `รับคำสั่ง /opp ${normalizedType} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${opportunity.points} คะแนน`);
@@ -1098,7 +1100,11 @@ async function handleEvent(evt) {
   if (cmd === '/abo' || cmd === '/m') {
     const points = cmd === '/abo' ? 5 : 1;
     const description = cmd === '/abo' ? 'คนใหม่สมัครนักธุรกิจ' : 'คนใหม่สมัครสมาชิก';
-    await queueFourSPhoto(userId, cmd, evt, { points, detail: withNote(description) });
+    await queueFourSPhoto(userId, cmd, evt, {
+      points,
+      detail: withNote(description),
+      description
+    });
     await reply(evt.replyToken, `รับคำสั่ง ${cmd.toUpperCase()} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${points} คะแนน`);
     return;
   }
@@ -1121,7 +1127,7 @@ async function handleEvent(evt) {
       return;
     }
     const points = pins.reduce((total, pin) => total + pinPoints.get(pin), 0);
-    const message = withNote(`บันทึกพินที่มูฟเพิ่ม ${pins.map((pin) => `${pin} (+${pinPoints.get(pin)})`).join(', ')} รวม +${formatPoints(points)} คะแนน`, note);
+    const message = `บันทึกพินที่มูฟเพิ่ม ${pins.map((pin) => `${pin} (+${pinPoints.get(pin)})`).join(', ')} รวม +${formatPoints(points)} คะแนน`;
     await recordAndReply('/pin', points, message, withNote(pins.join(' '), note));
     return;
   }
@@ -1140,14 +1146,14 @@ async function handleEvent(evt) {
     await recordAndReply(
       cmd,
       rule.points,
-      `${withNote(rule.description)} รับ +${formatPoints(rule.points)} คะแนน`,
+      `${rule.description} รับ +${formatPoints(rule.points)} คะแนน`,
       withNote(rule.description)
     );
     return;
   }
 
   if (cmd === '/book') {
-    const pageMatch = detail.match(/^(\d+)(?:\s+(.+))?$/);
+    const pageMatch = detail.match(/^(\d+)(?:\s+หน้า)?(?:\s+(.+))?$/);
     const pages = detail ? Number(pageMatch?.[1]) : 10;
     if ((detail && !pageMatch) || !Number.isSafeInteger(pages) || pages < 10) {
       await reply(evt.replyToken, 'อ่านหนังสืออย่างน้อย 10 หน้าต่อวัน แล้วพิมพ์ /book หรือระบุจำนวนหน้า เช่น /book 10 (วันละ 1 ครั้ง)');
@@ -1157,8 +1163,9 @@ async function handleEvent(evt) {
       await reply(evt.replyToken, 'วันนี้บันทึก /book ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง');
       return;
     }
-    const pageDetail = withNote(detail ? `${pages} หน้า` : 'อย่างน้อย 10 หน้า', pageMatch?.[2] || '');
-    await recordAndReply('/book', 0.5, `บันทึกอ่านหนังสือ ${pageDetail} รับ +0.5 คะแนน`, pageDetail);
+    const pageCount = detail ? `${pages} หน้า` : 'อย่างน้อย 10 หน้า';
+    const pageDetail = withNote(pageCount, pageMatch?.[2] || '');
+    await recordAndReply('/book', 0.5, `บันทึกอ่านหนังสือ ${pageCount} รับ +0.5 คะแนน`, pageDetail);
     return;
   }
 
@@ -1166,7 +1173,7 @@ async function handleEvent(evt) {
     await recordAndReply(
       '/follow',
       1,
-      `${withNote('บันทึกการโทรติดตาม DL/ลูกค้าและอัปเดตในกลุ่มอัปไลน์')} รับ +1 คะแนน`,
+      'บันทึก /follow รับ +1 คะแนน',
       withNote('โทรติดตาม DL/ลูกค้าและอัปเดตในกลุ่มอัปไลน์')
     );
     return;
@@ -1176,7 +1183,7 @@ async function handleEvent(evt) {
     await recordAndReply(
       '/hm',
       1,
-      withNote('ผู้ที่นัดคนมาเข้าร่วม HM และผู้ที่เล่า HM ได้รับคนละ +1 คะแนน'),
+      'บันทึก /hm รับ +1 คะแนน',
       withNote('นัดคนมาเข้าร่วม HM และเล่า HM')
     );
     return;
