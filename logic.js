@@ -1122,8 +1122,9 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/book') {
-    const pages = detail ? Number(detail) : 10;
-    if ((detail && !/^\d+$/.test(detail)) || !Number.isSafeInteger(pages) || pages < 10) {
+    const pageMatch = detail.match(/^(\d+)(?:\s+.+)?$/);
+    const pages = detail ? Number(pageMatch?.[1]) : 10;
+    if ((detail && !pageMatch) || !Number.isSafeInteger(pages) || pages < 10) {
       await reply(evt.replyToken, 'อ่านหนังสืออย่างน้อย 10 หน้าต่อวัน แล้วพิมพ์ /book หรือระบุจำนวนหน้า เช่น /book 10 (วันละ 1 ครั้ง)');
       return;
     }
