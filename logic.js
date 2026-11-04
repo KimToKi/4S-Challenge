@@ -574,12 +574,6 @@ function ppvMilestonesCrossed(previousPpv, currentPpv) {
   return milestones.filter((milestone) => previousPpv < milestone.ppv && currentPpv >= milestone.ppv);
 }
 
-function isLastDayOfMonth(date = new Date()) {
-  const parts = getZonedDateParts(date);
-  const lastDay = new Date(Date.UTC(Number(parts.year), Number(parts.month), 0)).getUTCDate();
-  return Number(parts.day) === lastDay;
-}
-
 async function getMonthEvents(mk) {
   await dbReady;
   const pageSize = 1000;
@@ -993,7 +987,7 @@ async function handleEvent(evt) {
       '📚 คำสั่ง 4S:',
       'S1: /ppv <PV> (ส่งรูปตาม), /s1 (ส่งรูปตาม)',
       'S2: /for <จำนวนสาย>, /opp online|onsite, /abo, /m, /s2 (ทุกคำสั่งส่งรูปตาม)',
-      'S3: /pin <พิน...> (ใช้ได้วันสุดท้ายของเดือน)',
+      'S3: /pin <พิน...>',
       'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm, /s4 (ส่งรูปตาม)',
       '/score, /rank (Top 3), /rules, /help',
       'คำสั่งแรกของวันจะแจ้ง Countdown ภารกิจรวม และวันที่ 5, 10, 15, 20, 25 หรือ 30 จะแสดง Top 10 ด้วย'
@@ -1110,10 +1104,6 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/pin') {
-    if (!isLastDayOfMonth()) {
-      await reply(evt.replyToken, 'คำสั่ง /pin ใช้ได้เฉพาะวันสุดท้ายของเดือนเท่านั้น');
-      return;
-    }
     const pinPoints = new Map([
       ['3%', 1], ['6%', 2], ['9%', 3], ['12%', 4], ['15%', 5], ['18%', 6], ['21%', 7],
       ['elite', 1], ['elite+', 2], ['tp', 2], ['tp+', 4], ['tyong', 1], ['tjoe', 1]
