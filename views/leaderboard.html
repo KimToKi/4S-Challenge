@@ -36,6 +36,7 @@
     .countdown-label{display:block;color:#e8ddc8;font-size:14px;font-weight:650}
     .countdown-remaining{display:block;margin:8px 0 10px;color:#f1d27a;font-size:24px;font-weight:850;font-variant-numeric:tabular-nums}
     .countdown-remaining small{color:var(--muted);font-size:13px;font-weight:500}
+    .countdown-phase{display:block;margin:-4px 0 10px;color:var(--muted);font-size:12px}
     .countdown-track{height:8px;overflow:hidden;border-radius:99px;background:#332b20}
     .countdown-progress{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#a51e2b,#d8b44a);transition:width .3s ease}
     .countdown-error{margin:0;color:#ffaaa1;font-size:13px}
@@ -152,6 +153,7 @@
         <article class="countdown-item">
           <span class="countdown-label">📦 เคสสินค้าที่ทำได้</span>
           <strong id="product-done" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
+          <span id="product-phase" class="countdown-phase">เฟส 1 · เป้าหมายหลัก</span>
           <div class="countdown-track" role="progressbar" aria-label="เคสสินค้าที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
             <div id="product-progress" class="countdown-progress"></div>
           </div>
@@ -159,6 +161,7 @@
         <article class="countdown-item">
           <span class="countdown-label">💼 เคสเล่าธุรกิจที่ทำได้</span>
           <strong id="business-done" class="countdown-remaining">— <small>/ 50 เคส</small></strong>
+          <span id="business-phase" class="countdown-phase">เฟส 1 · เป้าหมายหลัก</span>
           <div class="countdown-track" role="progressbar" aria-label="เคสเล่าธุรกิจที่ทำสำเร็จ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
             <div id="business-progress" class="countdown-progress"></div>
           </div>
@@ -192,19 +195,35 @@
     function renderCountdown(payload){
       const countdown = payload?.data;
       if(!countdown) throw new Error('ข้อมูล Countdown ไม่ครบ');
-      const productRemaining = Math.min(50, Math.max(0, Number(countdown.productCasesRemaining)));
-      const businessRemaining = Math.min(50, Math.max(0, Number(countdown.businessCasesRemaining)));
-      if(!Number.isFinite(productRemaining) || !Number.isFinite(businessRemaining)) {
+      const productDone = Number(countdown.productCasesDone);
+      const businessDone = Number(countdown.businessCasesDone);
+      const productPhase = Number(countdown.productPhase);
+      const businessPhase = Number(countdown.businessPhase);
+      if(!Number.isInteger(productDone) || productDone < 0 || productDone > 100
+        || !Number.isInteger(businessDone) || businessDone < 0 || businessDone > 100
+        || ![1, 2].includes(productPhase) || ![1, 2].includes(businessPhase)) {
         throw new Error('ข้อมูล Countdown ไม่ถูกต้อง');
       }
-      const productDone = 50 - productRemaining;
-      const businessDone = 50 - businessRemaining;
-      document.getElementById('product-done').innerHTML = `${productDone} <small>/ 50 เคส</small>`;
-      document.getElementById('business-done').innerHTML = `${businessDone} <small>/ 50 เคส</small>`;
-      document.getElementById('product-progress').style.width = `${productDone * 2}%`;
-      document.getElementById('business-progress').style.width = `${businessDone * 2}%`;
-      document.querySelector('[aria-label="เคสสินค้าที่ทำสำเร็จ"]').setAttribute('aria-valuenow', productDone);
-      document.querySelector('[aria-label="เคสเล่าธุรกิจที่ทำสำเร็จ"]').setAttribute('aria-valuenow', businessDone);
+      const productTarget = productPhase === 1 ? 50 : 100;
+      const businessTarget = businessPhase === 1 ? 50 : 100;
+      const productPhaseDone = productDone - (productPhase === 1 ? 0 : 50);
+      const businessPhaseDone = businessDone - (businessPhase === 1 ? 0 : 50);
+      document.getElementById('product-done').innerHTML = `${productDone} <small>/ ${productTarget} เคส</small>`;
+      document.getElementById('business-done').innerHTML = `${businessDone} <small>/ ${businessTarget} เคส</small>`;
+      document.getElementById('product-phase').textContent = productPhase === 1
+        ? 'เฟส 1 · เป้าหมายหลัก'
+        : 'เฟส 2 · โบนัสถึง 100';
+      document.getElementById('business-phase').textContent = businessPhase === 1
+        ? 'เฟส 1 · เป้าหมายหลัก'
+        : 'เฟส 2 · โบนัสถึง 100';
+      document.getElementById('product-progress').style.width = `${productPhaseDone * 2}%`;
+      document.getElementById('business-progress').style.width = `${businessPhaseDone * 2}%`;
+      const productProgress = document.querySelector('[aria-label="เคสสินค้าที่ทำสำเร็จ"]');
+      const businessProgress = document.querySelector('[aria-label="เคสเล่าธุรกิจที่ทำสำเร็จ"]');
+      productProgress.setAttribute('aria-valuenow', productPhaseDone);
+      businessProgress.setAttribute('aria-valuenow', businessPhaseDone);
+      productProgress.setAttribute('aria-valuetext', `${productDone}/${productTarget} เคส · เฟส ${productPhase}`);
+      businessProgress.setAttribute('aria-valuetext', `${businessDone}/${businessTarget} เคส · เฟส ${businessPhase}`);
       countdownPeriod.textContent = `เดือน ${payload.meta?.ym || monthPick.value || ''}`;
       countdownError.hidden = true;
     }

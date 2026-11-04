@@ -614,11 +614,19 @@ function monthlyCountdownStatus(events, eventId = null, eventCommand = '') {
   const eventIndex = eventId === null
     ? -1
     : eventList.findIndex((event) => String(event.id) === String(eventId));
+  const productCasesDone = Math.min(100, productEvents.length);
+  const businessCasesDone = Math.min(100, businessEvents.length);
+  const productPhase = productCasesDone >= 50 ? 2 : 1;
+  const businessPhase = businessCasesDone >= 50 ? 2 : 1;
 
   return {
-    productCasesRemaining: Math.max(0, 50 - productEvents.length),
-    businessCasesRemaining: Math.max(0, 50 - businessEvents.length),
-    decremented: eventIndex >= 0 && eventIndex < 50
+    productCasesDone,
+    businessCasesDone,
+    productPhase,
+    businessPhase,
+    productCasesRemaining: Math.max(0, (productPhase === 1 ? 50 : 100) - productCasesDone),
+    businessCasesRemaining: Math.max(0, (businessPhase === 1 ? 50 : 100) - businessCasesDone),
+    decremented: eventIndex >= 0 && eventIndex < 100
   };
 }
 
@@ -627,7 +635,11 @@ async function getMonthlyCountdownStatus(mk, eventId = null, eventCommand = '') 
 }
 
 function formatCountdownStatus(status) {
-  return `📦 เคสสินค้า: เหลือ ${status.productCasesRemaining}\n💼 เคสเล่าธุรกิจ: เหลือ ${status.businessCasesRemaining}`;
+  const productTarget = status.productPhase === 1 ? 50 : 100;
+  const businessTarget = status.businessPhase === 1 ? 50 : 100;
+  const productPhaseLabel = status.productPhase === 1 ? 'เฟส 1' : 'เฟส 2 โบนัส';
+  const businessPhaseLabel = status.businessPhase === 1 ? 'เฟส 1' : 'เฟส 2 โบนัส';
+  return `📦 เคสสินค้า: ${status.productCasesDone}/${productTarget} (${productPhaseLabel}) เหลือ ${status.productCasesRemaining}\n💼 เคสเล่าธุรกิจ: ${status.businessCasesDone}/${businessTarget} (${businessPhaseLabel}) เหลือ ${status.businessCasesRemaining}`;
 }
 
 async function getTop10(mk, limit = 10) {
