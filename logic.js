@@ -1142,7 +1142,7 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/hm') {
-    await recordAndReply('/hm', 1, 'บันทึกการนัดและเล่า HM คนนัดได้รับ +1 คะแนน และผู้เล่าได้รับ +1 คะแนน', '');
+    await recordAndReply('/hm', 1, 'ผู้ที่นัดคนมาเข้าร่วม HM และผู้ที่เล่า HM ได้รับคนละ +1 คะแนน', '');
     return;
   }
 
@@ -1165,7 +1165,6 @@ async function handleImageEvent(evt) {
 
   const pending = await consumeNextFourSPhoto(userId);
   if (!pending) {
-    await reply(evt.replyToken, 'ไม่พบคำสั่ง 4S ที่รอรูป กรุณาพิมพ์คำสั่งก่อนส่งรูป');
     return;
   }
 
