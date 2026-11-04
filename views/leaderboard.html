@@ -62,6 +62,7 @@
     .rank-n{background:#2b1718;color:#f0b5ac;border:1px solid #71333a}
     .points{font-weight:800;color:#f1d27a;font-variant-numeric:tabular-nums}
     .name{font-weight:600}
+    .category-title{display:inline-block;margin:4px 0 0 7px;padding:2px 7px;border:1px solid #9a792c;border-radius:999px;color:#f1d27a;font-size:11px;font-weight:700;white-space:nowrap}
     .empty-state{text-align:center;color:var(--muted);padding:28px}
     .muted{color:var(--muted);font-size:12px;margin-top:12px;text-align:right}
 
@@ -288,6 +289,12 @@
         : '—';
       qualificationEl.innerHTML = `คะแนนขั้นต่ำผ่านเกณฑ์ (60% ของอันดับ 1): <strong>${qualifyingScore}</strong> คะแนน`;
       const categories = ['s1', 's2', 's3', 's4'];
+      const categoryTitles = {
+        s1: 'Sales Star',
+        s2: 'Team Builder',
+        s3: 'Pin Champion',
+        s4: 'Growth Champion'
+      };
       const categoryScores = Object.fromEntries(categories.map((category) => {
         const scores = rows.map((row) => Number(row[category])).filter((score) => Number.isFinite(score) && score > 0);
         return [category, scores];
@@ -311,10 +318,15 @@
                 : '';
           return `<td class="category-points${placeClass ? ` ${placeClass}` : ''}" data-label="${label}" title="${title}${placeTitle}">${formatPoints(r[category])}</td>`;
         };
+        const titles = categories
+          .filter((category) => Number(r[category]) > 0
+            && categoryScores[category].filter((score) => score > Number(r[category])).length === 0)
+          .map((category) => `<span class="category-title">${categoryTitles[category]}</span>`)
+          .join('');
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
-          <td class="name" data-label="ชื่อ">${r.display_name}</td>
+          <td class="name" data-label="ชื่อ">${r.display_name}${titles}</td>
           ${categoryCell('s1', 'S1', 'S1 ยอดสินค้า')}
           ${categoryCell('s2', 'S2', 'S2 คน')}
           ${categoryCell('s3', 'S3', 'S3 Moving Up')}
