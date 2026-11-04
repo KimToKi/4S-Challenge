@@ -922,6 +922,7 @@ async function handleEvent(evt) {
   const parts = text.split(/\s+/);
   const cmd = (parts[0] || '').toLowerCase();
   const detail = parts.slice(1).join(' ').trim();
+  const withNote = (description, note = detail) => note ? `${description}: ${note}` : description;
   const userId = evt?.source?.userId
     || evt?.source?.senderId
     || evt?.source?.memberId
@@ -1019,12 +1020,13 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/ppv') {
-    const pv = Number(detail);
-    if (!/^\d+(?:\.\d{1,2})?$/.test(detail) || !Number.isFinite(pv) || pv <= 0) {
+    const ppvMatch = detail.match(/^(\d+(?:\.\d{1,2})?)(?:\s+(.+))?$/);
+    const pv = Number(ppvMatch?.[1]);
+    if (!ppvMatch || !Number.isFinite(pv) || pv <= 0) {
       await reply(evt.replyToken, 'รูปแบบคำสั่งไม่ถูกต้อง กรุณาพิมพ์ /ppv ตามด้วยจำนวน PV แล้วส่งรูปตาม');
       return;
     }
-    await queueFourSPhoto(userId, cmd, evt, { pv });
+    await queueFourSPhoto(userId, cmd, evt, { pv, note: ppvMatch[2] || '' });
     await reply(evt.replyToken, `รับ ${formatNumber(pv)} PV แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึกคะแนน`);
     return;
   }
@@ -1037,7 +1039,7 @@ async function handleEvent(evt) {
     };
     await queueFourSPhoto(userId, cmd, evt, {
       points: 1,
-      detail: detail || descriptions[cmd],
+      detail: withNote(descriptions[cmd]),
       description: descriptions[cmd]
     });
     await reply(evt.replyToken, `รับคำสั่ง ${cmd} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +1 คะแนน`);
@@ -1045,43 +1047,46 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/for') {
-    const calls = Number(detail);
-    if (!/^\d+$/.test(detail) || !Number.isSafeInteger(calls) || calls <= 0) {
+    const callsMatch = detail.match(/^(\d+)(?:\s+(.+))?$/);
+    const calls = Number(callsMatch?.[1]);
+    if (!callsMatch || !Number.isSafeInteger(calls) || calls <= 0) {
       await reply(evt.replyToken, 'กรุณาพิมพ์จำนวนสายเป็นจำนวนเต็ม เช่น /for 5 แล้วส่งรูปหลักฐานตาม');
       return;
     }
     await queueFourSPhoto(userId, cmd, evt, {
       points: calls,
-      detail: `${calls} สายโทรเช็ค FORM`
+      detail: withNote(`${calls} สายโทรเช็ค FORM`, callsMatch[2] || '')
     });
     await reply(evt.replyToken, `รับ ${calls} สายโทรเช็ค FORM แล้ว กรุณาส่งรูปหลักฐานตาม`);
     return;
   }
 
   if (cmd === '/opp') {
-    const type = detail.toLowerCase();
+    const [type, ...noteParts] = parts.slice(1);
+    const note = noteParts.join(' ');
+    const normalizedType = (type || '').toLowerCase();
     const opportunities = {
       online: { points: 1, description: 'คนใหม่เข้าระบบออนไลน์' },
       onsite: { points: 2, description: 'คนใหม่เข้าระบบเรียนรู้ onsite' }
     };
-    const opportunity = opportunities[type];
-    if (!opportunity || parts.length !== 2) {
+    const opportunity = opportunities[normalizedType];
+    if (!opportunity) {
       await reply(evt.replyToken, 'รูปแบบคำสั่งไม่ถูกต้อง ใช้ /opp online หรือ /opp onsite แล้วส่งรูปตาม');
       return;
     }
     await queueFourSPhoto(userId, cmd, evt, {
       points: opportunity.points,
-      detail: opportunity.description,
-      scoreCommand: `/opp ${type}`
+      detail: withNote(opportunity.description, note),
+      scoreCommand: `/opp ${normalizedType}`
     });
-    await reply(evt.replyToken, `รับคำสั่ง /opp ${type} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${opportunity.points} คะแนน`);
+    await reply(evt.replyToken, `รับคำสั่ง /opp ${normalizedType} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${opportunity.points} คะแนน`);
     return;
   }
 
   if (cmd === '/abo' || cmd === '/m') {
     const points = cmd === '/abo' ? 5 : 1;
     const description = cmd === '/abo' ? 'คนใหม่สมัครนักธุรกิจ' : 'คนใหม่สมัครสมาชิก';
-    await queueFourSPhoto(userId, cmd, evt, { points, detail: description });
+    await queueFourSPhoto(userId, cmd, evt, { points, detail: withNote(description) });
     await reply(evt.replyToken, `รับคำสั่ง ${cmd.toUpperCase()} แล้ว กรุณาส่งรูปหลักฐานตามเพื่อบันทึก +${points} คะแนน`);
     return;
   }
@@ -1095,14 +1100,17 @@ async function handleEvent(evt) {
       ['3%', 1], ['6%', 2], ['9%', 3], ['12%', 4], ['15%', 5], ['18%', 6], ['21%', 7],
       ['elite', 1], ['elite+', 2], ['tp', 2], ['tp+', 4], ['tyong', 1], ['tjoe', 1]
     ]);
-    const pins = parts.slice(1).map((pin) => pin.replace(/,$/, '').toLowerCase());
-    if (!pins.length || pins.some((pin) => !pinPoints.has(pin))) {
+    const pinParts = parts.slice(1).map((pin) => pin.replace(/,$/, '').toLowerCase());
+    const noteIndex = pinParts.findIndex((pin) => !pinPoints.has(pin));
+    const pins = noteIndex === -1 ? pinParts : pinParts.slice(0, noteIndex);
+    const note = noteIndex === -1 ? '' : parts.slice(1 + noteIndex).join(' ');
+    if (!pins.length) {
       await reply(evt.replyToken, 'ระบุพินที่มูฟเพิ่มหลัง /pin เช่น /pin 3% 6% Elite TP+');
       return;
     }
     const points = pins.reduce((total, pin) => total + pinPoints.get(pin), 0);
-    const message = `บันทึกพินที่มูฟเพิ่ม ${pins.map((pin) => `${pin} (+${pinPoints.get(pin)})`).join(', ')} รวม +${formatPoints(points)} คะแนน`;
-    await recordAndReply('/pin', points, message, pins.join(' '));
+    const message = withNote(`บันทึกพินที่มูฟเพิ่ม ${pins.map((pin) => `${pin} (+${pinPoints.get(pin)})`).join(', ')} รวม +${formatPoints(points)} คะแนน`, note);
+    await recordAndReply('/pin', points, message, withNote(pins.join(' '), note));
     return;
   }
 
@@ -1117,12 +1125,17 @@ async function handleEvent(evt) {
       await reply(evt.replyToken, `วันนี้บันทึก ${cmd} ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง`);
       return;
     }
-    await recordAndReply(cmd, rule.points, `${rule.description} รับ +${formatPoints(rule.points)} คะแนน`);
+    await recordAndReply(
+      cmd,
+      rule.points,
+      `${withNote(rule.description)} รับ +${formatPoints(rule.points)} คะแนน`,
+      withNote(rule.description)
+    );
     return;
   }
 
   if (cmd === '/book') {
-    const pageMatch = detail.match(/^(\d+)(?:\s+.+)?$/);
+    const pageMatch = detail.match(/^(\d+)(?:\s+(.+))?$/);
     const pages = detail ? Number(pageMatch?.[1]) : 10;
     if ((detail && !pageMatch) || !Number.isSafeInteger(pages) || pages < 10) {
       await reply(evt.replyToken, 'อ่านหนังสืออย่างน้อย 10 หน้าต่อวัน แล้วพิมพ์ /book หรือระบุจำนวนหน้า เช่น /book 10 (วันละ 1 ครั้ง)');
@@ -1132,18 +1145,28 @@ async function handleEvent(evt) {
       await reply(evt.replyToken, 'วันนี้บันทึก /book ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง');
       return;
     }
-    const pageDetail = detail ? `${pages} หน้า` : 'อย่างน้อย 10 หน้า';
+    const pageDetail = withNote(detail ? `${pages} หน้า` : 'อย่างน้อย 10 หน้า', pageMatch?.[2] || '');
     await recordAndReply('/book', 0.5, `บันทึกอ่านหนังสือ ${pageDetail} รับ +0.5 คะแนน`, pageDetail);
     return;
   }
 
   if (cmd === '/follow') {
-    await recordAndReply('/follow', 1, 'บันทึกการโทรติดตาม DL/ลูกค้าและอัปเดตในกลุ่มอัปไลน์ รับ +1 คะแนน');
+    await recordAndReply(
+      '/follow',
+      1,
+      `${withNote('บันทึกการโทรติดตาม DL/ลูกค้าและอัปเดตในกลุ่มอัปไลน์')} รับ +1 คะแนน`,
+      withNote('โทรติดตาม DL/ลูกค้าและอัปเดตในกลุ่มอัปไลน์')
+    );
     return;
   }
 
   if (cmd === '/hm') {
-    await recordAndReply('/hm', 1, 'ผู้ที่นัดคนมาเข้าร่วม HM และผู้ที่เล่า HM ได้รับคนละ +1 คะแนน', '');
+    await recordAndReply(
+      '/hm',
+      1,
+      withNote('ผู้ที่นัดคนมาเข้าร่วม HM และผู้ที่เล่า HM ได้รับคนละ +1 คะแนน'),
+      withNote('นัดคนมาเข้าร่วม HM และเล่า HM')
+    );
     return;
   }
 
@@ -1183,7 +1206,7 @@ async function handleImageEvent(evt) {
         user_id: userId,
         display_name: displayName,
         command: '/ppv',
-        detail: `pv:${metadata.pv}|evidence:${imageId}`,
+        detail: `pv:${metadata.pv}|evidence:${imageId}${metadata.note ? `|note:${metadata.note}` : ''}`,
         points: 0,
         month_key: mk
       },
