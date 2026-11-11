@@ -476,7 +476,8 @@ const FOUR_S_PHOTO_COMMANDS = new Set([
   '/abo',
   '/m',
   '/s2',
-  '/s4'
+  '/s4',
+  '/dm'
 ]);
 
 async function queueFourSPhoto(userId, command, evt, metadata = {}) {
@@ -544,6 +545,28 @@ async function hasCommandToday(userId, command) {
     .limit(100);
   if (error) throw new Error(error.message || `Failed to check ${command}`);
   return (data || []).some((row) => localDateKey(new Date(row.timestamp)) === today);
+}
+
+async function hasPendingFourSPhotoToday(userId, command) {
+  await dbReady;
+  const { data, error } = await supabase
+    .from('pending')
+    .select('metadata')
+    .eq('user_id', userId)
+    .eq('date_key', localDateKey());
+  if (error) throw new Error(error.message || `Failed to check pending ${command} photo`);
+
+  return (data || []).some((entry) => {
+    try {
+      const metadata = typeof entry.metadata === 'string'
+        ? JSON.parse(entry.metadata)
+        : (entry.metadata || {});
+      return metadata.command === command;
+    } catch (err) {
+      console.warn('Invalid pending 4S metadata:', err?.message || err);
+      return false;
+    }
+  });
 }
 
 async function sumUserMonthPpv(userId, mk) {
@@ -644,7 +667,7 @@ async function getTop10(mk, limit = 10) {
     ['/abo', 's2'], ['/m', 's2'], ['/s2', 's2'],
     ['/pin', 's3'],
     ['/link', 's4'], ['/book', 's4'], ['/product', 's4'], ['/ct', 's4'],
-    ['/follow', 's4'], ['/hm', 's4'], ['/s4', 's4']
+    ['/follow', 's4'], ['/hm', 's4'], ['/s4', 's4'], ['/dm', 's4']
   ]);
   const pointsByUser = new Map();
   for (const row of data || []) {
@@ -988,7 +1011,7 @@ async function handleEvent(evt) {
       'S1: /ppv <PV> (ส่งรูปตาม), /s1 (ส่งรูปตาม)',
       'S2: /for <จำนวนสาย>, /opp online|onsite, /abo, /m, /s2 (ทุกคำสั่งส่งรูปตาม)',
       'S3: /pin <พิน...>',
-      'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm, /s4 (ส่งรูปตาม)',
+      'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm, /s4, /dm (ส่งรูปตาม)',
       '/score, /rank (Top 3), /rules, /help',
       'คำสั่งแรกของวันจะแจ้ง Countdown ภารกิจรวม และวันที่ 5, 10, 15, 20, 25 หรือ 30 จะแสดง Top 10 ด้วย'
     ];
@@ -1037,11 +1060,19 @@ async function handleEvent(evt) {
     return;
   }
 
-  if (cmd === '/s1' || cmd === '/s2' || cmd === '/s4') {
+  if (cmd === '/s1' || cmd === '/s2' || cmd === '/s4' || cmd === '/dm') {
+    if (cmd === '/dm' && (
+      await hasCommandToday(userId, cmd)
+      || await hasPendingFourSPhotoToday(userId, cmd)
+    )) {
+      await reply(evt.replyToken, 'วันนี้บันทึก /dm หรือรอส่งรูปหลักฐานอยู่แล้ว รับคะแนนได้วันละ 1 ครั้ง');
+      return;
+    }
     const descriptions = {
       '/s1': 'นำเสนอสินค้า/รายชื่อใหม่',
       '/s2': 'สปอนเซอร์เล่า Business Model',
-      '/s4': 'อัปเดตงานและปรึกษาอัปไลน์ผ่านการโทรหรือพบกัน'
+      '/s4': 'อัปเดตงานและปรึกษาอัปไลน์ผ่านการโทรหรือพบกัน',
+      '/dm': 'พูดเป้าหมายลงกลุ่มไลน์และอัปไลน์ พร้อมเขียนวิเคราะห์งานส่งอัปไลน์'
     };
     await queueFourSPhoto(userId, cmd, evt, {
       points: 1,
@@ -1205,6 +1236,11 @@ async function handleImageEvent(evt) {
   const imageId = evt?.message?.id || 'image';
   const displayName = await safeGetDisplayName(userId, evt.source);
   const metadata = pending.metadata || {};
+
+  if (metadata.command === '/dm' && await hasCommandToday(userId, '/dm')) {
+    await reply(evt.replyToken, 'วันนี้บันทึก /dm ไปแล้ว รับคะแนนได้วันละ 1 ครั้ง');
+    return;
+  }
 
   if (metadata.command === '/ppv') {
     const previousPpv = await sumUserMonthPpv(userId, mk);
