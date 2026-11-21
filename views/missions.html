@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c0a08">
+  <title>4S to Silver Challenge — Monthly Missions</title>
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#0c0a08;--ink:#f7f1e7;--muted:#b9ad9b;--card:#171411;--border:#3b342a;
+      --gold:#d8b44a;--treasure:#edb94e;--diamond:#77dce8;--red:#a51e2b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(900px 500px at 5% -15%,#4c151c88 0,transparent 58%),radial-gradient(800px 500px at 100% -20%,#82611a30 0,transparent 55%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .wrap{width:min(1100px,100% - 32px);margin:0 auto;padding:28px 0 48px}
+    .hero{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:24px 28px;border:1px solid #6f572b;border-radius:20px;background:linear-gradient(120deg,#171411 0%,#211714 60%,#55151b 100%);box-shadow:0 12px 32px #0008}
+    h1{margin:0;font-size:clamp(23px,5vw,32px)}
+    .sub{margin-top:5px;color:#d4c7b2;font-size:14px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #9a792c;border-radius:10px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700}
+    .actions a:hover{background:#342713;color:#ffe9a7}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:18px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+    .toolbar label{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+    input[type="month"]{padding:9px 11px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
+    .month-label{color:var(--gold);font-size:14px;font-weight:700}
+    .status{margin:16px 0 0;color:var(--muted);font-size:14px}
+    .status.error{color:#ffaaa1}
+    .missions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+    .mission{min-width:0;overflow:hidden;border:1px solid #4a3c25;border-radius:16px;background:var(--card);box-shadow:0 12px 30px #0006}
+    .mission.treasure{--accent:var(--treasure);--accent-glow:#edb94e30}
+    .mission.diamond{--accent:var(--diamond);--accent-glow:#77dce830}
+    .mission-head{padding:20px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--accent-glow),transparent 75%)}
+    .mission-title{display:flex;align-items:center;gap:12px}
+    .mission-icon{display:grid;place-items:center;width:52px;height:52px;flex:none;border:1px solid var(--accent);border-radius:15px;background:var(--accent-glow);font-size:29px;box-shadow:0 0 18px var(--accent-glow)}
+    .mission h2{margin:0;color:var(--accent);font-size:20px}
+    .mission-subtitle{margin:3px 0 0;color:var(--muted);font-size:13px}
+    .progress-info{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:17px}
+    .progress-count{color:var(--ink);font-size:24px;font-weight:850;font-variant-numeric:tabular-nums}
+    .progress-count small{color:var(--muted);font-size:13px;font-weight:500}
+    .phase{color:var(--accent);font-size:12px;font-weight:700}
+    .track{height:10px;margin-top:8px;overflow:hidden;border-radius:99px;background:#332b20}
+    .fill{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--accent),#fff1c1);box-shadow:0 0 12px var(--accent-glow);transition:width .3s ease}
+    .remaining{margin:7px 0 0;color:var(--muted);font-size:12px;text-align:right}
+    .case-list{display:grid;gap:10px;max-height:620px;overflow:auto;padding:14px}
+    .case{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:10px;padding:12px;border:1px solid var(--border);border-radius:12px;background:#100e0c}
+    .case-number{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--accent);border-radius:50%;background:var(--accent-glow);color:var(--accent);font-size:13px;font-weight:850}
+    .case-main{min-width:0}
+    .case-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+    .case-name{font-weight:750;overflow-wrap:anywhere}
+    .case-date{color:var(--accent);font-size:11px;text-align:right;white-space:nowrap}
+    .case-detail{margin-top:4px;color:var(--muted);font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+    .case-command{display:inline-block;margin-top:6px;padding:2px 7px;border:1px solid #51432a;border-radius:999px;color:#e7ca72;font-size:11px}
+    .empty{padding:28px 14px;border:1px dashed #51432a;border-radius:12px;color:var(--muted);text-align:center}
+    [hidden]{display:none!important}
+    @media(max-width:760px){
+      .wrap{width:min(100% - 22px,1100px);padding-top:12px}
+      .hero{padding:18px}
+      .actions{width:100%}
+      .actions a{flex:1}
+      .missions{grid-template-columns:1fr}
+    }
+    @media(max-width:420px){
+      .toolbar{align-items:flex-start}
+      .toolbar label{align-items:flex-start;flex-direction:column;gap:6px}
+      input[type="month"]{width:100%}
+      .case-top{align-items:flex-start;flex-direction:column;gap:2px}
+      .case-date{text-align:left}
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div>
+        <h1>🗺️ ภารกิจล่าสมบัติประจำเดือน</h1>
+        <div class="sub">ทุกเคสคืออีกก้าวของทีม มาดูกันว่าเราขุดเจออะไรแล้วบ้าง</div>
+      </div>
+      <nav class="actions" aria-label="เมนูหลัก">
+        <a href="/">🏆 Rank</a>
+        <a href="/profile">👤 Profile</a>
+      </nav>
+    </header>
+
+    <section class="toolbar" aria-label="เลือกเดือน">
+      <label for="month">เลือกเดือนที่ต้องการดู
+        <input id="month" type="month">
+      </label>
+      <span id="month-label" class="month-label"></span>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite">กำลังค้นหาภารกิจ...</p>
+
+    <div id="missions" class="missions" hidden>
+      <section class="mission treasure" aria-labelledby="treasure-title">
+        <header class="mission-head">
+          <div class="mission-title">
+            <span class="mission-icon" aria-hidden="true">🧰</span>
+            <div>
+              <h2 id="treasure-title">ขุดหาสมบัติ · เคสสินค้า</h2>
+              <p class="mission-subtitle">ทุกการนำเสนอสินค้า คือสมบัติอีกชิ้นของทีม</p>
+            </div>
+          </div>
+          <div class="progress-info">
+            <strong id="treasure-count" class="progress-count">0 <small>/ 50 เคส</small></strong>
+            <span id="treasure-phase" class="phase">เฟส 1 · เป้าหมายหลัก</span>
+          </div>
+          <div class="track" role="progressbar" aria-label="ความคืบหน้าขุดหาสมบัติ" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
+            <div id="treasure-fill" class="fill"></div>
+          </div>
+          <p id="treasure-remaining" class="remaining"></p>
+        </header>
+        <div id="treasure-cases" class="case-list" aria-live="polite"></div>
+      </section>
+
+      <section class="mission diamond" aria-labelledby="diamond-title">
+        <header class="mission-head">
+          <div class="mission-title">
+            <span class="mission-icon" aria-hidden="true">💎</span>
+            <div>
+              <h2 id="diamond-title">ขุดหาเพชร · เคสเล่าธุรกิจ</h2>
+              <p class="mission-subtitle">ทุกครั้งที่แบ่งปันโอกาส คือเพชรเม็ดใหม่ของทีม</p>
+            </div>
+          </div>
+          <div class="progress-info">
+            <strong id="diamond-count" class="progress-count">0 <small>/ 50 เคส</small></strong>
+            <span id="diamond-phase" class="phase">เฟส 1 · เป้าหมายหลัก</span>
+          </div>
+          <div class="track" role="progressbar" aria-label="ความคืบหน้าขุดหาเพชร" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
+            <div id="diamond-fill" class="fill"></div>
+          </div>
+          <p id="diamond-remaining" class="remaining"></p>
+        </header>
+        <div id="diamond-cases" class="case-list" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const monthInput = document.getElementById('month');
+    const statusEl = document.getElementById('status');
+    const missionsEl = document.getElementById('missions');
+    const dateFormatter = new Intl.DateTimeFormat('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+
+    function showStatus(message, isError = false){
+      statusEl.textContent = message;
+      statusEl.classList.toggle('error', isError);
+      statusEl.hidden = !message;
+    }
+
+    function renderCases(containerId, rows, type){
+      const container = document.getElementById(containerId);
+      container.replaceChildren();
+      if(!rows.length){
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'ยังไม่มีเคสที่บันทึกในเดือนนี้ เริ่มขุดสมบัติชิ้นแรกกันเลย!';
+        container.appendChild(empty);
+        return;
+      }
+
+      rows.forEach((item) => {
+        const card = document.createElement('article');
+        card.className = 'case';
+        const number = document.createElement('span');
+        number.className = 'case-number';
+        number.textContent = type === 'treasure' ? '🪙' : '💠';
+        number.setAttribute('aria-label', `เคสที่ ${item.number}`);
+        const main = document.createElement('div');
+        main.className = 'case-main';
+        const top = document.createElement('div');
+        top.className = 'case-top';
+        const name = document.createElement('strong');
+        name.className = 'case-name';
+        name.textContent = item.display_name || 'สมาชิก';
+        const date = document.createElement('time');
+        date.className = 'case-date';
+        if(item.timestamp){
+          const parsed = new Date(item.timestamp);
+          if(!Number.isNaN(parsed.getTime())){
+            date.dateTime = parsed.toISOString();
+            date.textContent = dateFormatter.format(parsed);
+          }else{
+            date.textContent = 'ไม่ทราบวันที่';
+          }
+        }else{
+          date.textContent = 'ไม่ทราบวันที่';
+        }
+        top.append(name, date);
+        const detail = document.createElement('p');
+        detail.className = 'case-detail';
+        detail.textContent = item.detail || 'ไม่มีรายละเอียดเพิ่มเติม';
+        const command = document.createElement('span');
+        command.className = 'case-command';
+        command.textContent = item.command || '';
+        main.append(top, detail, command);
+        card.append(number, main);
+        container.appendChild(card);
+      });
+    }
+
+    function renderMissionProgress(prefix, done, phase, remaining){
+      const target = phase === 1 ? 50 : 100;
+      const phaseDone = phase === 1 ? done : done - 50;
+      const progress = Math.max(0, Math.min(100, phaseDone / 50 * 100));
+      document.getElementById(`${prefix}-count`).innerHTML = `${done} <small>/ ${target} เคส</small>`;
+      document.getElementById(`${prefix}-phase`).textContent = phase === 1
+        ? 'เฟส 1 · เป้าหมายหลัก'
+        : 'เฟส 2 · โบนัสถึง 100';
+      document.getElementById(`${prefix}-fill`).style.width = `${progress}%`;
+      const track = document.querySelector(`[aria-label="ความคืบหน้า${prefix === 'treasure' ? 'ขุดหาสมบัติ' : 'ขุดหาเพชร'}"]`);
+      track.setAttribute('aria-valuemax', '50');
+      track.setAttribute('aria-valuenow', String(phaseDone));
+      track.setAttribute('aria-valuetext', `${done}/${target} เคส`);
+      document.getElementById(`${prefix}-remaining`).textContent = remaining
+        ? `เหลืออีก ${remaining} เคสในเฟสนี้`
+        : 'ครบเป้าหมาย 100 เคสแล้ว!';
+    }
+
+    async function loadMissions(){
+      missionsEl.hidden = true;
+      showStatus('กำลังค้นหาภารกิจ...');
+      try {
+        const params = new URLSearchParams();
+        if(monthInput.value) params.set('ym', monthInput.value);
+        const response = await fetch(`/missions/data?${params.toString()}`, { cache: 'no-store' });
+        const payload = await response.json();
+        if(!response.ok) throw new Error(payload.error || 'โหลดภารกิจไม่สำเร็จ');
+        const data = payload.data;
+        if(!data?.countdown || !Array.isArray(data.treasureCases) || !Array.isArray(data.diamondCases)) {
+          throw new Error('ข้อมูลภารกิจไม่ถูกต้อง');
+        }
+        monthInput.value = payload.meta?.ym || monthInput.value;
+        document.getElementById('month-label').textContent = `เดือน ${payload.meta?.ym || ''}`;
+        renderMissionProgress('treasure', data.countdown.productCasesDone, data.countdown.productPhase, data.countdown.productCasesRemaining);
+        renderMissionProgress('diamond', data.countdown.businessCasesDone, data.countdown.businessPhase, data.countdown.businessCasesRemaining);
+        renderCases('treasure-cases', data.treasureCases, 'treasure');
+        renderCases('diamond-cases', data.diamondCases, 'diamond');
+        missionsEl.hidden = false;
+        showStatus('');
+      } catch(error) {
+        console.error('Monthly missions load error:', error);
+        showStatus(error.message || 'โหลดภารกิจไม่สำเร็จ กรุณาลองใหม่', true);
+      }
+    }
+
+    monthInput.addEventListener('change', loadMissions);
+    loadMissions();
+  </script>
+</body>
+</html>

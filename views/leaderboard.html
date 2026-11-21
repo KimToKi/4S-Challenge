@@ -55,7 +55,7 @@
     td.category-points.category-leader{border-radius:8px;box-shadow:inset 0 0 0 1px var(--gold),0 0 10px #d8b44a30;color:#f1d27a}
     td.category-points.category-runner-up{border-radius:8px;box-shadow:inset 0 0 0 1px var(--silver),0 0 10px #c4c0b930;color:#e2e0d9}
     td.category-points.category-third{border-radius:8px;box-shadow:inset 0 0 0 1px var(--bronze),0 0 10px #b96b4230;color:#d58a5b}
-    .badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:36px;padding:0 12px;border-radius:999px;font-weight:800}
+    .badge{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:30px;padding:0 8px;border-radius:999px;font-size:14px;font-weight:800}
     .rank-1{background:linear-gradient(145deg,#ffe99b,#c99725);color:#241a08;border:1px solid #f3d16d}
     .rank-2{background:linear-gradient(145deg,#e2e0d9,#99958b);color:#191713;border:1px solid #c9c4b8}
     .rank-3{background:linear-gradient(145deg,#d58a5b,#884327);color:#fff3e8;border:1px solid #d78c5d}
@@ -63,7 +63,8 @@
     .points{font-weight:800;color:#f1d27a;font-variant-numeric:tabular-nums}
     .name{font-weight:600}
     .member-card{display:flex;align-items:center;gap:10px;min-width:170px}
-    .member-avatar{display:grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid #9a792c;border-radius:50%;background:linear-gradient(145deg,#55151b,#211b12);color:#f1d27a;font-size:17px;font-weight:850}
+    .member-avatar{position:relative;display:grid;place-items:center;width:40px;height:40px;flex:none;overflow:hidden;border:1px solid #9a792c;border-radius:50%;background:linear-gradient(145deg,#55151b,#211b12);color:#f1d27a;font-size:17px;font-weight:850}
+    .member-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .member-card-copy{display:grid;gap:3px;min-width:0}
     .member-card-copy strong{overflow-wrap:anywhere}
     .member-card-copy small{color:var(--muted);font-size:11px;font-weight:500}
@@ -73,6 +74,10 @@
     .level-label span{color:var(--muted);font-size:11px;white-space:nowrap}
     .level-bar{height:8px;overflow:hidden;border-radius:99px;background:#332b20}
     .level-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#a51e2b,#d8b44a);transition:width .3s ease}
+    .level-stages{display:flex;justify-content:space-between;margin-top:6px;font-size:12px}
+    .level-stage{opacity:.35;filter:grayscale(1);transition:opacity .2s ease,filter .2s ease,transform .2s ease}
+    .level-stage.is-reached{opacity:.75;filter:none}
+    .level-stage.is-current{opacity:1;filter:none;transform:scale(1.2);text-shadow:0 0 8px #d8b44a90}
     .category-title{display:inline-block;margin:4px 0 0 7px;padding:2px 7px;border:1px solid #9a792c;border-radius:999px;color:#f1d27a;font-size:11px;font-weight:700;white-space:nowrap}
     .empty-state{text-align:center;color:var(--muted);padding:28px}
     .muted{color:var(--muted);font-size:12px;margin-top:12px;text-align:right}
@@ -125,7 +130,7 @@
       tbody td.points{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #4a3c25;font-size:18px;text-align:left}
       tbody td.points::before{display:block;color:var(--muted);font-size:12px}
       tbody td.empty-state{grid-column:1/-1;display:block;text-align:center}
-      .badge{min-width:46px;height:40px;font-size:18px}
+      .badge{min-width:38px;height:30px;padding:0 7px;font-size:14px}
     }
 
     @media (max-width:420px){
@@ -133,7 +138,7 @@
       .brand{flex-direction:row;align-items:flex-start}
       .brand-mark{width:40px;height:40px}
       .brand .title{font-size:16px}
-      .badge{min-width:40px;height:36px}
+      .badge{min-width:36px;height:28px;padding:0 6px;font-size:13px}
     }
   </style>
 </head>
@@ -148,6 +153,7 @@
         </div>
       </div>
       <div class="actions">
+        <a href="/missions" aria-label="ดูภารกิจประจำเดือน">💎 Missions</a>
         <a href="/profile" aria-label="ดูโปรไฟล์และคำสั่งวันนี้">👤 Profile</a>
         <a href="/rules" aria-label="กติกาและคะแนน">📜 Rules</a>
       </div>
@@ -258,6 +264,23 @@
       return { level, progress: total - level * 100 };
     }
 
+    function getLevelIcon(level){
+      const icons = ['🌱', '🥉', '🥈', '🥇', '💎', '🔮', '🌌', '⚡', '🐉', '🌠', '👑'];
+      return icons[level % icons.length];
+    }
+
+    function getProgressIcons(){
+      return ['🌱', '✨', '🔥', '🌟', '🚀'];
+    }
+
+    function renderLevelStages(progress){
+      const currentStage = Math.min(4, Math.floor(progress / 20));
+      return getProgressIcons().map((icon, index) => {
+        const state = index < currentStage ? 'is-reached' : index === currentStage ? 'is-current' : '';
+        return `<span class="level-stage ${state}" aria-hidden="true">${icon}</span>`;
+      }).join('');
+    }
+
     function labelFor(meta){
       if(!meta) return '';
       return `รวมคะแนนตั้งแต่เดือน ${meta.since || ''}`;
@@ -339,8 +362,9 @@
           ${categoryCell('s3', 'S3', 'S3 Moving Up')}
           ${categoryCell('s4', 'S4', 'S4 พัฒนา')}
           <td class="level-cell" data-label="Level">
-            <div class="level-label"><strong>Level ${level}</strong><span>${formatPoints(levelProgress)} / 100 → Level ${level + 1}</span></div>
+            <div class="level-label"><strong>${getLevelIcon(level)} Level ${level}</strong><span>${formatPoints(levelProgress)} / 100 → Level ${level + 1}</span></div>
             <div class="level-bar" role="progressbar" aria-label="ความคืบหน้าสู่ Level ${level + 1}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${levelProgress}" aria-valuetext="${formatPoints(levelProgress)} จาก 100 คะแนน"><span class="level-fill" style="width:${levelProgress}%"></span></div>
+            <div class="level-stages" aria-label="สัญลักษณ์ความคืบหน้าทุก 20 คะแนน">${renderLevelStages(levelProgress)}</div>
           </td>
           <td class="points" data-label="คะแนนรวม">${formatPoints(r.points)}</td>
         `;
@@ -349,8 +373,16 @@
         memberCard.className = 'member-card';
         const avatar = document.createElement('span');
         avatar.className = 'member-avatar';
-        avatar.setAttribute('aria-hidden', 'true');
-        avatar.textContent = Array.from(String(r.display_name || 'สมาชิก').trim())[0] || '👤';
+        const avatarFallback = document.createElement('span');
+        avatarFallback.setAttribute('aria-hidden', 'true');
+        avatarFallback.textContent = Array.from(String(r.display_name || 'สมาชิก').trim())[0] || '👤';
+        const avatarImage = document.createElement('img');
+        avatarImage.alt = '';
+        avatarImage.loading = 'lazy';
+        avatarImage.referrerPolicy = 'no-referrer';
+        avatarImage.src = `/profile/picture?user_id=${encodeURIComponent(r.user_id)}`;
+        avatarImage.addEventListener('error', () => avatarImage.remove());
+        avatar.append(avatarFallback, avatarImage);
         const memberCopy = document.createElement('span');
         memberCopy.className = 'member-card-copy';
         const memberName = document.createElement('strong');

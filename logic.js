@@ -677,6 +677,63 @@ async function getMonthlyCountdownStatus(mk, eventId = null, eventCommand = '') 
   return monthlyCountdownStatus(await getMonthEvents(mk), eventId, eventCommand);
 }
 
+async function getMonthlyMissionEvents(mk) {
+  await dbReady;
+  const pageSize = 1000;
+  const rows = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, display_name, command, detail, timestamp')
+      .eq('month_key', mk)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(error.message || 'Failed to fetch monthly mission events');
+
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return rows;
+    offset += pageSize;
+  }
+}
+
+async function monthlyMissionsHandler(req, res) {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const ym = String(req.query?.ym || '');
+    const targetMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(ym) ? ym : monthKey();
+    const events = await getMonthlyMissionEvents(targetMonth);
+    const productEvents = events.filter((event) => String(event.command || '').trim().toLowerCase() === '/s1');
+    const businessEvents = events.filter((event) => {
+      const command = String(event.command || '').trim().toLowerCase();
+      return command === '/s2' || command === '/opp onsite';
+    });
+    const status = monthlyCountdownStatus(events);
+    const toCase = (event, index) => ({
+      number: index + 1,
+      display_name: event.display_name || 'สมาชิก',
+      command: String(event.command || '').trim().toLowerCase(),
+      detail: String(event.detail || '')
+        .split('|')
+        .filter((part) => !/^evidence:/i.test(part.trim()))
+        .join(' · '),
+      timestamp: event.timestamp
+    });
+
+    return res.json({
+      meta: { scope: 'month', ym: targetMonth },
+      data: {
+        countdown: status,
+        treasureCases: productEvents.slice(0, 100).map(toCase),
+        diamondCases: businessEvents.slice(0, 100).map(toCase)
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || 'Failed to load monthly missions' });
+  }
+}
+
 function formatCountdownStatus(status) {
   const productTarget = status.productPhase === 1 ? 50 : 100;
   const businessTarget = status.businessPhase === 1 ? 50 : 100;
@@ -1524,6 +1581,21 @@ async function profileHandler(req, res) {
   }
 }
 
+async function profilePictureHandler(req, res) {
+  const userId = String(req.query?.user_id || '').trim();
+  if (!userId || userId.length > 128) {
+    return res.status(400).send('A valid user_id is required');
+  }
+
+  const pictureUrl = await getLineProfilePicture(userId);
+  if (!pictureUrl) {
+    return res.status(404).send('LINE profile picture is unavailable');
+  }
+
+  res.set('Cache-Control', 'public, max-age=600');
+  return res.redirect(302, pictureUrl);
+}
+
 async function countdownHandler(req, res) {
   try {
     res.set('Cache-Control', 'no-store');
@@ -1541,6 +1613,8 @@ module.exports = {
   handleImageEvent,
   top10Handler,
   profileHandler,
+  profilePictureHandler,
+  monthlyMissionsHandler,
   countdownHandler,
   buildWeeklySummaryText,
   push,

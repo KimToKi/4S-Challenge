@@ -7,6 +7,8 @@ const {
   handleImageEvent,
   top10Handler,
   profileHandler,
+  profilePictureHandler,
+  monthlyMissionsHandler,
   countdownHandler,
   buildWeeklySummaryText,
   push,
@@ -60,12 +62,15 @@ app.get('/webhook', (req, res) => res.status(200).send('OK'));
 // Leaderboard endpoints
 app.get('/top10', top10Handler);
 app.get('/profile/data', profileHandler);
+app.get('/profile/picture', profilePictureHandler);
+app.get('/missions/data', monthlyMissionsHandler);
 app.get('/countdown', countdownHandler);
 app.get('/months', monthsHandler);
 
 // Static pages
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'leaderboard.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'views', 'profile.html')));
+app.get('/missions', (req, res) => res.sendFile(path.join(__dirname, 'views', 'missions.html')));
 app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, 'views', 'rules.html')));
 
 // Start server

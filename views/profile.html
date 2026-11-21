@@ -60,6 +60,10 @@
     .level-points{color:var(--muted);font-size:13px;text-align:right}
     .level-track{height:10px;margin-top:12px;overflow:hidden;border-radius:99px;background:#332b20}
     .level-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--level-accent),#f7f1e7);box-shadow:0 0 12px var(--level-glow);transition:width .4s ease,background .3s ease}
+    .level-stages{display:flex;justify-content:space-between;margin-top:8px;padding:0 2px}
+    .level-stage{display:grid;place-items:center;width:25px;height:25px;border:1px solid #51432a;border-radius:50%;background:#100e0c;font-size:13px;opacity:.38;filter:grayscale(1);transition:opacity .2s ease,filter .2s ease,transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+    .level-stage.is-reached{opacity:.75;filter:none}
+    .level-stage.is-current{transform:scale(1.18);border-color:var(--level-accent);opacity:1;filter:none;box-shadow:0 0 12px var(--level-glow)}
     .level-caption{display:block;margin-top:7px;color:var(--muted);font-size:12px;text-align:right}
     .scores{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
     .score{padding:16px;border:1px solid #4a3c25;border-radius:12px;background:#100e0c}
@@ -143,6 +147,7 @@
           <div id="level-progress" class="level-track" role="progressbar" aria-label="ความคืบหน้าสู่ Level ถัดไป" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <span id="level-fill" class="level-fill" style="width:0%"></span>
           </div>
+          <div id="level-stages" class="level-stages" aria-label="สัญลักษณ์ความคืบหน้าทุก 20 คะแนน"></div>
           <span id="level-caption" class="level-caption">0 / 100 คะแนน ถึง Level 1</span>
         </section>
         <p id="period" class="period"></p>
@@ -206,7 +211,26 @@
         { tier: 'celestial', icon: '🌠' },
         { tier: 'eternal', icon: '👑' }
       ];
-      return ranks[level] || { tier: 'eternal', icon: '👑' };
+      return ranks[level] || { tier: 'eternal', icon: ranks[level % ranks.length].icon };
+    }
+
+    function getProgressIcons(){
+      return ['🌱', '✨', '🔥', '🌟', '🚀'];
+    }
+
+    function renderLevelStages(progress){
+      const currentStage = Math.min(4, Math.floor(progress / 20));
+      const container = document.getElementById('level-stages');
+      container.replaceChildren();
+      getProgressIcons().forEach((icon, index) => {
+        const stage = document.createElement('span');
+        stage.className = 'level-stage';
+        if(index < currentStage) stage.classList.add('is-reached');
+        if(index === currentStage) stage.classList.add('is-current');
+        stage.textContent = icon;
+        stage.setAttribute('aria-hidden', 'true');
+        container.appendChild(stage);
+      });
     }
 
     function renderCommandCounts(rows, since){
@@ -316,6 +340,7 @@
         document.getElementById('level-badge').textContent = `${levelRank.icon} Level ${level}`;
         document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
         document.getElementById('level-fill').style.width = `${progress}%`;
+        renderLevelStages(progress);
         const levelProgress = document.getElementById('level-progress');
         levelProgress.setAttribute('aria-valuenow', String(progress));
         levelProgress.setAttribute('aria-valuetext', `${formatPoints(progress)} จาก 100 คะแนน`);
