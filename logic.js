@@ -828,8 +828,9 @@ function getCommandEventCount(events, commands) {
 }
 
 function getCommandPoints(events, command) {
+  const commands = new Set(Array.isArray(command) ? command : [command]);
   return roundTo(events.reduce((total, event) => (
-    total + (String(event.command || '').trim().toLowerCase() === command
+    total + (commands.has(String(event.command || '').trim().toLowerCase())
       ? Number(event.points || 0)
       : 0)
   ), 0), 2);
@@ -848,7 +849,7 @@ function getProfileTitles(cumulativeEvents, monthlyEvents) {
   const s4Commands = trackedCommands
     .filter((entry) => entry.category === 's4')
     .map((entry) => entry.command);
-  const s4Value = getCommandEventCount(cumulativeEvents, s4Commands);
+  const s4Value = getCommandPoints(cumulativeEvents, s4Commands);
   const monthlyAboCount = getCommandEventCount(monthlyEvents, ['/abo']);
   const monthlyMemberCount = getCommandEventCount(monthlyEvents, ['/m']);
   const monthlyBusinessCounts = new Map();
@@ -935,7 +936,7 @@ function getProfileTitles(cumulativeEvents, monthlyEvents) {
         { max: Infinity, title: '🔥 Grand Master Leader' }
       ]),
       value: s4Value,
-      unit: 'คำสั่ง'
+      unit: 'คะแนน'
     },
     businessOwner: {
       unlocked: [...monthlyBusinessCounts.values()].some((counts) => counts.abo >= 4 && counts.member >= 5),

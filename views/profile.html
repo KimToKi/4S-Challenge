@@ -45,6 +45,7 @@
     .avatar{object-fit:cover;background:#100e0c}
     .avatar-fallback{display:grid;place-items:center;background:#211b12;color:var(--level-accent);font-size:30px}
     .member-name{margin:0;font-size:21px;overflow-wrap:anywhere}
+    .member-identity{min-width:0}
     .profile-details{position:relative;isolation:isolate;overflow:hidden;margin-top:16px;padding:16px;border:1px solid var(--level-accent);border-radius:14px;background:linear-gradient(145deg,var(--level-soft),#100e0c 55%);box-shadow:0 0 24px var(--level-glow);transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
     .profile-details::before{position:absolute;z-index:-1;top:-70px;right:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,var(--level-glow),transparent 70%);content:"";transition:background .3s ease}
     :root[data-level-tier="gold"] .profile-details{box-shadow:0 0 28px var(--level-glow),inset 0 0 18px var(--level-soft)}
@@ -76,14 +77,12 @@
     .total strong{color:#f1d27a;font-size:24px;font-variant-numeric:tabular-nums}
     .title-section{margin-top:12px}
     .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
-    .title-card{display:flex;align-items:baseline;gap:6px;min-width:0;padding:5px 0;border-bottom:1px solid #29251f}
-    .title-card-label{flex:none;color:var(--muted);font-size:11px}
-    .title-card strong{min-width:0;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
-    .title-card small{margin-left:auto;color:var(--muted);font-size:10px;white-space:nowrap}
-    .business-owner{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;min-width:0;padding:6px 0;color:#817b72}
-    .business-owner strong{color:#a7a096;font-size:12px;font-weight:600}
-    .business-owner small{color:var(--muted);font-size:11px}
-    .business-owner.is-unlocked strong{color:#dfc778}
+    .title-card{min-width:0;padding:5px 0;border-bottom:1px solid #29251f;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+    .business-owner{display:grid;gap:3px;margin-top:5px;color:#77736d}
+    .business-owner-title{font-size:11px;font-weight:550}
+    .business-owner.is-unlocked .business-owner-title{color:#dfc778}
+    .business-owner-progress{display:flex;gap:10px;font-size:11px}
+    .business-owner-progress span{color:#d3c7ac;font-variant-numeric:tabular-nums}
     .command-usage{margin-top:18px;padding:18px;border:1px solid #4a3c25;border-radius:14px;background:#100e0c}
     .command-usage-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
     .command-usage-head h2{margin:0;font-size:18px}
@@ -161,7 +160,10 @@
         <div class="member-profile">
           <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
           <div id="avatar-fallback" class="avatar-fallback" aria-hidden="true">👤</div>
-          <h2 id="member-name" class="member-name"></h2>
+          <div class="member-identity">
+            <h2 id="member-name" class="member-name"></h2>
+            <div id="business-owner" class="business-owner"></div>
+          </div>
         </div>
         <section class="profile-details" aria-label="ระดับและคะแนนสะสม">
           <div class="level-head">
@@ -186,7 +188,6 @@
         <div class="total"><span>คะแนนรวม</span><strong id="total">0</strong></div>
         <section class="title-section" aria-label="ความสำเร็จจากยอดสะสม">
           <div id="title-cards" class="title-cards"></div>
-          <div id="business-owner" class="business-owner"></div>
         </section>
         <section class="command-usage" aria-labelledby="command-usage-title">
           <div class="command-usage-head">
@@ -347,36 +348,39 @@
       const container = document.getElementById('title-cards');
       container.replaceChildren();
       [
-        { key: 's1', label: 'S1 · สินค้า' },
-        { key: 's2', label: 'S2 · คน' },
-        { key: 'for', label: '/for · จำนวนสาย' },
-        { key: 's3', label: 'S3 · ความสำเร็จ (/pin)' },
-        { key: 's4', label: 'S4 · พัฒนา' }
-      ].forEach(({ key, label }) => {
-        const title = titles[key];
+        titles.s1,
+        titles.s2,
+        titles.for,
+        titles.s3,
+        titles.s4
+      ].forEach((title) => {
         const card = document.createElement('article');
         card.className = 'title-card';
-        const category = document.createElement('span');
-        category.className = 'title-card-label';
-        category.textContent = label;
-        const name = document.createElement('strong');
-        name.textContent = title.title;
-        const value = document.createElement('small');
-        value.textContent = `${formatPoints(title.value)} ${title.unit}`;
-        card.append(category, name, value);
+        card.textContent = title.title;
         container.appendChild(card);
       });
 
       const owner = document.getElementById('business-owner');
       owner.replaceChildren();
       owner.classList.toggle('is-unlocked', titles.businessOwner.unlocked);
-      const ownerTitle = document.createElement('strong');
+      const ownerTitle = document.createElement('span');
+      ownerTitle.className = 'business-owner-title';
       ownerTitle.textContent = titles.businessOwner.unlocked
         ? '🏅 Amway Business Owner · ปลดล็อกถาวรแล้ว'
         : '🔒 Amway Business Owner';
-      const ownerProgress = document.createElement('small');
-      ownerProgress.textContent =
-        `${monthLabel} /ABO ${titles.businessOwner.monthlyAboCount}/4 · /M ${titles.businessOwner.monthlyMemberCount}/5`;
+      const ownerProgress = document.createElement('div');
+      ownerProgress.className = 'business-owner-progress';
+      [
+        { label: 'ABO', count: titles.businessOwner.monthlyAboCount, target: 4 },
+        { label: 'M', count: titles.businessOwner.monthlyMemberCount, target: 5 }
+      ].forEach(({ label, count, target }) => {
+        const progress = document.createElement('span');
+        progress.textContent = `${label} ${count}/${target}`;
+        ownerProgress.appendChild(progress);
+      });
+      const period = document.createElement('span');
+      period.textContent = monthLabel;
+      ownerProgress.appendChild(period);
       owner.append(ownerTitle, ownerProgress);
     }
 
@@ -500,8 +504,12 @@
         document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
         document.getElementById('period').textContent = periodLabel;
         const ppvMonthLabel = isCumulative ? `เดือนนี้ · ${currentMonthLabel}` : `เดือน ${selectedMonthLabel}`;
-        const achievementMonthLabel = isCumulative ? `เดือนนี้` : `เดือน ${selectedMonthLabel}`;
+        const achievementMonthLabel = isCumulative ? `เดือนนี้ · ${currentMonthLabel}` : `เดือน ${selectedMonthLabel}`;
         renderProfileTitles(data.titles, achievementMonthLabel);
+        document.getElementById('business-owner').setAttribute(
+          'aria-label',
+          `${achievementMonthLabel} · Amway Business Owner`
+        );
         renderCommandCounts(data.commandCounts, countSince, data.monthlyPpv, ppvMonthLabel, achievementMonthLabel);
         renderEvents(data.todayEvents, payload.meta?.today);
         profileEl.hidden = false;
