@@ -609,7 +609,7 @@ async function getMonthEvents(mk) {
   while (true) {
     const { data, error } = await supabase
       .from('events')
-      .select('id, user_id, display_name, command, points, timestamp')
+      .select('id, user_id, display_name, command, detail, points, timestamp')
       .eq('month_key', mk)
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
