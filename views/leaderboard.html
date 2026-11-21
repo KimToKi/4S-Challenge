@@ -20,10 +20,9 @@
     .brand-mark{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border:1px solid var(--gold);border-radius:14px;color:var(--gold);font-size:16px;font-weight:900;letter-spacing:-.08em}
     .brand .title{font-size:18px;font-weight:750;letter-spacing:.3px}
     .brand .sub{font-size:12px;color:#d4c7b2}
-    .actions{flex-shrink:0;display:flex;gap:12px}
-    .actions a{display:inline-flex;align-items:center;justify-content:center;min-width:120px;background:#211b12;color:#f1d27a;border:1px solid #9a792c;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;transition:background .2s ease,color .2s ease}
-    .actions a:hover{background:#342713;color:#ffe9a7}
-    .period{margin-top:12px;color:#e3c66e;font-size:13px;font-weight:650}
+    .actions{flex-shrink:0;display:flex;align-items:center;gap:5px}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--muted);border:1px solid #393229;padding:6px 9px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;transition:background .2s ease,color .2s ease,border-color .2s ease}
+    .actions a:hover{background:#211b12;color:#f1d27a;border-color:#67542b}
     .qualification{margin-top:6px;color:#e7d8b7;font-size:13px}
     .qualification strong{color:#f1d27a;font-variant-numeric:tabular-nums}
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -71,6 +70,7 @@
     .member-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .member-card-copy{display:grid;gap:3px;min-width:0}
     .member-card-copy strong{overflow-wrap:anywhere}
+    .member-level-icon{margin-left:5px;font-size:15px;vertical-align:1px}
     .member-card-copy small{color:var(--muted);font-size:11px;font-weight:500}
     td.level-cell{min-width:170px}
     .level-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
@@ -91,8 +91,6 @@
       .hero{gap:18px}
       .brand .title{font-size:clamp(17px,2.8vw,20px)}
       .brand{min-width:0}
-      .actions{width:100%;justify-content:flex-start}
-      .actions a{flex:1 1 160px;min-width:0}
       thead th,tbody td{padding:12px 14px}
     }
 
@@ -102,8 +100,8 @@
       .brand{width:100%;gap:10px}
       .brand .title{font-size:17px}
       .brand .sub{font-size:11px}
-      .actions{width:100%}
-      .actions a{width:100%;font-size:15px;padding:12px}
+      .actions{width:auto;flex-wrap:wrap}
+      .actions a{width:auto;font-size:11px;padding:5px 7px}
       .countdown-head{align-items:flex-start;flex-direction:column;gap:4px}
       .countdown-grid{grid-template-columns:1fr}
       .muted{text-align:left;margin-top:16px}
@@ -153,7 +151,7 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">4S</div>
         <div>
-          <div class="title">4S to Silver Challenge — Leaderboard</div>
+          <div class="title">Leaderboard</div>
         </div>
       </div>
       <div class="actions">
@@ -163,7 +161,6 @@
       </div>
     </div>
 
-    <div id="period" class="period"></div>
     <div id="qualification" class="qualification"></div>
 
     <section class="countdown" aria-labelledby="countdown-title">
@@ -209,7 +206,6 @@
   </div>
   <script>
     const tbody = document.getElementById('tbody');
-    const periodEl = document.getElementById('period');
     const qualificationEl = document.getElementById('qualification');
     const countdownPeriod = document.getElementById('countdown-period');
     const countdownError = document.getElementById('countdown-error');
@@ -285,14 +281,8 @@
       }).join('');
     }
 
-    function labelFor(meta){
-      if(!meta) return '';
-      return `รวมคะแนนตั้งแต่เดือน ${meta.since || ''}`;
-    }
-
     async function loadLeaderboard(){
       tbody.innerHTML='';
-      periodEl.textContent = '';
       qualificationEl.textContent = '';
       const params = new URLSearchParams({ scope: 'cumulative', limit: 0 });
       const [res, countdownRes] = await Promise.all([
@@ -309,7 +299,6 @@
         renderCountdownError();
       }
       const rows = payload.data || [];
-      periodEl.textContent = labelFor(payload.meta);
       if(!rows.length){
         qualificationEl.textContent = 'คะแนนขั้นต่ำผ่านเกณฑ์: —';
         const tr = document.createElement('tr');
@@ -366,7 +355,7 @@
           ${categoryCell('s3', 'S3', 'S3 Moving Up')}
           ${categoryCell('s4', 'S4', 'S4 พัฒนา')}
           <td class="level-cell" data-label="Level">
-            <div class="level-label"><strong>${getLevelIcon(level)} Level ${level}</strong><span>${formatPoints(levelProgress)} / 100 → Level ${level + 1}</span></div>
+            <div class="level-label"><span>${formatPoints(levelProgress)} / 100 → ${getLevelIcon(level + 1)}</span></div>
             <div class="level-bar" role="progressbar" aria-label="ความคืบหน้าสู่ Level ${level + 1}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${levelProgress}" aria-valuetext="${formatPoints(levelProgress)} จาก 100 คะแนน"><span class="level-fill" style="width:${levelProgress}%"></span></div>
             <div class="level-stages" aria-label="สัญลักษณ์ความคืบหน้าทุก 20 คะแนน">${renderLevelStages(levelProgress)}</div>
           </td>
@@ -391,6 +380,11 @@
         memberCopy.className = 'member-card-copy';
         const memberName = document.createElement('strong');
         memberName.textContent = r.display_name || 'สมาชิก';
+        const memberLevelIcon = document.createElement('span');
+        memberLevelIcon.className = 'member-level-icon';
+        memberLevelIcon.setAttribute('aria-label', `Level ${level}`);
+        memberLevelIcon.textContent = getLevelIcon(level);
+        memberName.appendChild(memberLevelIcon);
         const memberSummary = document.createElement('small');
         memberSummary.textContent = `Level ${level} · ${formatPoints(r.points)} คะแนน`;
         memberCopy.append(memberName, memberSummary);
