@@ -11,11 +11,17 @@
       --bg:#0c0a08;--ink:#f7f1e7;--muted:#b9ad9b;--card:#171411;--border:#3b342a;
       --gold:#d8b44a;--red:#a51e2b;--level-accent:#b96b42;--level-glow:#b96b4230;--level-soft:#b96b4218;
     }
-    :root[data-level-theme="1"]{--level-accent:#cd7f32;--level-glow:#cd7f3230;--level-soft:#cd7f3218}
-    :root[data-level-theme="2"]{--level-accent:#c4c0b9;--level-glow:#c4c0b930;--level-soft:#c4c0b918}
-    :root[data-level-theme="3"]{--level-accent:#d8b44a;--level-glow:#d8b44a30;--level-soft:#d8b44a18}
-    :root[data-level-theme="4"]{--level-accent:#70c8d2;--level-glow:#70c8d230;--level-soft:#70c8d218}
-    :root[data-level-theme="5"]{--level-accent:#b89aff;--level-glow:#b89aff30;--level-soft:#b89aff18}
+    :root[data-level-tier="starter"]{--level-accent:#b9ad9b;--level-glow:#b9ad9b24;--level-soft:#b9ad9b12}
+    :root[data-level-tier="bronze"]{--level-accent:#cd7f32;--level-glow:#cd7f3235;--level-soft:#cd7f3218}
+    :root[data-level-tier="silver"]{--level-accent:#c4c0b9;--level-glow:#c4c0b940;--level-soft:#c4c0b920}
+    :root[data-level-tier="gold"]{--level-accent:#f0c84b;--level-glow:#f0c84b50;--level-soft:#f0c84b24}
+    :root[data-level-tier="diamond"]{--level-accent:#70dce8;--level-glow:#70dce860;--level-soft:#70dce82a}
+    :root[data-level-tier="amethyst"]{--level-accent:#c19aff;--level-glow:#c19aff70;--level-soft:#c19aff30}
+    :root[data-level-tier="mythic"]{--level-accent:#ff8ad8;--level-glow:#ff8ad880;--level-soft:#ff8ad838}
+    :root[data-level-tier="immortal"]{--level-accent:#86a8ff;--level-glow:#86a8ff80;--level-soft:#86a8ff38}
+    :root[data-level-tier="legend"]{--level-accent:#ff7166;--level-glow:#ff716690;--level-soft:#ff71663c}
+    :root[data-level-tier="celestial"]{--level-accent:#f3e5a5;--level-glow:#f3e5a580;--level-soft:#f3e5a538}
+    :root[data-level-tier="eternal"]{--level-accent:#fff0bd;--level-glow:#fff0bda0;--level-soft:#fff0bd48}
     *{box-sizing:border-box}
     body{margin:0;background:radial-gradient(1000px 600px at 5% -15%,var(--level-glow) 0,transparent 58%),radial-gradient(800px 500px at 100% -20%,var(--level-soft) 0,transparent 55%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;transition:background .3s ease}
     .wrap{width:min(900px,100% - 32px);margin:0 auto;padding:28px 0 48px}
@@ -37,9 +43,20 @@
     .avatar{object-fit:cover;background:#100e0c}
     .avatar-fallback{display:grid;place-items:center;background:#211b12;color:var(--level-accent);font-size:30px}
     .member-name{margin:0;font-size:21px;overflow-wrap:anywhere}
-    .profile-details{margin-top:16px;padding:16px;border:1px solid var(--level-accent);border-radius:14px;background:linear-gradient(145deg,var(--level-soft),#100e0c 55%);box-shadow:0 0 24px var(--level-glow);transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
+    .profile-details{position:relative;isolation:isolate;overflow:hidden;margin-top:16px;padding:16px;border:1px solid var(--level-accent);border-radius:14px;background:linear-gradient(145deg,var(--level-soft),#100e0c 55%);box-shadow:0 0 24px var(--level-glow);transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
+    .profile-details::before{position:absolute;z-index:-1;top:-70px;right:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,var(--level-glow),transparent 70%);content:"";transition:background .3s ease}
+    :root[data-level-tier="gold"] .profile-details{box-shadow:0 0 28px var(--level-glow),inset 0 0 18px var(--level-soft)}
+    :root[data-level-tier="diamond"] .profile-details{border-width:2px;box-shadow:0 0 32px var(--level-glow),inset 0 0 22px var(--level-soft)}
+    :root[data-level-tier="amethyst"] .profile-details{border-width:2px;background:linear-gradient(130deg,#211333,var(--level-soft) 35%,#100e0c 78%);box-shadow:0 0 38px var(--level-glow),inset 0 0 24px var(--level-soft)}
+    :root[data-level-tier="mythic"] .profile-details{border-width:2px;background:linear-gradient(130deg,#35152f,var(--level-soft) 38%,#100e0c 80%);box-shadow:0 0 46px var(--level-glow),inset 0 0 30px var(--level-soft)}
+    :root[data-level-tier="immortal"] .profile-details{border-width:2px;background:linear-gradient(130deg,#172446,var(--level-soft) 38%,#100e0c 80%);box-shadow:0 0 50px var(--level-glow),inset 0 0 32px var(--level-soft)}
+    :root[data-level-tier="legend"] .profile-details{border-width:2px;background:linear-gradient(130deg,#451c1a,var(--level-soft) 38%,#100e0c 80%);box-shadow:0 0 54px var(--level-glow),inset 0 0 34px var(--level-soft)}
+    :root[data-level-tier="celestial"] .profile-details{border-width:2px;background:linear-gradient(130deg,#39351c,var(--level-soft) 38%,#100e0c 80%);box-shadow:0 0 58px var(--level-glow),inset 0 0 36px var(--level-soft)}
+    :root[data-level-tier="eternal"] .profile-details{border-width:2px;background:linear-gradient(125deg,#58431a,#251a35 42%,#100e0c 82%);box-shadow:0 0 64px var(--level-glow),inset 0 0 40px var(--level-soft)}
     .level-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .level-identity{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
     .level-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--level-accent);border-radius:999px;background:var(--level-soft);color:var(--level-accent);font-weight:850;white-space:nowrap;transition:color .3s ease,border-color .3s ease,background .3s ease}
+    :root[data-level-tier="gold"] .level-badge,:root[data-level-tier="diamond"] .level-badge,:root[data-level-tier="amethyst"] .level-badge,:root[data-level-tier="mythic"] .level-badge,:root[data-level-tier="immortal"] .level-badge,:root[data-level-tier="legend"] .level-badge,:root[data-level-tier="celestial"] .level-badge,:root[data-level-tier="eternal"] .level-badge{background:linear-gradient(110deg,var(--level-soft),#100e0c);box-shadow:0 0 16px var(--level-glow)}
     .level-points{color:var(--muted);font-size:13px;text-align:right}
     .level-track{height:10px;margin-top:12px;overflow:hidden;border-radius:99px;background:#332b20}
     .level-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--level-accent),#f7f1e7);box-shadow:0 0 12px var(--level-glow);transition:width .4s ease,background .3s ease}
@@ -55,7 +72,10 @@
     .command-usage-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
     .command-usage-head h2{margin:0;font-size:18px}
     .command-period,.command-note{color:var(--muted);font-size:12px}
-    .command-bars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px}
+    .command-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .command-group{min-width:0;padding:14px;border:1px solid #3b342a;border-radius:12px;background:#171411}
+    .command-group h3{margin:0 0 12px;color:var(--level-accent);font-size:14px}
+    .command-bars{display:grid;gap:12px}
     .command-row{min-width:0}
     .command-row-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:13px}
     .command-row-head strong{color:#e8ddc8}
@@ -80,7 +100,7 @@
       .actions{width:100%}
       .actions a{flex:1}
       .scores{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .command-bars{grid-template-columns:1fr}
+      .command-groups{grid-template-columns:1fr}
       .event{grid-template-columns:1fr auto;gap:7px 10px}
       .command{grid-column:1}
       .event-meta{grid-column:2;grid-row:1}
@@ -115,7 +135,9 @@
         </div>
         <section class="profile-details" aria-label="ระดับและคะแนนสะสม">
           <div class="level-head">
-            <strong id="level-badge" class="level-badge">⭐ Level 0</strong>
+            <div class="level-identity">
+              <strong id="level-badge" class="level-badge">🌱 Level 0</strong>
+            </div>
             <span id="level-points" class="level-points">0 คะแนนสะสม</span>
           </div>
           <div id="level-progress" class="level-track" role="progressbar" aria-label="ความคืบหน้าสู่ Level ถัดไป" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -136,7 +158,7 @@
             <h2 id="command-usage-title">จำนวนคำสั่งสะสม</h2>
             <span id="command-period" class="command-period"></span>
           </div>
-          <div id="command-bars" class="command-bars" aria-live="polite"></div>
+          <div id="command-groups" class="command-groups" aria-live="polite"></div>
           <p class="command-note">ความยาวแถบเทียบกับคำสั่งที่มีจำนวนสูงสุด · /for รวมจำนวน N สาย</p>
         </section>
       </div>
@@ -170,38 +192,66 @@
       return { total, level, progress: total - level * 100 };
     }
 
+    function getLevelRank(level){
+      const ranks = [
+        { tier: 'starter', icon: '🌱' },
+        { tier: 'bronze', icon: '🥉' },
+        { tier: 'silver', icon: '🥈' },
+        { tier: 'gold', icon: '🥇' },
+        { tier: 'diamond', icon: '💎' },
+        { tier: 'amethyst', icon: '🔮' },
+        { tier: 'mythic', icon: '🌌' },
+        { tier: 'immortal', icon: '⚡' },
+        { tier: 'legend', icon: '🐉' },
+        { tier: 'celestial', icon: '🌠' },
+        { tier: 'eternal', icon: '👑' }
+      ];
+      return ranks[level] || { tier: 'eternal', icon: '👑' };
+    }
+
     function renderCommandCounts(rows, since){
-      const container = document.getElementById('command-bars');
+      const container = document.getElementById('command-groups');
       container.replaceChildren();
-      const counts = Array.isArray(rows) ? rows : [];
-      const maximum = Math.max(0, ...counts.map((row) => Number(row.count) || 0));
+      const groups = Array.isArray(rows) ? rows : [];
       document.getElementById('command-period').textContent = `ตั้งแต่ ${since || ''}`;
-      counts.forEach((row) => {
-        const count = Math.max(0, Number(row.count) || 0);
-        const percent = maximum ? count / maximum * 100 : 0;
-        const item = document.createElement('div');
-        item.className = 'command-row';
-        const head = document.createElement('div');
-        head.className = 'command-row-head';
-        const label = document.createElement('strong');
-        label.textContent = row.label || row.command || 'คำสั่ง';
-        const value = document.createElement('span');
-        value.className = 'command-count';
-        value.textContent = formatPoints(count);
-        head.append(label, value);
-        const track = document.createElement('div');
-        track.className = 'command-track';
-        track.setAttribute('role', 'progressbar');
-        track.setAttribute('aria-label', `${label.textContent} จำนวนคำสั่ง`);
-        track.setAttribute('aria-valuemin', '0');
-        track.setAttribute('aria-valuemax', String(maximum || 1));
-        track.setAttribute('aria-valuenow', String(count));
-        const fill = document.createElement('span');
-        fill.className = 'command-fill';
-        fill.style.width = `${percent}%`;
-        track.appendChild(fill);
-        item.append(head, track);
-        container.appendChild(item);
+      groups.forEach((group) => {
+        const groupEl = document.createElement('section');
+        groupEl.className = 'command-group';
+        const heading = document.createElement('h3');
+        heading.textContent = group.label || group.category;
+        const commandBars = document.createElement('div');
+        commandBars.className = 'command-bars';
+        const commands = Array.isArray(group.commands) ? group.commands : [];
+        const maximum = Math.max(0, ...commands.map((row) => Number(row.count) || 0));
+        commands.forEach((row) => {
+          const count = Math.max(0, Number(row.count) || 0);
+          const percent = maximum ? count / maximum * 100 : 0;
+          const item = document.createElement('div');
+          item.className = 'command-row';
+          const head = document.createElement('div');
+          head.className = 'command-row-head';
+          const label = document.createElement('strong');
+          label.textContent = row.label || row.command || 'คำสั่ง';
+          const value = document.createElement('span');
+          value.className = 'command-count';
+          value.textContent = formatPoints(count);
+          head.append(label, value);
+          const track = document.createElement('div');
+          track.className = 'command-track';
+          track.setAttribute('role', 'progressbar');
+          track.setAttribute('aria-label', `${label.textContent} จำนวนคำสั่ง`);
+          track.setAttribute('aria-valuemin', '0');
+          track.setAttribute('aria-valuemax', String(maximum || 1));
+          track.setAttribute('aria-valuenow', String(count));
+          const fill = document.createElement('span');
+          fill.className = 'command-fill';
+          fill.style.width = `${percent}%`;
+          track.appendChild(fill);
+          item.append(head, track);
+          commandBars.appendChild(item);
+        });
+        groupEl.append(heading, commandBars);
+        container.appendChild(groupEl);
       });
     }
 
@@ -261,8 +311,9 @@
           || !Array.isArray(data.todayEvents)) throw new Error('ข้อมูล Profile ไม่ถูกต้อง');
         const memberName = data.display_name || 'สมาชิก';
         const { total: cumulativePoints, level, progress } = getLevelProgress(data.cumulativePoints);
-        document.documentElement.dataset.levelTheme = String(level % 6);
-        document.getElementById('level-badge').textContent = `⭐ Level ${level}`;
+        const levelRank = getLevelRank(level);
+        document.documentElement.dataset.levelTier = levelRank.tier;
+        document.getElementById('level-badge').textContent = `${levelRank.icon} Level ${level}`;
         document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
         document.getElementById('level-fill').style.width = `${progress}%`;
         const levelProgress = document.getElementById('level-progress');

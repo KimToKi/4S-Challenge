@@ -695,19 +695,27 @@ const scoreCommandCategories = new Map([
 ]);
 
 const trackedCommands = [
-  { command: '/s1', label: '/s1' },
-  { command: '/s2', label: '/s2' },
-  { command: '/pin', label: '/pin' },
-  { command: '/s4', label: '/s4' },
-  { command: '/for', label: '/for · จำนวนสาย (N)' },
-  { command: '/opp online', label: '/opp online' },
-  { command: '/opp onsite', label: '/opp onsite' },
-  { command: '/abo', label: '/ABO' },
-  { command: '/m', label: '/M' },
-  { command: '/dm', label: '/dm' },
-  { command: '/follow', label: '/follow' },
-  { command: '/hm', label: '/hm' }
+  { command: '/s1', label: '/s1', category: 's1' },
+  { command: '/s2', label: '/s2', category: 's2' },
+  { command: '/for', label: '/for · จำนวนสาย (N)', category: 's2' },
+  { command: '/opp online', label: '/opp online', category: 's2' },
+  { command: '/opp onsite', label: '/opp onsite', category: 's2' },
+  { command: '/abo', label: '/ABO', category: 's2' },
+  { command: '/m', label: '/M', category: 's2' },
+  { command: '/pin', label: '/pin', category: 's3' },
+  { command: '/s4', label: '/s4', category: 's4' },
+  { command: '/link', label: '/link', category: 's4' },
+  { command: '/book', label: '/book', category: 's4' },
+  { command: '/dm', label: '/dm', category: 's4' },
+  { command: '/follow', label: '/follow', category: 's4' },
+  { command: '/hm', label: '/hm', category: 's4' }
 ];
+const commandCategoryLabels = {
+  s1: 'S1 · ยอดสินค้า',
+  s2: 'S2 · คน',
+  s3: 'S3 · Moving Up',
+  s4: 'S4 · พัฒนา'
+};
 
 function getCategoryPointsByUser(events = []) {
   const pointsByUser = new Map();
@@ -729,10 +737,16 @@ function getTrackedCommandCounts(events = []) {
     const count = command === '/for' ? Number(event.points || 0) : 1;
     counts.set(command, counts.get(command) + (Number.isFinite(count) ? count : 0));
   }
-  return trackedCommands.map(({ command, label }) => ({
-    command,
-    label,
-    count: roundTo(counts.get(command), 2)
+  return ['s1', 's2', 's3', 's4'].map((category) => ({
+    category,
+    label: commandCategoryLabels[category],
+    commands: trackedCommands
+      .filter((entry) => entry.category === category)
+      .map(({ command, label }) => ({
+        command,
+        label,
+        count: roundTo(counts.get(command), 2)
+      }))
   }));
 }
 

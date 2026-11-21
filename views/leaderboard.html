@@ -62,6 +62,11 @@
     .rank-n{background:#2b1718;color:#f0b5ac;border:1px solid #71333a}
     .points{font-weight:800;color:#f1d27a;font-variant-numeric:tabular-nums}
     .name{font-weight:600}
+    .member-card{display:flex;align-items:center;gap:10px;min-width:170px}
+    .member-avatar{display:grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid #9a792c;border-radius:50%;background:linear-gradient(145deg,#55151b,#211b12);color:#f1d27a;font-size:17px;font-weight:850}
+    .member-card-copy{display:grid;gap:3px;min-width:0}
+    .member-card-copy strong{overflow-wrap:anywhere}
+    .member-card-copy small{color:var(--muted);font-size:11px;font-weight:500}
     td.level-cell{min-width:170px}
     .level-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
     .level-label strong{color:#f1d27a}
@@ -324,12 +329,11 @@
         const titles = categories
           .filter((category) => Number(r[category]) > 0
             && categoryScores[category].filter((score) => score > Number(r[category])).length === 0)
-          .map((category) => `<span class="category-title">${categoryTitles[category]}</span>`)
-          .join('');
+          .map((category) => categoryTitles[category]);
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
-          <td class="name" data-label="ชื่อ">${r.display_name}${titles}</td>
+          <td class="name" data-label="สมาชิก"></td>
           ${categoryCell('s1', 'S1', 'S1 ยอดสินค้า')}
           ${categoryCell('s2', 'S2', 'S2 คน')}
           ${categoryCell('s3', 'S3', 'S3 Moving Up')}
@@ -340,6 +344,28 @@
           </td>
           <td class="points" data-label="คะแนนรวม">${formatPoints(r.points)}</td>
         `;
+        const nameCell = tr.querySelector('.name');
+        const memberCard = document.createElement('div');
+        memberCard.className = 'member-card';
+        const avatar = document.createElement('span');
+        avatar.className = 'member-avatar';
+        avatar.setAttribute('aria-hidden', 'true');
+        avatar.textContent = Array.from(String(r.display_name || 'สมาชิก').trim())[0] || '👤';
+        const memberCopy = document.createElement('span');
+        memberCopy.className = 'member-card-copy';
+        const memberName = document.createElement('strong');
+        memberName.textContent = r.display_name || 'สมาชิก';
+        const memberSummary = document.createElement('small');
+        memberSummary.textContent = `Level ${level} · ${formatPoints(r.points)} คะแนน`;
+        memberCopy.append(memberName, memberSummary);
+        titles.forEach((title) => {
+          const titleBadge = document.createElement('span');
+          titleBadge.className = 'category-title';
+          titleBadge.textContent = title;
+          memberCopy.appendChild(titleBadge);
+        });
+        memberCard.append(avatar, memberCopy);
+        nameCell.appendChild(memberCard);
         tbody.appendChild(tr);
       });
     }
