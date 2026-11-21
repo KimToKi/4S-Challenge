@@ -22,6 +22,9 @@ const configuredTz = process.env.SCORE_TIMEZONE
   || process.env.TIMEZONE
   || process.env.APP_TIMEZONE
   || 'Asia/Bangkok';
+const CUMULATIVE_RANKING_START_MONTH = '2026-11';
+const lineProfilePictureCache = new Map();
+const LINE_PROFILE_PICTURE_CACHE_TTL_MS = 10 * 60 * 1000;
 let activeTimeZone = configuredTz;
 let cachedFormatter;
 let cachedWeekdayFormatter;
@@ -618,6 +621,29 @@ async function getMonthEvents(mk) {
   }
 }
 
+async function getEventsSinceMonth(startMonth, userId = null) {
+  await dbReady;
+  const pageSize = 1000;
+  const rows = [];
+  let offset = 0;
+
+  while (true) {
+    let query = supabase
+      .from('events')
+      .select('id, user_id, display_name, command, points, timestamp')
+      .gte('month_key', startMonth)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (userId) query = query.eq('user_id', userId);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message || 'Failed to fetch cumulative events');
+
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return rows;
+    offset += pageSize;
+  }
+}
+
 function monthlyCountdownStatus(events, eventId = null, eventCommand = '') {
   const productEvents = events.filter((event) => String(event.command || '').trim().toLowerCase() === '/s1');
   const businessEvents = events.filter((event) => {
@@ -659,25 +685,60 @@ function formatCountdownStatus(status) {
   return `📦 เคสสินค้า: ${status.productCasesDone}/${productTarget} (${productPhaseLabel}) เหลือ ${status.productCasesRemaining}\n💼 เคสเล่าธุรกิจ: ${status.businessCasesDone}/${businessTarget} (${businessPhaseLabel}) เหลือ ${status.businessCasesRemaining}`;
 }
 
-async function getTop10(mk, limit = 10) {
-  const data = await getMonthEvents(mk);
-  const scoreCommandCategories = new Map([
-    ['/ppv', 's1'], ['/s1', 's1'],
-    ['/for', 's2'], ['/opp', 's2'], ['/opp online', 's2'], ['/opp onsite', 's2'],
-    ['/abo', 's2'], ['/m', 's2'], ['/s2', 's2'],
-    ['/pin', 's3'],
-    ['/link', 's4'], ['/book', 's4'], ['/product', 's4'], ['/ct', 's4'],
-    ['/follow', 's4'], ['/hm', 's4'], ['/s4', 's4'], ['/dm', 's4']
-  ]);
+const scoreCommandCategories = new Map([
+  ['/ppv', 's1'], ['/s1', 's1'],
+  ['/for', 's2'], ['/opp', 's2'], ['/opp online', 's2'], ['/opp onsite', 's2'],
+  ['/abo', 's2'], ['/m', 's2'], ['/s2', 's2'],
+  ['/pin', 's3'],
+  ['/link', 's4'], ['/book', 's4'], ['/product', 's4'], ['/ct', 's4'],
+  ['/follow', 's4'], ['/hm', 's4'], ['/s4', 's4'], ['/dm', 's4']
+]);
+
+const trackedCommands = [
+  { command: '/s1', label: '/s1' },
+  { command: '/s2', label: '/s2' },
+  { command: '/pin', label: '/pin' },
+  { command: '/s4', label: '/s4' },
+  { command: '/for', label: '/for · จำนวนสาย (N)' },
+  { command: '/opp online', label: '/opp online' },
+  { command: '/opp onsite', label: '/opp onsite' },
+  { command: '/abo', label: '/ABO' },
+  { command: '/m', label: '/M' },
+  { command: '/dm', label: '/dm' },
+  { command: '/follow', label: '/follow' },
+  { command: '/hm', label: '/hm' }
+];
+
+function getCategoryPointsByUser(events = []) {
   const pointsByUser = new Map();
-  for (const row of data || []) {
-    const command = String(row.command || '').trim().toLowerCase();
-    const category = scoreCommandCategories.get(command);
-    if (!category) continue;
+  for (const row of events) {
+    const category = scoreCommandCategories.get(String(row.command || '').trim().toLowerCase());
+    if (!category || !row.user_id) continue;
     const points = pointsByUser.get(row.user_id) || { s1: 0, s2: 0, s3: 0, s4: 0 };
     points[category] += Number(row.points || 0);
     pointsByUser.set(row.user_id, points);
   }
+  return pointsByUser;
+}
+
+function getTrackedCommandCounts(events = []) {
+  const counts = new Map(trackedCommands.map(({ command }) => [command, 0]));
+  for (const event of events) {
+    const command = String(event.command || '').trim().toLowerCase();
+    if (!counts.has(command)) continue;
+    const count = command === '/for' ? Number(event.points || 0) : 1;
+    counts.set(command, counts.get(command) + (Number.isFinite(count) ? count : 0));
+  }
+  return trackedCommands.map(({ command, label }) => ({
+    command,
+    label,
+    count: roundTo(counts.get(command), 2)
+  }));
+}
+
+async function getTop10(mk, limit = 10) {
+  const data = await getMonthEvents(mk);
+  const pointsByUser = getCategoryPointsByUser(data);
   return rankAndLimit(aggregateEventsByUser(data).map((row) => ({
     ...row,
     s1: roundTo(pointsByUser.get(row.user_id)?.s1 || 0, 2),
@@ -686,6 +747,23 @@ async function getTop10(mk, limit = 10) {
     s4: roundTo(pointsByUser.get(row.user_id)?.s4 || 0, 2)
   })), limit)
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
+}
+
+async function getCumulativeTop10(limit = 10) {
+  const startMonth = CUMULATIVE_RANKING_START_MONTH;
+  const events = await getEventsSinceMonth(startMonth);
+  const pointsByUser = getCategoryPointsByUser(events);
+  return {
+    startMonth,
+    data: rankAndLimit(aggregateEventsByUser(events).map((row) => ({
+      ...row,
+      s1: roundTo(pointsByUser.get(row.user_id)?.s1 || 0, 2),
+      s2: roundTo(pointsByUser.get(row.user_id)?.s2 || 0, 2),
+      s3: roundTo(pointsByUser.get(row.user_id)?.s3 || 0, 2),
+      s4: roundTo(pointsByUser.get(row.user_id)?.s4 || 0, 2)
+    })), limit)
+      .map((row) => ({ ...row, points: roundTo(row.points, 2) }))
+  };
 }
 
 async function getMonthRanking(mk) {
@@ -942,6 +1020,53 @@ async function safeGetDisplayName(uid, source = {}) {
     } catch (_) {}
   }
   return 'คุณ';
+}
+
+async function getLineProfilePicture(userId) {
+  const cached = lineProfilePictureCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.pictureUrl;
+  if (cached) lineProfilePictureCache.delete(userId);
+
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) {
+    console.warn('LINE profile picture unavailable: LINE_CHANNEL_ACCESS_TOKEN is not set');
+    lineProfilePictureCache.set(userId, {
+      pictureUrl: null,
+      expiresAt: Date.now() + LINE_PROFILE_PICTURE_CACHE_TTL_MS
+    });
+    return null;
+  }
+
+  let pictureUrl = null;
+  try {
+    const response = await axios.get(
+      `https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 }
+    );
+    const rawPictureUrl = response?.data?.pictureUrl;
+    if (typeof rawPictureUrl === 'string') {
+      const parsedUrl = new URL(rawPictureUrl);
+      if (parsedUrl.protocol === 'https:') pictureUrl = parsedUrl.toString();
+    }
+    if (!pictureUrl) {
+      console.warn('LINE profile has no valid picture URL');
+    }
+  } catch (err) {
+    console.warn(
+      'LINE profile picture unavailable:',
+      err?.response?.status || err?.message || err
+    );
+  }
+
+  if (lineProfilePictureCache.size >= 500) {
+    const oldestUserId = lineProfilePictureCache.keys().next().value;
+    if (oldestUserId) lineProfilePictureCache.delete(oldestUserId);
+  }
+  lineProfilePictureCache.set(userId, {
+    pictureUrl,
+    expiresAt: Date.now() + LINE_PROFILE_PICTURE_CACHE_TTL_MS
+  });
+  return pictureUrl;
 }
 
 async function handleEvent(evt) {
@@ -1306,11 +1431,82 @@ async function top10Handler(req, res) {
     const limitRaw = req.query?.limit ?? null;
     const unlimited = full === '1' || full === 'true' || limitRaw === '0' || limitRaw === 'all';
     const limit = unlimited ? 0 : Number(limitRaw || 10);
+    if (req.query?.scope === 'cumulative') {
+      const { startMonth, data } = await getCumulativeTop10(Number.isFinite(limit) ? limit : 10);
+      return res.json({ meta: { scope: 'cumulative', since: startMonth }, data });
+    }
     const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
     const data = await getTop10(targetMonth, Number.isFinite(limit) ? limit : 10);
     res.json({ meta: { scope: 'month', ym: targetMonth }, data });
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Failed to load leaderboard' });
+  }
+}
+
+async function profileHandler(req, res) {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const userId = String(req.query?.user_id || '').trim();
+    if (!userId || userId.length > 128) {
+      return res.status(400).json({ error: 'A valid user_id is required' });
+    }
+
+    const ym = String(req.query?.ym || '');
+    const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
+    const events = await getMonthEvents(targetMonth);
+    const userEvents = events.filter((event) => event.user_id === userId);
+    if (!userEvents.length) {
+      return res.status(404).json({ error: 'Profile not found for this month' });
+    }
+
+    const profile = aggregateEventsByUser(userEvents)[0];
+    const categoryPoints = getCategoryPointsByUser(userEvents).get(userId)
+      || { s1: 0, s2: 0, s3: 0, s4: 0 };
+    const cumulativeEvents = await getEventsSinceMonth(CUMULATIVE_RANKING_START_MONTH, userId);
+    const cumulativePoints = roundTo(
+      cumulativeEvents.reduce((total, event) => total + Number(event.points || 0), 0),
+      2
+    );
+    const commandCounts = getTrackedCommandCounts(cumulativeEvents);
+    const pictureUrl = await getLineProfilePicture(userId);
+    const today = localDateKey();
+    const todayEvents = userEvents
+      .filter((event) => event.timestamp && localDateKey(new Date(event.timestamp)) === today)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map((event) => ({
+        command: event.command || '',
+        detail: String(event.detail || '')
+          .split('|')
+          .filter((part) => !/^evidence:/i.test(part.trim()))
+          .join(' · '),
+        points: roundTo(event.points, 2),
+        timestamp: event.timestamp
+      }));
+
+    return res.json({
+      meta: {
+        scope: 'month',
+        ym: targetMonth,
+        today,
+        countSince: CUMULATIVE_RANKING_START_MONTH
+      },
+      data: {
+        display_name: profile.display_name || 'สมาชิก',
+        pictureUrl,
+        cumulativePoints,
+        commandCounts,
+        scores: {
+          s1: roundTo(categoryPoints.s1, 2),
+          s2: roundTo(categoryPoints.s2, 2),
+          s3: roundTo(categoryPoints.s3, 2),
+          s4: roundTo(categoryPoints.s4, 2),
+          total: roundTo(profile.points, 2)
+        },
+        todayEvents
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || 'Failed to load profile' });
   }
 }
 
@@ -1330,6 +1526,7 @@ module.exports = {
   handleEvent,
   handleImageEvent,
   top10Handler,
+  profileHandler,
   countdownHandler,
   buildWeeklySummaryText,
   push,

@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c0a08">
+  <title>4S to Silver Challenge — Profile</title>
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#0c0a08;--ink:#f7f1e7;--muted:#b9ad9b;--card:#171411;--border:#3b342a;
+      --gold:#d8b44a;--red:#a51e2b;--level-accent:#b96b42;--level-glow:#b96b4230;--level-soft:#b96b4218;
+    }
+    :root[data-level-theme="1"]{--level-accent:#cd7f32;--level-glow:#cd7f3230;--level-soft:#cd7f3218}
+    :root[data-level-theme="2"]{--level-accent:#c4c0b9;--level-glow:#c4c0b930;--level-soft:#c4c0b918}
+    :root[data-level-theme="3"]{--level-accent:#d8b44a;--level-glow:#d8b44a30;--level-soft:#d8b44a18}
+    :root[data-level-theme="4"]{--level-accent:#70c8d2;--level-glow:#70c8d230;--level-soft:#70c8d218}
+    :root[data-level-theme="5"]{--level-accent:#b89aff;--level-glow:#b89aff30;--level-soft:#b89aff18}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(1000px 600px at 5% -15%,var(--level-glow) 0,transparent 58%),radial-gradient(800px 500px at 100% -20%,var(--level-soft) 0,transparent 55%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;transition:background .3s ease}
+    .wrap{width:min(900px,100% - 32px);margin:0 auto;padding:28px 0 48px}
+    .hero{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:24px 28px;border:1px solid #6f572b;border-radius:20px;background:linear-gradient(120deg,#171411 0%,#211714 60%,#55151b 100%);box-shadow:0 12px 32px #0008}
+    h1{margin:0;font-size:clamp(23px,5vw,32px)}
+    .sub{margin-top:5px;color:#d4c7b2;font-size:14px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #9a792c;border-radius:10px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700}
+    .actions a:hover{background:#342713;color:#ffe9a7}
+    .card{margin-top:18px;padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:0 8px 24px #0005}
+    label{display:block;margin-bottom:8px;color:var(--muted);font-size:14px}
+    select{width:100%;max-width:480px;padding:12px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
+    select:focus-visible,a:focus-visible{outline:3px solid #f1d27a;outline-offset:3px}
+    .period{margin:15px 0 0;color:#e3c66e;font-size:13px;font-weight:650}
+    .status{margin:12px 0 0;color:var(--muted);font-size:14px}
+    .status.error{color:#ffaaa1}
+    .member-profile{display:flex;align-items:center;gap:14px;margin-top:18px}
+    .avatar,.avatar-fallback{width:72px;height:72px;flex:none;border:2px solid var(--level-accent);border-radius:50%;box-shadow:0 0 14px var(--level-glow);transition:border-color .3s ease,box-shadow .3s ease}
+    .avatar{object-fit:cover;background:#100e0c}
+    .avatar-fallback{display:grid;place-items:center;background:#211b12;color:var(--level-accent);font-size:30px}
+    .member-name{margin:0;font-size:21px;overflow-wrap:anywhere}
+    .profile-details{margin-top:16px;padding:16px;border:1px solid var(--level-accent);border-radius:14px;background:linear-gradient(145deg,var(--level-soft),#100e0c 55%);box-shadow:0 0 24px var(--level-glow);transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
+    .level-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .level-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--level-accent);border-radius:999px;background:var(--level-soft);color:var(--level-accent);font-weight:850;white-space:nowrap;transition:color .3s ease,border-color .3s ease,background .3s ease}
+    .level-points{color:var(--muted);font-size:13px;text-align:right}
+    .level-track{height:10px;margin-top:12px;overflow:hidden;border-radius:99px;background:#332b20}
+    .level-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--level-accent),#f7f1e7);box-shadow:0 0 12px var(--level-glow);transition:width .4s ease,background .3s ease}
+    .level-caption{display:block;margin-top:7px;color:var(--muted);font-size:12px;text-align:right}
+    .scores{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+    .score{padding:16px;border:1px solid #4a3c25;border-radius:12px;background:#100e0c}
+    .score-label{display:block;color:#e8ddc8;font-size:13px}
+    .score-value{display:block;margin-top:7px;color:#f1d27a;font-size:25px;font-weight:850;font-variant-numeric:tabular-nums}
+    .total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:16px;border:1px solid #9a792c;border-radius:12px;background:#211b12}
+    .total span{color:#e8ddc8}
+    .total strong{color:#f1d27a;font-size:24px;font-variant-numeric:tabular-nums}
+    .command-usage{margin-top:18px;padding:18px;border:1px solid #4a3c25;border-radius:14px;background:#100e0c}
+    .command-usage-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .command-usage-head h2{margin:0;font-size:18px}
+    .command-period,.command-note{color:var(--muted);font-size:12px}
+    .command-bars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px}
+    .command-row{min-width:0}
+    .command-row-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:13px}
+    .command-row-head strong{color:#e8ddc8}
+    .command-count{color:var(--level-accent);font-weight:800;font-variant-numeric:tabular-nums}
+    .command-track{height:8px;overflow:hidden;border-radius:99px;background:#332b20}
+    .command-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--level-accent),#f7f1e7);transition:width .4s ease}
+    .command-note{margin:12px 0 0}
+    h2{margin:0;font-size:19px}
+    .activity-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .activity-date{color:var(--muted);font-size:13px}
+    .events{display:grid;gap:10px}
+    .event{display:grid;grid-template-columns:minmax(100px,160px) 1fr auto;align-items:start;gap:12px;padding:14px;border:1px solid var(--border);border-radius:11px;background:#100e0c}
+    .command{color:#f1d27a;font-weight:750}
+    .detail{color:#e8ddc8;line-height:1.5;overflow-wrap:anywhere}
+    .event-meta{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap}
+    .empty{padding:24px;border:1px dashed #51432a;border-radius:11px;color:var(--muted);text-align:center}
+    [hidden]{display:none!important}
+    @media(max-width:620px){
+      .wrap{width:min(100% - 22px,900px);padding-top:12px}
+      .hero,.card{padding:18px}
+      .hero{align-items:flex-start}
+      .actions{width:100%}
+      .actions a{flex:1}
+      .scores{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .command-bars{grid-template-columns:1fr}
+      .event{grid-template-columns:1fr auto;gap:7px 10px}
+      .command{grid-column:1}
+      .event-meta{grid-column:2;grid-row:1}
+      .detail{grid-column:1/-1}
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div>
+        <h1>👤 Profile</h1>
+        <div class="sub">คะแนน 4S และคำสั่งที่บันทึกของสมาชิก</div>
+      </div>
+      <nav class="actions" aria-label="เมนูหลัก">
+        <a href="/">🏆 Rank</a>
+        <a href="/rules">📜 Rules</a>
+      </nav>
+    </header>
+
+    <section class="card" aria-label="เลือกสมาชิก">
+      <label for="member">เลือกชื่อสมาชิก</label>
+      <select id="member" disabled>
+        <option value="">กำลังโหลดรายชื่อ...</option>
+      </select>
+      <p id="status" class="status" role="status" aria-live="polite">กำลังโหลดรายชื่อสมาชิก...</p>
+      <div id="profile" hidden>
+        <div class="member-profile">
+          <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
+          <div id="avatar-fallback" class="avatar-fallback" aria-hidden="true">👤</div>
+          <h2 id="member-name" class="member-name"></h2>
+        </div>
+        <section class="profile-details" aria-label="ระดับและคะแนนสะสม">
+          <div class="level-head">
+            <strong id="level-badge" class="level-badge">⭐ Level 0</strong>
+            <span id="level-points" class="level-points">0 คะแนนสะสม</span>
+          </div>
+          <div id="level-progress" class="level-track" role="progressbar" aria-label="ความคืบหน้าสู่ Level ถัดไป" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="level-fill" class="level-fill" style="width:0%"></span>
+          </div>
+          <span id="level-caption" class="level-caption">0 / 100 คะแนน ถึง Level 1</span>
+        </section>
+        <p id="period" class="period"></p>
+        <div class="scores" aria-label="คะแนนแยกตามหมวด 4S">
+          <article class="score"><span class="score-label">S1 · ยอดสินค้า</span><strong id="s1" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S2 · คน</span><strong id="s2" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S3 · Moving Up</span><strong id="s3" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S4 · พัฒนา</span><strong id="s4" class="score-value">0</strong></article>
+        </div>
+        <div class="total"><span>คะแนนรวมประจำเดือน</span><strong id="total">0</strong></div>
+        <section class="command-usage" aria-labelledby="command-usage-title">
+          <div class="command-usage-head">
+            <h2 id="command-usage-title">จำนวนคำสั่งสะสม</h2>
+            <span id="command-period" class="command-period"></span>
+          </div>
+          <div id="command-bars" class="command-bars" aria-live="polite"></div>
+          <p class="command-note">ความยาวแถบเทียบกับคำสั่งที่มีจำนวนสูงสุด · /for รวมจำนวน N สาย</p>
+        </section>
+      </div>
+    </section>
+
+    <section id="activity" class="card" aria-labelledby="activity-title" hidden>
+      <div class="activity-head">
+        <h2 id="activity-title">คำสั่งที่ทำวันนี้</h2>
+        <span id="activity-date" class="activity-date"></span>
+      </div>
+      <div id="events" class="events" aria-live="polite"></div>
+    </section>
+  </main>
+  <script>
+    const memberSelect = document.getElementById('member');
+    const statusEl = document.getElementById('status');
+    const profileEl = document.getElementById('profile');
+    const activityEl = document.getElementById('activity');
+    const eventsEl = document.getElementById('events');
+
+    function formatPoints(value){
+      const num = Number(value);
+      if(!Number.isFinite(num)) return '0';
+      if(Number.isInteger(num)) return String(num);
+      return num.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    }
+
+    function getLevelProgress(totalPoints){
+      const total = Math.max(0, Number(totalPoints) || 0);
+      const level = Math.floor(total / 100);
+      return { total, level, progress: total - level * 100 };
+    }
+
+    function renderCommandCounts(rows, since){
+      const container = document.getElementById('command-bars');
+      container.replaceChildren();
+      const counts = Array.isArray(rows) ? rows : [];
+      const maximum = Math.max(0, ...counts.map((row) => Number(row.count) || 0));
+      document.getElementById('command-period').textContent = `ตั้งแต่ ${since || ''}`;
+      counts.forEach((row) => {
+        const count = Math.max(0, Number(row.count) || 0);
+        const percent = maximum ? count / maximum * 100 : 0;
+        const item = document.createElement('div');
+        item.className = 'command-row';
+        const head = document.createElement('div');
+        head.className = 'command-row-head';
+        const label = document.createElement('strong');
+        label.textContent = row.label || row.command || 'คำสั่ง';
+        const value = document.createElement('span');
+        value.className = 'command-count';
+        value.textContent = formatPoints(count);
+        head.append(label, value);
+        const track = document.createElement('div');
+        track.className = 'command-track';
+        track.setAttribute('role', 'progressbar');
+        track.setAttribute('aria-label', `${label.textContent} จำนวนคำสั่ง`);
+        track.setAttribute('aria-valuemin', '0');
+        track.setAttribute('aria-valuemax', String(maximum || 1));
+        track.setAttribute('aria-valuenow', String(count));
+        const fill = document.createElement('span');
+        fill.className = 'command-fill';
+        fill.style.width = `${percent}%`;
+        track.appendChild(fill);
+        item.append(head, track);
+        container.appendChild(item);
+      });
+    }
+
+    function showStatus(message, isError = false){
+      statusEl.textContent = message;
+      statusEl.classList.toggle('error', isError);
+      statusEl.hidden = !message;
+    }
+
+    function renderEvents(rows, today){
+      eventsEl.replaceChildren();
+      document.getElementById('activity-date').textContent = today || '';
+      if(!rows.length){
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'วันนี้ยังไม่มีคำสั่งที่บันทึกคะแนน';
+        eventsEl.appendChild(empty);
+        return;
+      }
+
+      const timeFormatter = new Intl.DateTimeFormat('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      rows.forEach((event) => {
+        const item = document.createElement('article');
+        item.className = 'event';
+        const command = document.createElement('strong');
+        command.className = 'command';
+        command.textContent = event.command || 'คำสั่ง';
+        const detail = document.createElement('span');
+        detail.className = 'detail';
+        detail.textContent = event.detail || '—';
+        const meta = document.createElement('span');
+        meta.className = 'event-meta';
+        const time = event.timestamp ? timeFormatter.format(new Date(event.timestamp)) : '';
+        meta.textContent = `${time}${time ? ' · ' : ''}+${formatPoints(event.points)} คะแนน`;
+        item.append(command, detail, meta);
+        eventsEl.appendChild(item);
+      });
+    }
+
+    async function loadProfile(){
+      const userId = memberSelect.value;
+      if(!userId) return;
+      profileEl.hidden = true;
+      activityEl.hidden = true;
+      showStatus('กำลังโหลดข้อมูล...');
+      try {
+        const response = await fetch(`/profile/data?user_id=${encodeURIComponent(userId)}`, { cache: 'no-store' });
+        const payload = await response.json();
+        if(!response.ok) throw new Error(payload.error || 'โหลดข้อมูล Profile ไม่สำเร็จ');
+        const data = payload.data;
+        if(!data?.scores || !Number.isFinite(Number(data.cumulativePoints))
+          || !Array.isArray(data.commandCounts)
+          || !Array.isArray(data.todayEvents)) throw new Error('ข้อมูล Profile ไม่ถูกต้อง');
+        const memberName = data.display_name || 'สมาชิก';
+        const { total: cumulativePoints, level, progress } = getLevelProgress(data.cumulativePoints);
+        document.documentElement.dataset.levelTheme = String(level % 6);
+        document.getElementById('level-badge').textContent = `⭐ Level ${level}`;
+        document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
+        document.getElementById('level-fill').style.width = `${progress}%`;
+        const levelProgress = document.getElementById('level-progress');
+        levelProgress.setAttribute('aria-valuenow', String(progress));
+        levelProgress.setAttribute('aria-valuetext', `${formatPoints(progress)} จาก 100 คะแนน`);
+        document.getElementById('level-caption').textContent =
+          `${formatPoints(progress)} / 100 คะแนน ถึง Level ${level + 1}`;
+        const avatar = document.getElementById('avatar');
+        const avatarFallback = document.getElementById('avatar-fallback');
+        document.getElementById('member-name').textContent = memberName;
+        avatar.alt = `รูปโปรไฟล์ LINE ของ ${memberName}`;
+        avatar.onerror = () => {
+          avatar.hidden = true;
+          avatar.removeAttribute('src');
+          avatarFallback.hidden = false;
+        };
+        if(typeof data.pictureUrl === 'string' && data.pictureUrl.startsWith('https://')){
+          avatarFallback.hidden = true;
+          avatar.src = data.pictureUrl;
+          avatar.hidden = false;
+        }else{
+          avatar.hidden = true;
+          avatar.removeAttribute('src');
+          avatarFallback.hidden = false;
+        }
+        ['s1', 's2', 's3', 's4'].forEach((key) => {
+          document.getElementById(key).textContent = formatPoints(data.scores[key]);
+        });
+        document.getElementById('total').textContent = formatPoints(data.scores.total);
+        document.getElementById('period').textContent = `คะแนนสะสมเดือน ${payload.meta?.ym || ''}`;
+        renderCommandCounts(data.commandCounts, payload.meta?.countSince);
+        renderEvents(data.todayEvents, payload.meta?.today);
+        profileEl.hidden = false;
+        activityEl.hidden = false;
+        showStatus('');
+      } catch(error) {
+        console.error('Profile load error:', error);
+        showStatus(error.message || 'โหลดข้อมูล Profile ไม่สำเร็จ กรุณาลองใหม่', true);
+      }
+    }
+
+    async function loadMembers(){
+      try {
+        const response = await fetch('/top10?limit=0', { cache: 'no-store' });
+        const payload = await response.json();
+        if(!response.ok) throw new Error(payload.error || 'โหลดรายชื่อสมาชิกไม่สำเร็จ');
+        const rows = Array.isArray(payload.data) ? payload.data : [];
+        memberSelect.replaceChildren();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = rows.length ? 'เลือกชื่อสมาชิก' : 'ยังไม่มีข้อมูลสมาชิก';
+        memberSelect.appendChild(placeholder);
+        rows.forEach((row, index) => {
+          const option = document.createElement('option');
+          option.value = row.user_id;
+          option.textContent = `${row.display_name || 'สมาชิก'} · #${index + 1}`;
+          memberSelect.appendChild(option);
+        });
+        memberSelect.disabled = rows.length === 0;
+        showStatus(rows.length ? 'เลือกชื่อเพื่อดูคะแนนและคำสั่งวันนี้' : 'ยังไม่มีคะแนนสมาชิกในเดือนนี้');
+      } catch(error) {
+        console.error('Profile members load error:', error);
+        memberSelect.disabled = true;
+        showStatus(error.message || 'โหลดรายชื่อสมาชิกไม่สำเร็จ กรุณาลองใหม่', true);
+      }
+    }
+
+    memberSelect.addEventListener('change', loadProfile);
+    loadMembers();
+    setInterval(() => {
+      if(memberSelect.value) loadProfile();
+    }, 60000);
+  </script>
+</body>
+</html>
