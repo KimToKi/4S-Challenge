@@ -72,6 +72,15 @@
     .total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:16px;border:1px solid #9a792c;border-radius:12px;background:#211b12}
     .total span{color:#e8ddc8}
     .total strong{color:#f1d27a;font-size:24px;font-variant-numeric:tabular-nums}
+    .title-section{margin-top:18px}
+    .title-section h2{margin-bottom:10px;font-size:17px}
+    .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .title-card,.business-owner{min-width:0;padding:12px;border:1px solid var(--border);border-radius:11px;background:#100e0c}
+    .title-card-label{display:block;color:var(--muted);font-size:12px}
+    .title-card strong{display:block;margin-top:5px;color:var(--level-accent);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+    .title-card small,.business-owner small{display:block;margin-top:4px;color:var(--muted);font-size:12px}
+    .business-owner{margin-top:8px;border-color:#67542b}
+    .business-owner strong{color:#f1d27a;font-size:14px}
     .command-usage{margin-top:18px;padding:18px;border:1px solid #4a3c25;border-radius:14px;background:#100e0c}
     .command-usage-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
     .command-usage-head h2{margin:0;font-size:18px}
@@ -108,6 +117,7 @@
       .actions{display:grid;width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
       .actions a{width:100%;min-height:44px;padding:8px 6px;font-size:12px}
       .scores{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .title-cards{grid-template-columns:1fr}
       .command-groups{grid-template-columns:1fr}
       .event{grid-template-columns:1fr auto;gap:7px 10px}
       .command{grid-column:1}
@@ -163,6 +173,11 @@
           <article class="score"><span class="score-label">S4 · พัฒนา</span><strong id="s4" class="score-value">0</strong></article>
         </div>
         <div class="total"><span>คะแนนรวมประจำเดือน</span><strong id="total">0</strong></div>
+        <section class="title-section" aria-labelledby="titles-heading">
+          <h2 id="titles-heading">ฉายาจากยอดสะสม</h2>
+          <div id="title-cards" class="title-cards"></div>
+          <div id="business-owner" class="business-owner"></div>
+        </section>
         <section class="command-usage" aria-labelledby="command-usage-title">
           <div class="command-usage-head">
             <h2 id="command-usage-title">จำนวนคำสั่งสะสม</h2>
@@ -260,7 +275,9 @@
           .map((row) => Number(row.count) || 0));
         commands.forEach((row) => {
           const count = Math.max(0, Number(row.count) || 0);
-          const percent = maximum ? count / maximum * 100 : 0;
+          const monthlyTarget = row.command === '/abo' ? 4 : row.command === '/m' ? 5 : null;
+          const barMaximum = monthlyTarget || maximum;
+          const percent = barMaximum ? Math.min(count / barMaximum * 100, 100) : 0;
           const item = document.createElement('div');
           item.className = 'command-row';
           const head = document.createElement('div');
@@ -290,15 +307,19 @@
           }
           const value = document.createElement('span');
           value.className = 'command-count';
-          value.textContent = formatPoints(count);
+          value.textContent = monthlyTarget
+            ? `${formatPoints(count)} / ${monthlyTarget} เดือนนี้`
+            : formatPoints(count);
           head.appendChild(value);
           const track = document.createElement('div');
           track.className = 'command-track';
           track.setAttribute('role', 'progressbar');
-          track.setAttribute('aria-label', `${label.textContent} จำนวนคำสั่ง`);
+          track.setAttribute('aria-label', monthlyTarget
+            ? `${label.textContent} ความคืบหน้าประจำเดือน`
+            : `${label.textContent} จำนวนคำสั่ง`);
           track.setAttribute('aria-valuemin', '0');
-          track.setAttribute('aria-valuemax', String(maximum || 1));
-          track.setAttribute('aria-valuenow', String(count));
+          track.setAttribute('aria-valuemax', String(barMaximum || 1));
+          track.setAttribute('aria-valuenow', String(Math.min(count, barMaximum || count)));
           const fill = document.createElement('span');
           fill.className = 'command-fill';
           fill.style.width = `${percent}%`;
@@ -309,6 +330,42 @@
         groupEl.append(heading, commandBars);
         container.appendChild(groupEl);
       });
+    }
+
+    function renderProfileTitles(titles){
+      const container = document.getElementById('title-cards');
+      container.replaceChildren();
+      [
+        { key: 's1', label: 'S1 · สินค้า' },
+        { key: 's2', label: 'S2 · คน' },
+        { key: 'for', label: '/for · จำนวนสาย' },
+        { key: 's3', label: 'S3 · ความสำเร็จ (/pin)' },
+        { key: 's4', label: 'S4 · พัฒนา' }
+      ].forEach(({ key, label }) => {
+        const title = titles[key];
+        const card = document.createElement('article');
+        card.className = 'title-card';
+        const category = document.createElement('span');
+        category.className = 'title-card-label';
+        category.textContent = label;
+        const name = document.createElement('strong');
+        name.textContent = title.title;
+        const value = document.createElement('small');
+        value.textContent = `${formatPoints(title.value)} ${title.unit}`;
+        card.append(category, name, value);
+        container.appendChild(card);
+      });
+
+      const owner = document.getElementById('business-owner');
+      owner.replaceChildren();
+      const ownerTitle = document.createElement('strong');
+      ownerTitle.textContent = titles.businessOwner.unlocked
+        ? '🏅 Amway Business Owner · ปลดล็อกถาวรแล้ว'
+        : '🔒 Amway Business Owner';
+      const ownerProgress = document.createElement('small');
+      ownerProgress.textContent =
+        `เดือนนี้ /ABO ${titles.businessOwner.monthlyAboCount}/4 · /M ${titles.businessOwner.monthlyMemberCount}/5`;
+      owner.append(ownerTitle, ownerProgress);
     }
 
     function showStatus(message, isError = false){
@@ -364,6 +421,14 @@
         const data = payload.data;
         if(!data?.scores || !Number.isFinite(Number(data.cumulativePoints))
           || !Number.isFinite(Number(data.monthlyPpv))
+          || !data.titles?.businessOwner
+          || !['s1', 's2', 'for', 's3', 's4'].every((key) =>
+            typeof data.titles[key]?.title === 'string'
+            && Number.isFinite(Number(data.titles[key].value))
+            && typeof data.titles[key].unit === 'string')
+          || typeof data.titles.businessOwner.unlocked !== 'boolean'
+          || !Number.isFinite(Number(data.titles.businessOwner.monthlyAboCount))
+          || !Number.isFinite(Number(data.titles.businessOwner.monthlyMemberCount))
           || !Array.isArray(data.commandCounts)
           || !Array.isArray(data.todayEvents)) throw new Error('ข้อมูล Profile ไม่ถูกต้อง');
         const memberName = data.display_name || 'สมาชิก';
@@ -402,6 +467,7 @@
         });
         document.getElementById('total').textContent = formatPoints(data.scores.total);
         document.getElementById('period').textContent = `คะแนนสะสมเดือน ${payload.meta?.ym || ''}`;
+        renderProfileTitles(data.titles);
         renderCommandCounts(data.commandCounts, payload.meta?.countSince, data.monthlyPpv);
         renderEvents(data.todayEvents, payload.meta?.today);
         profileEl.hidden = false;

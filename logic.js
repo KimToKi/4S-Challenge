@@ -630,7 +630,7 @@ async function getEventsSinceMonth(startMonth, userId = null) {
   while (true) {
     let query = supabase
       .from('events')
-      .select('id, user_id, display_name, command, detail, points, timestamp')
+      .select('id, user_id, display_name, command, detail, points, timestamp, month_key')
       .gte('month_key', startMonth)
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -818,6 +818,131 @@ function getTrackedCommandCounts(events = []) {
         count: roundTo(counts.get(command), 2)
       }))
   }));
+}
+
+function getCommandEventCount(events, commands) {
+  const commandSet = new Set(commands);
+  return events.reduce((count, event) => (
+    count + (commandSet.has(String(event.command || '').trim().toLowerCase()) ? 1 : 0)
+  ), 0);
+}
+
+function getCommandPoints(events, command) {
+  return roundTo(events.reduce((total, event) => (
+    total + (String(event.command || '').trim().toLowerCase() === command
+      ? Number(event.points || 0)
+      : 0)
+  ), 0), 2);
+}
+
+function selectTitle(value, tiers) {
+  return tiers.find((tier) => value <= tier.max)?.title || tiers[tiers.length - 1].title;
+}
+
+function getProfileTitles(cumulativeEvents, monthlyEvents) {
+  const ppvTotal = getPpvTotal(cumulativeEvents);
+  const s1Value = getCommandEventCount(cumulativeEvents, ['/s1']) + Math.floor(ppvTotal / 1000);
+  const s2Value = getCommandEventCount(cumulativeEvents, ['/s2', '/opp online', '/opp onsite']);
+  const forValue = getCommandPoints(cumulativeEvents, '/for');
+  const pinValue = getCommandPoints(cumulativeEvents, '/pin');
+  const s4Commands = trackedCommands
+    .filter((entry) => entry.category === 's4')
+    .map((entry) => entry.command);
+  const s4Value = getCommandEventCount(cumulativeEvents, s4Commands);
+  const monthlyAboCount = getCommandEventCount(monthlyEvents, ['/abo']);
+  const monthlyMemberCount = getCommandEventCount(monthlyEvents, ['/m']);
+  const monthlyBusinessCounts = new Map();
+
+  for (const event of cumulativeEvents) {
+    const command = String(event.command || '').trim().toLowerCase();
+    if (command !== '/abo' && command !== '/m') continue;
+    const month = String(event.month_key || '');
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    const counts = monthlyBusinessCounts.get(month) || { abo: 0, member: 0 };
+    counts[command === '/abo' ? 'abo' : 'member'] += 1;
+    monthlyBusinessCounts.set(month, counts);
+  }
+
+  return {
+    s1: {
+      title: selectTitle(s1Value, [
+        { max: 99, title: '🌱 Product Awareness Builder' },
+        { max: 200, title: '🤝 Product Introducer' },
+        { max: 300, title: '💬 Product Presenter' },
+        { max: 400, title: '🧠 Product Consultant' },
+        { max: 500, title: '💼 Product Solution Provider' },
+        { max: 600, title: '🏆 Product Business Leader' },
+        { max: Infinity, title: '🔥 Master of Product Business' }
+      ]),
+      value: s1Value,
+      unit: 'คะแนน'
+    },
+    s2: {
+      title: selectTitle(s2Value, [
+        { max: 49, title: '🌱 Business Explorer' },
+        { max: 100, title: '🚀 ABO Starter' },
+        { max: 150, title: '🔧 Growth Builder' },
+        { max: 200, title: '📈 Business Developer' },
+        { max: 250, title: '💼 ABO Professional' },
+        { max: 300, title: '👑 Business Expert' },
+        { max: Infinity, title: '🔥 Master of Business Model' }
+      ]),
+      value: s2Value,
+      unit: 'คำสั่ง'
+    },
+    for: {
+      title: selectTitle(forValue, [
+        { max: 99, title: '🌱 Rejection Learner' },
+        { max: 200, title: '💪 Confidence Builder' },
+        { max: 400, title: '🛡️ Objection Handler' },
+        { max: 600, title: '🔄 Reframe Specialist' },
+        { max: 800, title: '🤝 Trust Builder' },
+        { max: 1000, title: '🏆 Closing Resilient' },
+        { max: Infinity, title: '🔥 Master of Rejection Proof' }
+      ]),
+      value: forValue,
+      unit: 'สาย'
+    },
+    s3: {
+      title: selectTitle(pinValue, [
+        { max: 9, title: '🌱 Dream Starter' },
+        { max: 19, title: '🚀 Goal Chaser' },
+        { max: 29, title: '🔥 Action Taker' },
+        { max: 39, title: '💪 Consistency Builder' },
+        { max: 49, title: '📈 Momentum Maker' },
+        { max: 59, title: '🧭 Vision Seeker' },
+        { max: 69, title: '⚡ Opportunity Hunter' },
+        { max: 79, title: '🏹 Dream Achiever' },
+        { max: 89, title: '👑 Elite Performer' },
+        { max: 100, title: '🏆 Dream Master' },
+        { max: Infinity, title: '🔥 Ultimate Dream Hunter' }
+      ]),
+      value: pinValue,
+      unit: 'คะแนน'
+    },
+    s4: {
+      title: selectTitle(s4Value, [
+        { max: 19, title: '📘 Leader Starter' },
+        { max: 49, title: '📗 Habit Builder' },
+        { max: 69, title: '📙 Knowledge Seeker' },
+        { max: 89, title: '📒 Insight Explorer' },
+        { max: 109, title: '📕 Deep Learner' },
+        { max: 129, title: '💡 Idea Generator' },
+        { max: 149, title: '🧠 Strategic Thinker' },
+        { max: 169, title: '📚 Wisdom Builder' },
+        { max: 189, title: '🎯 Thought Leader' },
+        { max: 210, title: '🏆 Master Leader' },
+        { max: Infinity, title: '🔥 Grand Master Leader' }
+      ]),
+      value: s4Value,
+      unit: 'คำสั่ง'
+    },
+    businessOwner: {
+      unlocked: [...monthlyBusinessCounts.values()].some((counts) => counts.abo >= 4 && counts.member >= 5),
+      monthlyAboCount,
+      monthlyMemberCount
+    }
+  };
 }
 
 async function getTop10(mk, limit = 10) {
@@ -1562,6 +1687,13 @@ async function profileHandler(req, res) {
       2
     );
     const commandCounts = getTrackedCommandCounts(cumulativeEvents);
+    const titles = getProfileTitles(cumulativeEvents, userEvents);
+    for (const group of commandCounts) {
+      for (const command of group.commands) {
+        if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
+        if (command.command === '/m') command.count = titles.businessOwner.monthlyMemberCount;
+      }
+    }
     const pictureUrl = await getLineProfilePicture(userId);
     const today = localDateKey();
     const todayEvents = userEvents
@@ -1590,6 +1722,7 @@ async function profileHandler(req, res) {
         monthlyPpv: getPpvTotal(userEvents),
         cumulativePoints,
         commandCounts,
+        titles,
         scores: {
           s1: roundTo(categoryPoints.s1, 2),
           s2: roundTo(categoryPoints.s2, 2),
