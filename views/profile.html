@@ -79,7 +79,7 @@
     .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
     .title-card{display:grid;gap:4px;min-width:0;padding:8px 10px;border:1px solid #3b342a;border-bottom:1px solid #3b342a;border-radius:10px;background:#100e0c;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
     .title-name{color:#e8ddc8}
-    .title-metric{color:#f1d27a;font-size:13px;font-variant-numeric:tabular-nums}
+    .title-metric{color:var(--muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
     .business-owner{display:grid;gap:3px;margin-top:5px;color:#77736d}
     .business-owner-title{font-size:11px;font-weight:550}
     .business-owner.is-unlocked .business-owner-title{color:#dfc778}
@@ -105,8 +105,10 @@
     .ppv-total strong{color:var(--level-accent);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
     .command-note{margin:12px 0 0}
     h2{margin:0;font-size:19px}
-    .activity-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
-    .activity-date{color:var(--muted);font-size:13px}
+    .activity-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .activity-date-control{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:13px}
+    .activity-date-control input{min-height:40px;padding:7px 10px;border:1px solid #67542b;border-radius:8px;background:#100e0c;color:var(--ink);font:inherit}
+    .activity-date-control input:focus-visible{outline:3px solid #f1d27a;outline-offset:3px}
     .events{display:grid;gap:10px}
     .event{display:grid;grid-template-columns:minmax(100px,160px) 1fr auto;align-items:start;gap:12px;padding:14px;border:1px solid var(--border);border-radius:11px;background:#100e0c}
     .command{color:#f1d27a;font-weight:750}
@@ -204,8 +206,11 @@
 
     <section id="activity" class="card" aria-labelledby="activity-title" hidden>
       <div class="activity-head">
-        <h2 id="activity-title">คำสั่งที่ทำวันนี้</h2>
-        <span id="activity-date" class="activity-date"></span>
+        <h2 id="activity-title">คำสั่งที่ทำในวันที่เลือก</h2>
+        <label class="activity-date-control" for="activity-date-select">
+          <span>เลือกวันที่</span>
+          <input id="activity-date-select" type="date" aria-label="เลือกวันที่ดูกิจกรรมย้อนหลัง">
+        </label>
       </div>
       <div id="events" class="events" aria-live="polite"></div>
     </section>
@@ -213,6 +218,7 @@
   <script>
     const memberSelect = document.getElementById('member');
     const periodSelect = document.getElementById('period-select');
+    const activityDateSelect = document.getElementById('activity-date-select');
     const statusEl = document.getElementById('status');
     const profileEl = document.getElementById('profile');
     const activityEl = document.getElementById('activity');
@@ -290,8 +296,10 @@
         commands.forEach((row) => {
           const count = Math.max(0, Number(row.count) || 0);
           const monthlyTarget = row.command === '/s1' || row.command === '/s2' ? 15
-            : row.command === '/link' || row.command === '/book' ? 30
+            : row.command === '/link' || row.command === '/book'
+              || row.command === '/dm' || row.command === '/product' ? 30
             : row.command === '/abo' ? 4
+              : row.command === '/ct' ? 4
               : row.command === '/m' ? 5
                 : null;
           const barMaximum = monthlyTarget || maximum;
@@ -373,7 +381,7 @@
           : title.unit === 'สาย'
             ? 'สาย'
             : 'คำสั่ง';
-        metric.textContent = `วัดผล ${value} ${unit}`;
+        metric.textContent = `${value} ${unit}`;
         card.append(name, metric);
         container.appendChild(card);
       });
@@ -408,13 +416,13 @@
       statusEl.hidden = !message;
     }
 
-    function renderEvents(rows, today){
+    function renderEvents(rows, activityDate){
       eventsEl.replaceChildren();
-      document.getElementById('activity-date').textContent = today || '';
+      activityDateSelect.value = activityDate || '';
       if(!rows.length){
         const empty = document.createElement('div');
         empty.className = 'empty';
-        empty.textContent = 'วันนี้ยังไม่มีคำสั่งที่บันทึกคะแนน';
+        empty.textContent = 'วันที่เลือกยังไม่มีคำสั่งที่บันทึกคะแนน';
         eventsEl.appendChild(empty);
         return;
       }
@@ -451,6 +459,9 @@
       try {
         const selectedPeriod = periodSelect.value;
         const query = new URLSearchParams({ user_id: userId });
+        if(activityDateSelect.value){
+          query.set('activity_date', activityDateSelect.value);
+        }
         if(selectedPeriod === 'cumulative'){
           query.set('scope', 'cumulative');
         }else{
@@ -471,7 +482,7 @@
           || !Number.isFinite(Number(data.titles.businessOwner.monthlyAboCount))
           || !Number.isFinite(Number(data.titles.businessOwner.monthlyMemberCount))
           || !Array.isArray(data.commandCounts)
-          || !Array.isArray(data.todayEvents)) throw new Error('ข้อมูล Profile ไม่ถูกต้อง');
+          || !Array.isArray(data.activityEvents)) throw new Error('ข้อมูล Profile ไม่ถูกต้อง');
         const memberName = data.display_name || 'สมาชิก';
         const { total: cumulativePoints, level, progress } = getLevelProgress(data.cumulativePoints);
         const levelRank = getLevelRank(level);
@@ -529,7 +540,8 @@
           `${achievementMonthLabel} · Amway Business Owner`
         );
         renderCommandCounts(data.commandCounts, countSince, data.monthlyPpv, ppvMonthLabel, achievementMonthLabel);
-        renderEvents(data.todayEvents, payload.meta?.today);
+        activityDateSelect.max = payload.meta?.today || '';
+        renderEvents(data.activityEvents, payload.meta?.activityDate);
         profileEl.hidden = false;
         activityEl.hidden = false;
         showStatus('');
@@ -589,6 +601,7 @@
 
     memberSelect.addEventListener('change', loadProfile);
     periodSelect.addEventListener('change', loadProfile);
+    activityDateSelect.addEventListener('change', loadProfile);
     loadMembers();
   </script>
 </body>

@@ -1674,6 +1674,14 @@ async function profileHandler(req, res) {
     const requestedScope = String(req.query?.scope || '');
     const scope = requestedScope === 'cumulative' ? 'cumulative' : 'month';
     const ym = String(req.query?.ym || '');
+    const requestedActivityDate = String(req.query?.activity_date || '').trim();
+    const activityDate = requestedActivityDate || localDateKey();
+    const activityDateValue = new Date(`${activityDate}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(activityDate)
+      || Number.isNaN(activityDateValue.getTime())
+      || activityDateValue.toISOString().slice(0, 10) !== activityDate) {
+      return res.status(400).json({ error: 'A valid activity_date is required' });
+    }
     const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
     const currentMonth = monthKey();
     const events = await getMonthEvents(targetMonth);
@@ -1686,6 +1694,26 @@ async function profileHandler(req, res) {
     if (!userEvents.length && !currentUserEvents.length && !cumulativeEvents.length) {
       return res.status(404).json({ error: 'Profile not found for this month' });
     }
+    const activityMonth = activityDate.slice(0, 7);
+    const activityMonthEvents = activityMonth === targetMonth
+      ? events
+      : activityMonth === currentMonth
+        ? currentEvents
+        : await getMonthEvents(activityMonth);
+    const activityEvents = activityMonthEvents
+      .filter((event) => event.user_id === userId
+        && event.timestamp
+        && localDateKey(new Date(event.timestamp)) === activityDate)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map((event) => ({
+        command: event.command || '',
+        detail: String(event.detail || '')
+          .split('|')
+          .filter((part) => !/^evidence:/i.test(part.trim()))
+          .join(' · '),
+        points: roundTo(event.points, 2),
+        timestamp: event.timestamp
+      }));
 
     const scoreEvents = scope === 'cumulative' ? cumulativeEvents : userEvents;
     const profile = aggregateEventsByUser(scoreEvents)[0] || { points: 0 };
@@ -1705,31 +1733,21 @@ async function profileHandler(req, res) {
         if (command.command === '/s2') command.count = getCommandEventCount(achievementMonthEvents, ['/s2']);
         if (command.command === '/link') command.count = getCommandEventCount(achievementMonthEvents, ['/link']);
         if (command.command === '/book') command.count = getCommandEventCount(achievementMonthEvents, ['/book']);
+        if (command.command === '/dm') command.count = getCommandEventCount(achievementMonthEvents, ['/dm']);
+        if (command.command === '/product') command.count = getCommandEventCount(achievementMonthEvents, ['/product']);
+        if (command.command === '/ct') command.count = getCommandEventCount(achievementMonthEvents, ['/ct']);
         if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
         if (command.command === '/m') command.count = titles.businessOwner.monthlyMemberCount;
       }
     }
     const pictureUrl = await getLineProfilePicture(userId);
-    const today = localDateKey();
-    const todayEvents = currentUserEvents
-      .filter((event) => event.timestamp && localDateKey(new Date(event.timestamp)) === today)
-      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      .map((event) => ({
-        command: event.command || '',
-        detail: String(event.detail || '')
-          .split('|')
-          .filter((part) => !/^evidence:/i.test(part.trim()))
-          .join(' · '),
-        points: roundTo(event.points, 2),
-        timestamp: event.timestamp
-      }));
-
     return res.json({
       meta: {
         scope,
         ym: targetMonth,
         currentMonth,
-        today,
+        today: localDateKey(),
+        activityDate,
         countSince: CUMULATIVE_RANKING_START_MONTH
       },
       data: {
@@ -1746,7 +1764,7 @@ async function profileHandler(req, res) {
           s4: roundTo(categoryPoints.s4, 2),
           total: roundTo(profile.points, 2)
         },
-        todayEvents
+        activityEvents
       }
     });
   } catch (err) {
