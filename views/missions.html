@@ -12,14 +12,15 @@
       --gold:#d8b44a;--treasure:#edb94e;--diamond:#77dce8;--red:#a51e2b;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(900px 500px at 5% -15%,#4c151c88 0,transparent 58%),radial-gradient(800px 500px at 100% -20%,#82611a30 0,transparent 55%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{margin:0;background:radial-gradient(1000px 650px at 0% 0%,#68151e88 0,transparent 62%),radial-gradient(900px 600px at 100% 20%,#3b0d1480 0,transparent 60%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
     .wrap{width:min(1100px,100% - 32px);margin:0 auto;padding:28px 0 48px}
     .hero{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:24px 28px;border:1px solid #6f572b;border-radius:20px;background:linear-gradient(120deg,#171411 0%,#211714 60%,#55151b 100%);box-shadow:0 12px 32px #0008}
     h1{margin:0;font-size:clamp(23px,5vw,32px)}
     .sub{margin-top:5px;color:#d4c7b2;font-size:14px}
     .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .actions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #9a792c;border-radius:10px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700}
-    .actions a:hover{background:#342713;color:#ffe9a7}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border:1px solid #684047;border-radius:10px;background:#171011;color:#e2c7c7;text-decoration:none;font-weight:700;transition:background .2s ease,color .2s ease,border-color .2s ease}
+    .actions a:hover{background:#291317;color:#fff0ed;border-color:#a45a62}
+    .actions a:focus-visible{outline:3px solid #e7a0a5;outline-offset:2px}
     .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:18px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
     .toolbar label{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
     input[type="month"]{padding:9px 11px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
