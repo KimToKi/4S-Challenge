@@ -77,7 +77,9 @@
     .total strong{color:#f1d27a;font-size:24px;font-variant-numeric:tabular-nums}
     .title-section{margin-top:12px}
     .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
-    .title-card{min-width:0;padding:5px 0;border-bottom:1px solid #29251f;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+    .title-card{display:grid;gap:4px;min-width:0;padding:8px 10px;border:1px solid #3b342a;border-bottom:1px solid #3b342a;border-radius:10px;background:#100e0c;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+    .title-name{color:#e8ddc8}
+    .title-metric{color:#f1d27a;font-size:13px;font-variant-numeric:tabular-nums}
     .business-owner{display:grid;gap:3px;margin-top:5px;color:#77736d}
     .business-owner-title{font-size:11px;font-weight:550}
     .business-owner.is-unlocked .business-owner-title{color:#dfc778}
@@ -191,11 +193,11 @@
         </section>
         <section class="command-usage" aria-labelledby="command-usage-title">
           <div class="command-usage-head">
-            <h2 id="command-usage-title">จำนวนคำสั่งสะสม</h2>
+            <h2 id="command-usage-title">จำนวนคำสั่งสะสมและรายเดือน</h2>
             <span id="command-period" class="command-period"></span>
           </div>
           <div id="command-groups" class="command-groups" aria-live="polite"></div>
-          <p class="command-note">ความยาวแถบเทียบกับคำสั่งที่มีจำนวนสูงสุด · /for รวมจำนวน N สาย</p>
+          <p class="command-note">แถบ /s1 และ /s2 เต็มที่ 15 คำสั่งต่อเดือน · /for รวมจำนวน N สาย</p>
         </section>
       </div>
     </section>
@@ -287,7 +289,11 @@
           .map((row) => Number(row.count) || 0));
         commands.forEach((row) => {
           const count = Math.max(0, Number(row.count) || 0);
-          const monthlyTarget = row.command === '/abo' ? 4 : row.command === '/m' ? 5 : null;
+          const monthlyTarget = row.command === '/s1' || row.command === '/s2' ? 15
+            : row.command === '/link' || row.command === '/book' ? 30
+            : row.command === '/abo' ? 4
+              : row.command === '/m' ? 5
+                : null;
           const barMaximum = monthlyTarget || maximum;
           const percent = barMaximum ? Math.min(count / barMaximum * 100, 100) : 0;
           const item = document.createElement('div');
@@ -356,7 +362,19 @@
       ].forEach((title) => {
         const card = document.createElement('article');
         card.className = 'title-card';
-        card.textContent = title.title;
+        const name = document.createElement('span');
+        name.className = 'title-name';
+        name.textContent = title.title;
+        const metric = document.createElement('strong');
+        metric.className = 'title-metric';
+        const value = formatPoints(title.value);
+        const unit = title.unit === 'คะแนน'
+          ? 'คะแนน'
+          : title.unit === 'สาย'
+            ? 'สาย'
+            : 'คำสั่ง';
+        metric.textContent = `วัดผล ${value} ${unit}`;
+        card.append(name, metric);
         container.appendChild(card);
       });
 

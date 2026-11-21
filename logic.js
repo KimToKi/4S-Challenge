@@ -1701,6 +1701,10 @@ async function profileHandler(req, res) {
     const titles = getProfileTitles(cumulativeEvents, achievementMonthEvents);
     for (const group of commandCounts) {
       for (const command of group.commands) {
+        if (command.command === '/s1') command.count = getCommandEventCount(achievementMonthEvents, ['/s1']);
+        if (command.command === '/s2') command.count = getCommandEventCount(achievementMonthEvents, ['/s2']);
+        if (command.command === '/link') command.count = getCommandEventCount(achievementMonthEvents, ['/link']);
+        if (command.command === '/book') command.count = getCommandEventCount(achievementMonthEvents, ['/book']);
         if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
         if (command.command === '/m') command.count = titles.businessOwner.monthlyMemberCount;
       }
