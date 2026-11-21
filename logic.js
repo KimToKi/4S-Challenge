@@ -1670,24 +1670,34 @@ async function profileHandler(req, res) {
       return res.status(400).json({ error: 'A valid user_id is required' });
     }
 
+    const requestedScope = String(req.query?.scope || '');
+    const scope = requestedScope === 'cumulative' ? 'cumulative' : 'month';
     const ym = String(req.query?.ym || '');
     const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
+    const currentMonth = monthKey();
     const events = await getMonthEvents(targetMonth);
     const userEvents = events.filter((event) => event.user_id === userId);
-    if (!userEvents.length) {
+    const currentEvents = targetMonth === currentMonth
+      ? events
+      : await getMonthEvents(currentMonth);
+    const currentUserEvents = currentEvents.filter((event) => event.user_id === userId);
+    const cumulativeEvents = await getEventsSinceMonth(CUMULATIVE_RANKING_START_MONTH, userId);
+    if (!userEvents.length && !currentUserEvents.length && !cumulativeEvents.length) {
       return res.status(404).json({ error: 'Profile not found for this month' });
     }
 
-    const profile = aggregateEventsByUser(userEvents)[0];
-    const categoryPoints = getCategoryPointsByUser(userEvents).get(userId)
+    const scoreEvents = scope === 'cumulative' ? cumulativeEvents : userEvents;
+    const profile = aggregateEventsByUser(scoreEvents)[0] || { points: 0 };
+    const identityEvent = userEvents[0] || currentUserEvents[0] || cumulativeEvents[0];
+    const categoryPoints = getCategoryPointsByUser(scoreEvents).get(userId)
       || { s1: 0, s2: 0, s3: 0, s4: 0 };
-    const cumulativeEvents = await getEventsSinceMonth(CUMULATIVE_RANKING_START_MONTH, userId);
     const cumulativePoints = roundTo(
       cumulativeEvents.reduce((total, event) => total + Number(event.points || 0), 0),
       2
     );
     const commandCounts = getTrackedCommandCounts(cumulativeEvents);
-    const titles = getProfileTitles(cumulativeEvents, userEvents);
+    const achievementMonthEvents = scope === 'cumulative' ? currentUserEvents : userEvents;
+    const titles = getProfileTitles(cumulativeEvents, achievementMonthEvents);
     for (const group of commandCounts) {
       for (const command of group.commands) {
         if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
@@ -1696,7 +1706,7 @@ async function profileHandler(req, res) {
     }
     const pictureUrl = await getLineProfilePicture(userId);
     const today = localDateKey();
-    const todayEvents = userEvents
+    const todayEvents = currentUserEvents
       .filter((event) => event.timestamp && localDateKey(new Date(event.timestamp)) === today)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
       .map((event) => ({
@@ -1711,15 +1721,16 @@ async function profileHandler(req, res) {
 
     return res.json({
       meta: {
-        scope: 'month',
+        scope,
         ym: targetMonth,
+        currentMonth,
         today,
         countSince: CUMULATIVE_RANKING_START_MONTH
       },
       data: {
-        display_name: profile.display_name || 'สมาชิก',
+        display_name: profile.display_name || identityEvent?.display_name || 'สมาชิก',
         pictureUrl,
-        monthlyPpv: getPpvTotal(userEvents),
+        monthlyPpv: getPpvTotal(scope === 'cumulative' ? currentUserEvents : userEvents),
         cumulativePoints,
         commandCounts,
         titles,

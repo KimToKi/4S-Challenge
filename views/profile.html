@@ -32,6 +32,8 @@
     .actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 10px;border:1px solid transparent;border-radius:8px;color:#d9c99f;text-decoration:none;font-size:13px;font-weight:600}
     .actions a:hover{border-color:var(--border);background:#171411;color:#fff}
     .card{margin-top:18px;padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:0 8px 24px #0005}
+    .selectors{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+    .selector-field{display:grid;gap:7px;min-width:min(100%,240px);flex:1}
     label{display:block;margin-bottom:8px;color:var(--muted);font-size:14px}
     select{width:100%;max-width:480px;padding:12px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
     select:focus-visible,a:focus-visible{outline:3px solid #f1d27a;outline-offset:3px}
@@ -72,15 +74,16 @@
     .total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:16px;border:1px solid #9a792c;border-radius:12px;background:#211b12}
     .total span{color:#e8ddc8}
     .total strong{color:#f1d27a;font-size:24px;font-variant-numeric:tabular-nums}
-    .title-section{margin-top:18px}
-    .title-section h2{margin-bottom:10px;font-size:17px}
-    .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    .title-card,.business-owner{min-width:0;padding:12px;border:1px solid var(--border);border-radius:11px;background:#100e0c}
-    .title-card-label{display:block;color:var(--muted);font-size:12px}
-    .title-card strong{display:block;margin-top:5px;color:var(--level-accent);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
-    .title-card small,.business-owner small{display:block;margin-top:4px;color:var(--muted);font-size:12px}
-    .business-owner{margin-top:8px;border-color:#67542b}
-    .business-owner strong{color:#f1d27a;font-size:14px}
+    .title-section{margin-top:12px}
+    .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
+    .title-card{display:flex;align-items:baseline;gap:6px;min-width:0;padding:5px 0;border-bottom:1px solid #29251f}
+    .title-card-label{flex:none;color:var(--muted);font-size:11px}
+    .title-card strong{min-width:0;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+    .title-card small{margin-left:auto;color:var(--muted);font-size:10px;white-space:nowrap}
+    .business-owner{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;min-width:0;padding:6px 0;color:#817b72}
+    .business-owner strong{color:#a7a096;font-size:12px;font-weight:600}
+    .business-owner small{color:var(--muted);font-size:11px}
+    .business-owner.is-unlocked strong{color:#dfc778}
     .command-usage{margin-top:18px;padding:18px;border:1px solid #4a3c25;border-radius:14px;background:#100e0c}
     .command-usage-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
     .command-usage-head h2{margin:0;font-size:18px}
@@ -140,11 +143,19 @@
       </nav>
     </header>
 
-    <section class="card" aria-label="เลือกสมาชิก">
-      <label for="member">เลือกชื่อสมาชิก</label>
-      <select id="member" disabled>
-        <option value="">กำลังโหลดรายชื่อ...</option>
-      </select>
+    <section class="card" aria-label="ตัวเลือกโปรไฟล์">
+      <div class="selectors">
+        <label class="selector-field" for="member">เลือกชื่อสมาชิก
+          <select id="member" disabled>
+            <option value="">กำลังโหลดรายชื่อ...</option>
+          </select>
+        </label>
+        <label class="selector-field" for="period-select">ช่วงคะแนน
+          <select id="period-select" disabled>
+            <option value="cumulative">กำลังโหลดช่วงคะแนน...</option>
+          </select>
+        </label>
+      </div>
       <p id="status" class="status" role="status" aria-live="polite">กำลังโหลดรายชื่อสมาชิก...</p>
       <div id="profile" hidden>
         <div class="member-profile">
@@ -172,9 +183,8 @@
           <article class="score"><span class="score-label">S3 · ความสำเร็จ</span><strong id="s3" class="score-value">0</strong></article>
           <article class="score"><span class="score-label">S4 · พัฒนา</span><strong id="s4" class="score-value">0</strong></article>
         </div>
-        <div class="total"><span>คะแนนรวมประจำเดือน</span><strong id="total">0</strong></div>
-        <section class="title-section" aria-labelledby="titles-heading">
-          <h2 id="titles-heading">ฉายาจากยอดสะสม</h2>
+        <div class="total"><span>คะแนนรวม</span><strong id="total">0</strong></div>
+        <section class="title-section" aria-label="ความสำเร็จจากยอดสะสม">
           <div id="title-cards" class="title-cards"></div>
           <div id="business-owner" class="business-owner"></div>
         </section>
@@ -199,6 +209,7 @@
   </main>
   <script>
     const memberSelect = document.getElementById('member');
+    const periodSelect = document.getElementById('period-select');
     const statusEl = document.getElementById('status');
     const profileEl = document.getElementById('profile');
     const activityEl = document.getElementById('activity');
@@ -253,7 +264,7 @@
       });
     }
 
-    function renderCommandCounts(rows, since, monthlyPpv){
+    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel){
       const container = document.getElementById('command-groups');
       container.replaceChildren();
       const groups = Array.isArray(rows) ? rows : [];
@@ -289,7 +300,7 @@
             const summary = document.createElement('div');
             summary.className = 'ppv-summary';
             [
-              { label: 'เดือนนี้', count: monthlyPpv },
+              { label: ppvMonthLabel, count: monthlyPpv },
               { label: `สะสมตั้งแต่ ${sinceLabel}`, count }
             ].forEach((entry) => {
               const total = document.createElement('div');
@@ -308,7 +319,7 @@
           const value = document.createElement('span');
           value.className = 'command-count';
           value.textContent = monthlyTarget
-            ? `${formatPoints(count)} / ${monthlyTarget} เดือนนี้`
+            ? `${formatPoints(count)} / ${monthlyTarget} ${achievementMonthLabel}`
             : formatPoints(count);
           head.appendChild(value);
           const track = document.createElement('div');
@@ -332,7 +343,7 @@
       });
     }
 
-    function renderProfileTitles(titles){
+    function renderProfileTitles(titles, monthLabel){
       const container = document.getElementById('title-cards');
       container.replaceChildren();
       [
@@ -358,13 +369,14 @@
 
       const owner = document.getElementById('business-owner');
       owner.replaceChildren();
+      owner.classList.toggle('is-unlocked', titles.businessOwner.unlocked);
       const ownerTitle = document.createElement('strong');
       ownerTitle.textContent = titles.businessOwner.unlocked
         ? '🏅 Amway Business Owner · ปลดล็อกถาวรแล้ว'
         : '🔒 Amway Business Owner';
       const ownerProgress = document.createElement('small');
       ownerProgress.textContent =
-        `เดือนนี้ /ABO ${titles.businessOwner.monthlyAboCount}/4 · /M ${titles.businessOwner.monthlyMemberCount}/5`;
+        `${monthLabel} /ABO ${titles.businessOwner.monthlyAboCount}/4 · /M ${titles.businessOwner.monthlyMemberCount}/5`;
       owner.append(ownerTitle, ownerProgress);
     }
 
@@ -415,7 +427,14 @@
       activityEl.hidden = true;
       showStatus('กำลังโหลดข้อมูล...');
       try {
-        const response = await fetch(`/profile/data?user_id=${encodeURIComponent(userId)}`, { cache: 'no-store' });
+        const selectedPeriod = periodSelect.value;
+        const query = new URLSearchParams({ user_id: userId });
+        if(selectedPeriod === 'cumulative'){
+          query.set('scope', 'cumulative');
+        }else{
+          query.set('ym', selectedPeriod);
+        }
+        const response = await fetch(`/profile/data?${query}`, { cache: 'no-store' });
         const payload = await response.json();
         if(!response.ok) throw new Error(payload.error || 'โหลดข้อมูล Profile ไม่สำเร็จ');
         const data = payload.data;
@@ -436,7 +455,6 @@
         const levelRank = getLevelRank(level);
         document.documentElement.dataset.levelTier = levelRank.tier;
         document.getElementById('level-badge').textContent = `${levelRank.icon} Level ${level}`;
-        document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
         document.getElementById('level-fill').style.width = `${progress}%`;
         renderLevelStages(progress);
         const levelProgress = document.getElementById('level-progress');
@@ -466,9 +484,25 @@
           document.getElementById(key).textContent = formatPoints(data.scores[key]);
         });
         document.getElementById('total').textContent = formatPoints(data.scores.total);
-        document.getElementById('period').textContent = `คะแนนสะสมเดือน ${payload.meta?.ym || ''}`;
-        renderProfileTitles(data.titles);
-        renderCommandCounts(data.commandCounts, payload.meta?.countSince, data.monthlyPpv);
+        const countSince = payload.meta?.countSince || '2026-11';
+        const currentMonth = payload.meta?.currentMonth || payload.meta?.ym;
+        const displayMonth = new Intl.DateTimeFormat('th-TH', {
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'UTC'
+        });
+        const currentMonthLabel = displayMonth.format(new Date(`${currentMonth}-01T00:00:00Z`));
+        const selectedMonthLabel = displayMonth.format(new Date(`${payload.meta?.ym}-01T00:00:00Z`));
+        const isCumulative = payload.meta?.scope === 'cumulative';
+        const periodLabel = isCumulative
+          ? `สะสมตั้งแต่ ${displayMonth.format(new Date(`${countSince}-01T00:00:00Z`))}`
+          : `คะแนนเดือน ${selectedMonthLabel}`;
+        document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
+        document.getElementById('period').textContent = periodLabel;
+        const ppvMonthLabel = isCumulative ? `เดือนนี้ · ${currentMonthLabel}` : `เดือน ${selectedMonthLabel}`;
+        const achievementMonthLabel = isCumulative ? `เดือนนี้` : `เดือน ${selectedMonthLabel}`;
+        renderProfileTitles(data.titles, achievementMonthLabel);
+        renderCommandCounts(data.commandCounts, countSince, data.monthlyPpv, ppvMonthLabel, achievementMonthLabel);
         renderEvents(data.todayEvents, payload.meta?.today);
         profileEl.hidden = false;
         activityEl.hidden = false;
@@ -481,10 +515,15 @@
 
     async function loadMembers(){
       try {
-        const response = await fetch('/top10?limit=0', { cache: 'no-store' });
-        const payload = await response.json();
+        const [response, monthsResponse] = await Promise.all([
+          fetch('/top10?limit=0&scope=cumulative', { cache: 'no-store' }),
+          fetch('/months', { cache: 'no-store' })
+        ]);
+        const [payload, monthsPayload] = await Promise.all([response.json(), monthsResponse.json()]);
         if(!response.ok) throw new Error(payload.error || 'โหลดรายชื่อสมาชิกไม่สำเร็จ');
+        if(!monthsResponse.ok) throw new Error(monthsPayload.error || 'โหลดรายการเดือนไม่สำเร็จ');
         const rows = Array.isArray(payload.data) ? payload.data : [];
+        const months = Array.isArray(monthsPayload.months) ? monthsPayload.months : [];
         memberSelect.replaceChildren();
         const placeholder = document.createElement('option');
         placeholder.value = '';
@@ -497,7 +536,24 @@
           memberSelect.appendChild(option);
         });
         memberSelect.disabled = rows.length === 0;
-        showStatus(rows.length ? 'เลือกชื่อเพื่อดูคะแนนและคำสั่งวันนี้' : 'ยังไม่มีคะแนนสมาชิกในเดือนนี้');
+        periodSelect.replaceChildren();
+        const cumulativeOption = document.createElement('option');
+        cumulativeOption.value = 'cumulative';
+        cumulativeOption.textContent = 'สะสมตั้งแต่ พ.ย. 2569';
+        periodSelect.appendChild(cumulativeOption);
+        months.forEach((month) => {
+          if(!/^\d{4}-\d{2}$/.test(month) || month < '2026-11') return;
+          const option = document.createElement('option');
+          option.value = month;
+          option.textContent = new Intl.DateTimeFormat('th-TH', {
+            month: 'long',
+            year: 'numeric',
+            timeZone: 'UTC'
+          }).format(new Date(`${month}-01T00:00:00Z`));
+          periodSelect.appendChild(option);
+        });
+        periodSelect.disabled = false;
+        showStatus(rows.length ? 'เลือกชื่อและช่วงคะแนนที่ต้องการดู' : 'ยังไม่มีคะแนนสะสมของสมาชิก');
       } catch(error) {
         console.error('Profile members load error:', error);
         memberSelect.disabled = true;
@@ -506,6 +562,7 @@
     }
 
     memberSelect.addEventListener('change', loadProfile);
+    periodSelect.addEventListener('change', loadProfile);
     loadMembers();
   </script>
 </body>
