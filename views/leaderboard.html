@@ -133,7 +133,7 @@
       tbody td.level-cell{grid-column:1/-1;min-width:0}
       tbody td.level-cell::before{content:none}
       tbody td.level-cell{display:block}
-      tbody td.points{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #4a3c25;font-size:18px;text-align:left}
+      tbody td.points{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;padding:10px 8px 0 0;border-top:1px solid #4a3c25;font-size:18px;text-align:left}
       tbody td.points::before{display:block;color:var(--muted);font-size:12px}
       tbody td.empty-state{grid-column:1/-1;display:block;text-align:center}
       .badge{min-width:38px;height:30px;padding:0 7px;font-size:14px}
@@ -197,7 +197,7 @@
         <table>
           <thead>
             <tr>
-              <th>Rank</th><th>Name</th><th>S1 ยอดสินค้า</th><th>S2 คน</th>
+              <th>Rank</th><th>Name</th><th>S1 สินค้า</th><th>S2 คน</th>
               <th>S3 ความสำเร็จ</th><th>S4 พัฒนา</th><th>Level</th><th>Total</th>
             </tr>
           </thead>
@@ -353,7 +353,7 @@
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
           <td class="name"></td>
-          ${categoryCell('s1', 'S1', 'S1 ยอดสินค้า')}
+          ${categoryCell('s1', 'S1', 'S1 สินค้า')}
           ${categoryCell('s2', 'S2', 'S2 คน')}
           ${categoryCell('s3', 'S3', 'S3 ความสำเร็จ')}
           ${categoryCell('s4', 'S4', 'S4 พัฒนา')}

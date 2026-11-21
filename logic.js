@@ -752,7 +752,7 @@ const scoreCommandCategories = new Map([
 ]);
 
 const trackedCommands = [
-  { command: '/ppv', label: '/ppv · รายงาน PV', category: 's1' },
+  { command: '/ppv', label: '/ppv', category: 's1' },
   { command: '/s1', label: '/s1', category: 's1' },
   { command: '/s2', label: '/s2', category: 's2' },
   { command: '/for', label: '/for · จำนวนสาย (N)', category: 's2' },
@@ -771,11 +771,20 @@ const trackedCommands = [
   { command: '/hm', label: '/hm', category: 's4' }
 ];
 const commandCategoryLabels = {
-  s1: 'S1 · ยอดสินค้า',
+  s1: 'S1 · สินค้า',
   s2: 'S2 · คน',
   s3: 'S3 · ความสำเร็จ',
   s4: 'S4 · พัฒนา'
 };
+
+function getPpvTotal(events = []) {
+  const total = events.reduce((sum, event) => {
+    if (String(event.command || '').trim().toLowerCase() !== '/ppv') return sum;
+    const match = String(event.detail || '').match(/^pv:(\d+(?:\.\d+)?)(?:\||$)/i);
+    return match ? sum + Number(match[1]) : sum;
+  }, 0);
+  return roundTo(total, 2);
+}
 
 function getCategoryPointsByUser(events = []) {
   const pointsByUser = new Map();
@@ -793,11 +802,11 @@ function getTrackedCommandCounts(events = []) {
   const counts = new Map(trackedCommands.map(({ command }) => [command, 0]));
   for (const event of events) {
     const command = String(event.command || '').trim().toLowerCase();
-    if (!counts.has(command)) continue;
-    if (command === '/ppv' && !/^pv:\d+(?:\.\d+)?(?:\||$)/i.test(String(event.detail || ''))) continue;
+    if (!counts.has(command) || command === '/ppv') continue;
     const count = command === '/for' ? Number(event.points || 0) : 1;
     counts.set(command, counts.get(command) + (Number.isFinite(count) ? count : 0));
   }
+  counts.set('/ppv', getPpvTotal(events));
   return ['s1', 's2', 's3', 's4'].map((category) => ({
     category,
     label: commandCategoryLabels[category],
@@ -1568,6 +1577,7 @@ async function profileHandler(req, res) {
       data: {
         display_name: profile.display_name || 'สมาชิก',
         pictureUrl,
+        monthlyPpv: getPpvTotal(userEvents),
         cumulativePoints,
         commandCounts,
         scores: {
