@@ -630,7 +630,7 @@ async function getEventsSinceMonth(startMonth, userId = null) {
   while (true) {
     let query = supabase
       .from('events')
-      .select('id, user_id, display_name, command, points, timestamp')
+      .select('id, user_id, display_name, command, detail, points, timestamp')
       .gte('month_key', startMonth)
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -752,6 +752,7 @@ const scoreCommandCategories = new Map([
 ]);
 
 const trackedCommands = [
+  { command: '/ppv', label: '/ppv · รายงาน PV', category: 's1' },
   { command: '/s1', label: '/s1', category: 's1' },
   { command: '/s2', label: '/s2', category: 's2' },
   { command: '/for', label: '/for · จำนวนสาย (N)', category: 's2' },
@@ -763,6 +764,8 @@ const trackedCommands = [
   { command: '/s4', label: '/s4', category: 's4' },
   { command: '/link', label: '/link', category: 's4' },
   { command: '/book', label: '/book', category: 's4' },
+  { command: '/product', label: '/product', category: 's4' },
+  { command: '/ct', label: '/ct', category: 's4' },
   { command: '/dm', label: '/dm', category: 's4' },
   { command: '/follow', label: '/follow', category: 's4' },
   { command: '/hm', label: '/hm', category: 's4' }
@@ -770,7 +773,7 @@ const trackedCommands = [
 const commandCategoryLabels = {
   s1: 'S1 · ยอดสินค้า',
   s2: 'S2 · คน',
-  s3: 'S3 · Moving Up',
+  s3: 'S3 · ความสำเร็จ',
   s4: 'S4 · พัฒนา'
 };
 
@@ -791,6 +794,7 @@ function getTrackedCommandCounts(events = []) {
   for (const event of events) {
     const command = String(event.command || '').trim().toLowerCase();
     if (!counts.has(command)) continue;
+    if (command === '/ppv' && !/^pv:\d+(?:\.\d+)?(?:\||$)/i.test(String(event.detail || ''))) continue;
     const count = command === '/for' ? Number(event.points || 0) : 1;
     counts.set(command, counts.get(command) + (Number.isFinite(count) ? count : 0));
   }

@@ -22,7 +22,7 @@
     .hero-content{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:center;gap:26px;margin-top:22px}
     .hero-copy{max-width:560px}
     .hero-copy p{margin:0;color:#e5d7c2;font-size:clamp(16px,2vw,19px);line-height:1.7}
-    .home{display:inline-block;padding:10px 14px;border:1px solid #9a792c;border-radius:11px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700;white-space:nowrap}
+    .home{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 12px;border:1px solid #9a792c;border-radius:9px;background:#211b12;color:#f1d27a;text-decoration:none;font-size:13px;font-weight:650;white-space:nowrap}
     .home:hover{background:#342713;color:#ffe9a7}
     .overview{position:relative;isolation:isolate;justify-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));width:min(100%,320px);aspect-ratio:1;border:3px solid #d8b44a;border-radius:50%;overflow:hidden;box-shadow:0 12px 30px #0009}
     .overview a{display:flex;flex-direction:column;gap:5px;min-width:0;padding:clamp(24px,6vw,34px) clamp(24px,8vw,38px);color:#fff;text-decoration:none;border:1px solid #ffffff70;transition:filter .18s ease}
@@ -59,6 +59,8 @@
     @media(max-width:760px){
       .wrap{width:min(100% - 22px,1000px);padding-top:12px}
       .hero,.section{padding:18px}
+      .hero-top{align-items:flex-start}
+      .hero-top .home{flex:1 1 130px}
       .hero-content{grid-template-columns:1fr;gap:20px}
       .overview{justify-self:center;width:min(100%,300px)}
       .overview a{padding-right:clamp(24px,8vw,34px);padding-left:clamp(24px,8vw,34px)}
@@ -72,17 +74,18 @@
     <header class="hero">
       <div class="hero-top">
         <h1>4S to Silver Challenge</h1>
+        <a class="home" href="/missions">💎 Missions</a>
         <a class="home" href="/profile">👤 Profile</a>
         <a class="home" href="/">🏆 ดูอันดับคะแนนทุกคน</a>
       </div>
       <div class="hero-content">
         <div class="hero-copy">
-          <p>สะสมคะแนนรายเดือน ครบทั้ง 4 ด้านของการเติบโต: ยอดสินค้า · คน · Moving Up · พัฒนา</p>
+          <p>สะสมคะแนนรายเดือน ครบทั้ง 4 ด้านของการเติบโต: ยอดสินค้า · คน · ความสำเร็จ · พัฒนา</p>
         </div>
         <nav class="overview" aria-label="ภาพรวม 4S เลือกหมวดเพื่อดูรายละเอียด">
           <a href="#s1" aria-label="S1 ยอดสินค้า"><strong>S1</strong><span>ยอดสินค้า</span></a>
           <a href="#s2" aria-label="S2 คน"><strong>S2</strong><span>คน</span></a>
-          <a href="#s3" aria-label="S3 Moving Up"><strong>S3</strong><span>Moving Up</span></a>
+          <a href="#s3" aria-label="S3 ความสำเร็จ"><strong>S3</strong><span>ความสำเร็จ</span></a>
           <a href="#s4" aria-label="S4 พัฒนา"><strong>S4</strong><span>พัฒนา</span></a>
           <div class="overview-center" aria-hidden="true">4S<span>TO SILVER</span></div>
         </nav>
@@ -124,7 +127,7 @@
     </section>
 
     <section class="section s3" id="s3">
-      <div class="section-head"><div class="badge">S3</div><h2>Moving Up Pin</h2></div>
+      <div class="section-head"><div class="badge">S3</div><h2>ความสำเร็จจากการเลื่อนพิน</h2></div>
       <p class="subtitle">ใช้คำสั่งได้ทุกวัน ระบุพินที่มูฟเพิ่มหลายรายการต่อท้าย /pin ได้ ระบบรวมคะแนนให้</p>
       <div class="table-wrap">
         <table>

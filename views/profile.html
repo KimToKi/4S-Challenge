@@ -28,8 +28,8 @@
     .hero{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:24px 28px;border:1px solid #6f572b;border-radius:20px;background:linear-gradient(120deg,#171411 0%,#211714 60%,#55151b 100%);box-shadow:0 12px 32px #0008}
     h1{margin:0;font-size:clamp(23px,5vw,32px)}
     .sub{margin-top:5px;color:#d4c7b2;font-size:14px}
-    .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .actions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #9a792c;border-radius:10px;background:#211b12;color:#f1d27a;text-decoration:none;font-weight:700}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 12px;border:1px solid #9a792c;border-radius:9px;background:#211b12;color:#f1d27a;text-decoration:none;font-size:13px;font-weight:650}
     .actions a:hover{background:#342713;color:#ffe9a7}
     .card{margin-top:18px;padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:0 8px 24px #0005}
     label{display:block;margin-bottom:8px;color:var(--muted);font-size:14px}
@@ -101,8 +101,8 @@
       .wrap{width:min(100% - 22px,900px);padding-top:12px}
       .hero,.card{padding:18px}
       .hero{align-items:flex-start}
-      .actions{width:100%}
-      .actions a{flex:1}
+      .actions{display:grid;width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+      .actions a{width:100%;min-height:44px;padding:8px 6px;font-size:12px}
       .scores{grid-template-columns:repeat(2,minmax(0,1fr))}
       .command-groups{grid-template-columns:1fr}
       .event{grid-template-columns:1fr auto;gap:7px 10px}
@@ -121,6 +121,7 @@
       </div>
       <nav class="actions" aria-label="เมนูหลัก">
         <a href="/">🏆 Rank</a>
+        <a href="/missions">💎 Missions</a>
         <a href="/rules">📜 Rules</a>
       </nav>
     </header>
@@ -154,7 +155,7 @@
         <div class="scores" aria-label="คะแนนแยกตามหมวด 4S">
           <article class="score"><span class="score-label">S1 · ยอดสินค้า</span><strong id="s1" class="score-value">0</strong></article>
           <article class="score"><span class="score-label">S2 · คน</span><strong id="s2" class="score-value">0</strong></article>
-          <article class="score"><span class="score-label">S3 · Moving Up</span><strong id="s3" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S3 · ความสำเร็จ</span><strong id="s3" class="score-value">0</strong></article>
           <article class="score"><span class="score-label">S4 · พัฒนา</span><strong id="s4" class="score-value">0</strong></article>
         </div>
         <div class="total"><span>คะแนนรวมประจำเดือน</span><strong id="total">0</strong></div>

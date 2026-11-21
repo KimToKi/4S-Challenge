@@ -20,8 +20,8 @@
     .brand-mark{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border:1px solid var(--gold);border-radius:14px;color:var(--gold);font-size:16px;font-weight:900;letter-spacing:-.08em}
     .brand .title{font-size:18px;font-weight:750;letter-spacing:.3px}
     .brand .sub{font-size:12px;color:#d4c7b2}
-    .actions{flex-shrink:0;display:flex;align-items:center;gap:5px}
-    .actions a{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--muted);border:1px solid #393229;padding:6px 9px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;transition:background .2s ease,color .2s ease,border-color .2s ease}
+    .actions{flex-shrink:0;display:flex;align-items:center;gap:8px}
+    .actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;background:transparent;color:var(--muted);border:1px solid #393229;padding:9px 12px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:600;transition:background .2s ease,color .2s ease,border-color .2s ease}
     .actions a:hover{background:#211b12;color:#f1d27a;border-color:#67542b}
     .qualification{margin-top:6px;color:#e7d8b7;font-size:13px}
     .qualification strong{color:#f1d27a;font-variant-numeric:tabular-nums}
@@ -55,9 +55,9 @@
     tbody tr:hover td{background:var(--hover);border-color:#766039}
     td.rank{width:76px}
     td.category-points{width:82px;text-align:center;color:#e7d8b7;font-variant-numeric:tabular-nums}
-    td.category-points.category-leader{border-radius:8px;box-shadow:inset 0 0 0 1px var(--gold),0 0 10px #d8b44a30;color:#f1d27a}
-    td.category-points.category-runner-up{border-radius:8px;box-shadow:inset 0 0 0 1px var(--silver),0 0 10px #c4c0b930;color:#e2e0d9}
-    td.category-points.category-third{border-radius:8px;box-shadow:inset 0 0 0 1px var(--bronze),0 0 10px #b96b4230;color:#d58a5b}
+    td.category-points.category-leader{background:#d8b44a0d;color:#f1d27a;font-weight:750}
+    td.category-points.category-runner-up{background:#c4c0b90b;color:#e2e0d9;font-weight:700}
+    td.category-points.category-third{background:#b96b420b;color:#d58a5b;font-weight:700}
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:30px;padding:0 8px;border-radius:999px;font-size:14px;font-weight:800}
     .rank-1{background:linear-gradient(145deg,#ffe99b,#c99725);color:#241a08;border:1px solid #f3d16d}
     .rank-2{background:linear-gradient(145deg,#e2e0d9,#99958b);color:#191713;border:1px solid #c9c4b8}
@@ -100,8 +100,8 @@
       .brand{width:100%;gap:10px}
       .brand .title{font-size:17px}
       .brand .sub{font-size:11px}
-      .actions{width:auto;flex-wrap:wrap}
-      .actions a{width:auto;font-size:11px;padding:5px 7px}
+      .actions{width:100%;flex-wrap:wrap;gap:8px}
+      .actions a{flex:1 1 100px;width:auto;min-height:44px;font-size:13px;padding:9px 10px}
       .countdown-head{align-items:flex-start;flex-direction:column;gap:4px}
       .countdown-grid{grid-template-columns:1fr}
       .muted{text-align:left;margin-top:16px}
@@ -125,8 +125,11 @@
       tbody td.rank::before{content:none}
       tbody td.rank{grid-column:1;flex-direction:row;align-items:center;gap:8px}
       tbody td.name{grid-column:2/-1;align-self:center;font-weight:700;color:var(--ink)}
-      tbody td.category-points{align-items:center;text-align:center;padding:9px 3px;border:1px solid #3b342a;border-radius:9px;background:#201b15;font-size:14px}
+      tbody td.category-points{align-items:center;text-align:center;padding:9px 3px;border:0;border-radius:6px;background:#201b15;font-size:14px}
       tbody td.category-points::before{text-align:center}
+      tbody td.category-points.category-leader{background:#d8b44a12}
+      tbody td.category-points.category-runner-up{background:#c4c0b910}
+      tbody td.category-points.category-third{background:#b96b4210}
       tbody td.level-cell{grid-column:1/-1;min-width:0}
       tbody td.level-cell::before{content:none}
       tbody td.level-cell{display:block}
@@ -151,7 +154,7 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">4S</div>
         <div>
-          <div class="title">Leaderboard</div>
+          <div class="title">Leader Board 4S to Silver</div>
         </div>
       </div>
       <div class="actions">
@@ -195,7 +198,7 @@
           <thead>
             <tr>
               <th>Rank</th><th>Name</th><th>S1 ยอดสินค้า</th><th>S2 คน</th>
-              <th>S3 Moving Up</th><th>S4 พัฒนา</th><th>Level</th><th>Total</th>
+              <th>S3 ความสำเร็จ</th><th>S4 พัฒนา</th><th>Level</th><th>Total</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -352,7 +355,7 @@
           <td class="name"></td>
           ${categoryCell('s1', 'S1', 'S1 ยอดสินค้า')}
           ${categoryCell('s2', 'S2', 'S2 คน')}
-          ${categoryCell('s3', 'S3', 'S3 Moving Up')}
+          ${categoryCell('s3', 'S3', 'S3 ความสำเร็จ')}
           ${categoryCell('s4', 'S4', 'S4 พัฒนา')}
           <td class="level-cell" data-label="Level">
             <div class="level-label"><span>${formatPoints(levelProgress)} / 100 → ${getLevelIcon(level + 1)}</span></div>
