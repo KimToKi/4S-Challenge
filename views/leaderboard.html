@@ -29,27 +29,31 @@
     .filters{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .filters label{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
     .filters input{border:1px solid #67542b;border-radius:8px;padding:7px 9px;background:#171411;color:var(--ink)}
-    .countdown{margin-top:20px;padding:18px;border:1px solid #4a3c25;border-radius:16px;background:linear-gradient(120deg,#171411,#211714 70%,#351719);box-shadow:0 12px 30px #0006}
-    .countdown-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
-    .countdown h2{margin:0;color:#f1d27a;font-size:17px}
-    .countdown-period{color:var(--muted);font-size:12px}
-    .countdown-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .countdown-item{padding:14px;border:1px solid #4a3c25;border-radius:12px;background:#100e0c}
-    .countdown-label{display:block;color:#e8ddc8;font-size:14px;font-weight:650}
-    .countdown-remaining{display:block;margin:8px 0 10px;color:#f1d27a;font-size:24px;font-weight:850;font-variant-numeric:tabular-nums}
-    .countdown-remaining small{color:var(--muted);font-size:13px;font-weight:500}
-    .countdown-phase{display:block;margin:-4px 0 10px;color:var(--muted);font-size:12px}
-    .countdown-track{height:8px;overflow:hidden;border-radius:99px;background:#332b20}
-    .countdown-progress{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#a51e2b,#d8b44a);transition:width .3s ease}
+    .countdown{margin-top:14px;padding:12px 14px;border:1px solid #302a22;border-radius:12px;background:#12100e}
+    .countdown-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
+    .countdown h2{margin:0;color:#d4c7a2;font-size:14px;font-weight:650}
+    .countdown-period{color:var(--muted);font-size:11px}
+    .countdown-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .countdown-item{padding:9px 11px;border:1px solid #2e2922;border-radius:9px;background:#100e0c}
+    .countdown-label{display:block;color:#c5bcae;font-size:12px;font-weight:550}
+    .countdown-remaining{display:block;margin:5px 0 7px;color:#d4c58e;font-size:18px;font-weight:750;font-variant-numeric:tabular-nums}
+    .countdown-remaining small{color:var(--muted);font-size:11px;font-weight:500}
+    .countdown-phase{display:block;margin:-2px 0 7px;color:var(--muted);font-size:11px}
+    .countdown-track{height:5px;overflow:hidden;border-radius:99px;background:#28231d}
+    .countdown-progress{height:100%;width:0;border-radius:inherit;background:#a88b44;transition:width .3s ease}
     .countdown-error{margin:0;color:#ffaaa1;font-size:13px}
     .table-wrap{margin-top:20px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid #4a3c25;box-shadow:0 12px 30px #0006}
     .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
     table{width:100%;min-width:980px;border-collapse:separate;border-spacing:0}
     thead th{background:#251d12;color:#e7ca72;text-align:left;padding:14px 12px;position:sticky;top:0;font-size:13px}
-    tbody td{padding:14px 16px;border-top:1px solid var(--border)}
+    tbody{background:var(--card)}
+    tbody tr td{padding:14px 16px;border-top:1px solid #51432f;border-bottom:1px solid #51432f}
+    tbody tr td:first-child{border-left:1px solid #51432f;border-radius:10px 0 0 10px}
+    tbody tr td:last-child{border-right:1px solid #51432f;border-radius:0 10px 10px 0}
+    tbody tr{background:#191612}
     tbody tr:nth-child(even){background:var(--row)}
     tbody tr:nth-child(odd){background:var(--row2)}
-    tbody tr:hover{background:var(--hover)}
+    tbody tr:hover td{background:var(--hover);border-color:#766039}
     td.rank{width:76px}
     td.category-points{width:82px;text-align:center;color:#e7d8b7;font-variant-numeric:tabular-nums}
     td.category-points.category-leader{border-radius:8px;box-shadow:inset 0 0 0 1px var(--gold),0 0 10px #d8b44a30;color:#f1d27a}
@@ -113,10 +117,11 @@
       table{min-width:0;border-spacing:0 14px}
       thead{display:none}
       tbody{display:block;padding:4px 0}
-      tbody tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;border:1px solid #4a3c25;border-radius:14px;background:var(--card);box-shadow:0 10px 28px #0007;padding:16px 14px}
+      tbody tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;border:1px solid #625033;border-radius:14px;background:var(--card);box-shadow:0 8px 20px #0006;padding:16px 14px}
       tbody tr:nth-child(even),tbody tr:nth-child(odd){background:var(--card)}
       tbody tr:hover{background:var(--card)}
-      tbody td{border:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:15px;width:auto}
+      tbody tr:hover td{background:var(--card);border-color:#625033}
+      tbody tr td{border:0;border-radius:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:15px;width:auto}
       tbody td[data-label]::before{content:attr(data-label);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
       tbody td.rank{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px;width:auto}
       tbody td.rank::before{content:none}
@@ -149,7 +154,6 @@
         <div class="brand-mark" aria-hidden="true">4S</div>
         <div>
           <div class="title">4S to Silver Challenge — Leaderboard</div>
-          <div class="sub">อันดับคะแนนทุกคน · เรียงจากมากไปน้อย</div>
         </div>
       </div>
       <div class="actions">
@@ -265,7 +269,7 @@
     }
 
     function getLevelIcon(level){
-      const icons = ['🌱', '🥉', '🥈', '🥇', '💎', '🔮', '🌌', '⚡', '🐉', '🌠', '👑'];
+      const icons = ['🌱', '🌿', '🌳', '🌋', '💎', '🔮', '🌌', '⚡', '🐉', '🌠', '👑'];
       return icons[level % icons.length];
     }
 
@@ -356,7 +360,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="rank" data-label="อันดับ"><span class="badge ${cls}">${label}</span></td>
-          <td class="name" data-label="สมาชิก"></td>
+          <td class="name"></td>
           ${categoryCell('s1', 'S1', 'S1 ยอดสินค้า')}
           ${categoryCell('s2', 'S2', 'S2 คน')}
           ${categoryCell('s3', 'S3', 'S3 Moving Up')}
