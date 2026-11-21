@@ -1221,7 +1221,7 @@ async function handleEvent(evt) {
       'S2: /for <จำนวนสาย>, /opp online|onsite, /abo, /m, /s2 (ทุกคำสั่งส่งรูปตาม)',
       'S3: /pin <พิน...>',
       'S4: /link, /book [จำนวนหน้า], /product, /ct, /follow, /hm, /s4, /dm (ส่งรูปตาม)',
-      '/score, /rank (Top 3), /rules, /help',
+      '/score, /rank (Top 3), /profile, /mission, /rules, /help',
       'คำสั่งแรกของวันจะแจ้ง Countdown ภารกิจรวม และวันที่ 5, 10, 15, 20, 25 หรือ 30 จะแสดง Top 10 ด้วย'
     ];
     await reply(evt.replyToken, lines.join('\n'));
@@ -1230,6 +1230,16 @@ async function handleEvent(evt) {
 
   if (cmd === '/rules' || cmd === '/rule') {
     await reply(evt.replyToken, `📘 กติกา 4S to Silver Challenge: ${publicBaseUrl()}/rules`);
+    return;
+  }
+
+  if (cmd === '/profile') {
+    await reply(evt.replyToken, `👤 เปิดหน้า Profile: ${publicBaseUrl()}/profile`);
+    return;
+  }
+
+  if (cmd === '/mission') {
+    await reply(evt.replyToken, `💎 เปิดหน้า Missions: ${publicBaseUrl()}/missions`);
     return;
   }
 
