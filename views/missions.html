@@ -200,6 +200,13 @@
         const name = document.createElement('strong');
         name.className = 'case-name';
         name.textContent = item.display_name || 'สมาชิก';
+        if(item.rankFire === true){
+          const fire = document.createElement('span');
+          fire.setAttribute('role', 'img');
+          fire.setAttribute('aria-label', 'ไฟครบทั้ง 4S ในวันนั้น');
+          fire.textContent = ' 🔥';
+          name.appendChild(fire);
+        }
         const date = document.createElement('time');
         date.className = 'case-date';
         if(item.timestamp){

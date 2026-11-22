@@ -71,6 +71,7 @@
     .member-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .member-card-copy{display:grid;gap:3px;min-width:0}
     .member-card-copy strong{overflow-wrap:anywhere}
+    .rank-fire{margin-right:5px;font-size:16px;filter:drop-shadow(0 0 6px #ff8b32)}
     .member-level-icon{margin-left:5px;font-size:15px;vertical-align:1px}
     .member-card-copy small{color:var(--muted);font-size:11px;font-weight:500}
     td.level-cell{min-width:170px}
@@ -384,6 +385,13 @@
         memberCopy.className = 'member-card-copy';
         const memberName = document.createElement('strong');
         memberName.textContent = r.display_name || 'สมาชิก';
+        if(r.fires?.rank === true){
+          const rankFire = document.createElement('span');
+          rankFire.className = 'rank-fire';
+          rankFire.setAttribute('aria-label', 'ไฟครบทั้ง 4S ต่อเนื่อง');
+          rankFire.textContent = '🔥';
+          memberName.insertBefore(rankFire, memberName.firstChild);
+        }
         const memberLevelIcon = document.createElement('span');
         memberLevelIcon.className = 'member-level-icon';
         memberLevelIcon.setAttribute('aria-label', `Level ${level}`);

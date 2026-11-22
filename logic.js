@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
+const { getFireStatuses, getFireStatusesByDate } = require('./fire-status');
 require('dotenv').config();
 
 const supabaseUrl = process.env.SUPABASE_URL
@@ -702,7 +703,7 @@ async function getMonthlyMissionEvents(mk) {
   while (true) {
     const { data, error } = await supabase
       .from('events')
-      .select('id, display_name, command, detail, timestamp')
+        .select('id, user_id, display_name, command, detail, points, timestamp')
       .eq('month_key', mk)
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -738,9 +739,13 @@ async function monthlyMissionsHandler(req, res) {
         businessCasesRemaining: Math.max(0, annualTarget - businessEvents.length)
       }
       : monthlyCountdownStatus(events);
+    const fireHistory = getFireStatusesByDate(events, { getDateKey: localDateKey });
     const toCase = (event, index) => ({
       number: index + 1,
       display_name: event.display_name || 'สมาชิก',
+      rankFire: event.timestamp
+        ? fireHistory.get(localDateKey(new Date(event.timestamp)))?.get(event.user_id)?.rank === true
+        : false,
       command: String(event.command || '').trim().toLowerCase(),
       detail: String(event.detail || '')
         .split('|')
@@ -996,6 +1001,11 @@ async function getCumulativeTop10(limit = 10) {
   const startMonth = CUMULATIVE_RANKING_START_MONTH;
   const events = await getEventsSinceMonth(startMonth);
   const pointsByUser = getCategoryPointsByUser(events);
+  const firesByUser = getFireStatuses(events, {
+    today: localDateKey(),
+    currentMonth: monthKey(),
+    getDateKey: localDateKey
+  });
   return {
     startMonth,
     data: rankAndLimit(aggregateEventsByUser(events).map((row) => ({
@@ -1003,7 +1013,8 @@ async function getCumulativeTop10(limit = 10) {
       s1: roundTo(pointsByUser.get(row.user_id)?.s1 || 0, 2),
       s2: roundTo(pointsByUser.get(row.user_id)?.s2 || 0, 2),
       s3: roundTo(pointsByUser.get(row.user_id)?.s3 || 0, 2),
-      s4: roundTo(pointsByUser.get(row.user_id)?.s4 || 0, 2)
+      s4: roundTo(pointsByUser.get(row.user_id)?.s4 || 0, 2),
+      fires: firesByUser.get(row.user_id) || { s1: false, s2: false, s3: false, s4: false, rank: false }
     })), limit)
       .map((row) => ({ ...row, points: roundTo(row.points, 2) }))
   };
@@ -1730,9 +1741,15 @@ async function profileHandler(req, res) {
       userId,
       fiscalYear.endMonth
     );
-    if (!userEvents.length && !currentUserEvents.length && !fiscalYearEvents.length) {
+    const fireEvents = await getEventsSinceMonth(CUMULATIVE_RANKING_START_MONTH, userId);
+    if (!userEvents.length && !currentUserEvents.length && !fiscalYearEvents.length && !fireEvents.length) {
       return res.status(404).json({ error: 'Profile not found for this month' });
     }
+    const fires = getFireStatuses(fireEvents, {
+      today: localDateKey(),
+      currentMonth,
+      getDateKey: localDateKey
+    }).get(userId) || { s1: false, s2: false, s3: false, s4: false, rank: false };
     const activityMonth = activityDate.slice(0, 7);
     const activityMonthEvents = activityMonth === targetMonth
       ? events
@@ -1811,6 +1828,7 @@ async function profileHandler(req, res) {
           s4: roundTo(categoryPoints.s4, 2),
           total: roundTo(profile.points, 2)
         },
+        fires,
         activityEvents
       }
     });
