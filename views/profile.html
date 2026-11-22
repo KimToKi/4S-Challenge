@@ -79,12 +79,16 @@
     .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
     .title-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;padding:8px 10px;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
     .title-name{color:#e8ddc8}
-    .title-name-group{display:flex;align-items:center;gap:6px;min-width:0}
-    .title-help{position:relative;flex:none;line-height:1}
-    .title-help summary{display:grid;place-items:center;width:18px;height:18px;border:1px solid #6a5a3d;border-radius:50%;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
-    .title-help summary::-webkit-details-marker{display:none}
-    .title-help summary:focus-visible{outline:2px solid #f1d27a;outline-offset:2px}
-    .title-explanation{position:absolute;z-index:10;top:calc(100% + 6px);left:0;width:min(250px,calc(100vw - 48px));padding:10px 12px;border:1px solid #67542b;border-radius:8px;background:#211b12;box-shadow:0 6px 20px #0008;color:#e8ddc8;font-size:12px;font-weight:400;line-height:1.5}
+    .selector-label-row{display:flex;align-items:center;gap:8px;min-height:20px}
+    .selector-label-row label{margin:0}
+    .score-guide{position:relative;margin-left:auto;line-height:1}
+    .score-guide summary{display:grid;place-items:center;width:20px;height:20px;border:1px solid #6a5a3d;border-radius:50%;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;list-style:none}
+    .score-guide summary::-webkit-details-marker{display:none}
+    .score-guide summary:focus-visible{outline:2px solid #f1d27a;outline-offset:2px}
+    .score-guide-popover{position:absolute;z-index:20;top:calc(100% + 8px);right:0;width:min(320px,calc(100vw - 48px));padding:12px 14px;border:1px solid #67542b;border-radius:8px;background:#211b12;box-shadow:0 6px 20px #0008;color:#e8ddc8;font-size:12px;font-weight:400;line-height:1.5}
+    .score-guide-popover p{margin:0 0 7px}
+    .score-guide-popover ul{display:grid;gap:5px;margin:0;padding-left:18px}
+    .score-guide-popover li::marker{color:#dfc778}
     .title-metric{color:var(--muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     .business-owner{display:grid;gap:3px;margin-top:5px;color:#77736d}
     .business-owner-title{font-size:11px;font-weight:550}
@@ -164,11 +168,28 @@
             <option value="">กำลังโหลดรายชื่อ...</option>
           </select>
         </label>
-        <label class="selector-field" for="period-select">ช่วงคะแนน
+        <div class="selector-field">
+          <div class="selector-label-row">
+            <label for="period-select">ช่วงคะแนน</label>
+            <details class="score-guide">
+              <summary aria-label="ดูวิธีคิดคะแนนฉายา">i</summary>
+              <div class="score-guide-popover">
+                <p>วิธีคำนวณตัววัดฉายา</p>
+                <ul>
+                  <li>Product: จำนวน /s1 + ทุก 1,000 PPV สะสม คิดเพิ่ม 1 คะแนน</li>
+                  <li>Business: จำนวน /s2, /opp online และ /opp onsite รวมกัน (BM)</li>
+                  <li>/for: รวมจำนวนสาย N ที่บันทึก</li>
+                  <li>/pin: รวมคะแนนจาก /pin</li>
+                  <li>S4: รวมคะแนนจากคำสั่งในหมวด S4</li>
+                </ul>
+                <p style="margin-top:8px">Amway Business Owner ปลดล็อกถาวรเมื่อทำ /ABO ครบ 4 ครั้ง และ /M ครบ 5 ครั้งในเดือนเดียวกัน</p>
+              </div>
+            </details>
+          </div>
           <select id="period-select" disabled>
             <option value="cumulative">กำลังโหลดช่วงคะแนน...</option>
           </select>
-        </label>
+        </div>
       </div>
       <p id="status" class="status" role="status" aria-live="polite">กำลังโหลดรายชื่อสมาชิก...</p>
       <div id="profile" hidden>
@@ -210,7 +231,6 @@
             <span id="command-period" class="command-period"></span>
           </div>
           <div id="command-groups" class="command-groups" aria-live="polite"></div>
-          <p class="command-note">แถบ /s1 และ /s2 เต็มที่ 15 คำสั่งต่อเดือน · /pin เต็มที่ 100 คะแนนสะสม · /for รวมจำนวน N สาย</p>
         </section>
       </div>
     </section>
@@ -331,8 +351,14 @@
           const dynamicMonthlyTarget = row.command === '/opp online' && forCount > 0 ? Math.ceil(forCount * 0.3)
             : row.command === '/opp onsite' && forCount > 0 ? Math.ceil(forCount * 0.2)
               : null;
+          const annualTarget = row.command === '/pin' ? 100
+            : row.command === '/follow' ? followTarget
+              : row.command === '/hm' ? dynamicTarget
+                : row.command === '/opp online' || row.command === '/opp onsite' ? dynamicMonthlyTarget
+                  : monthlyTarget !== null ? monthlyTarget * 12
+                    : null;
           const progressTarget = isFiscalYear
-            ? null
+            ? annualTarget
             : monthlyTarget ?? dynamicMonthlyTarget ?? cumulativeTarget ?? dynamicTarget;
           const barMaximum = progressTarget === null ? maximum : Math.max(progressTarget, 1);
           const percent = barMaximum ? Math.min(count / barMaximum * 100, 100) : 0;
@@ -405,52 +431,12 @@
     function renderProfileTitles(titles, monthLabel){
       const container = document.getElementById('title-cards');
       container.replaceChildren();
-      [
-        {
-          key: 's1',
-          title: titles.s1,
-          explanation: 'คะแนน Product = จำนวน /s1 สะสม + 1 คะแนนต่อทุก 1,000 PPV สะสม (นับเฉพาะจำนวนเต็มของพัน)'
-        },
-        {
-          key: 's2',
-          title: titles.s2,
-          explanation: 'BM = จำนวนครั้ง /s2, /opp online และ /opp onsite ที่บันทึกในปีบัญชี'
-        },
-        {
-          key: 'for',
-          title: titles.for,
-          explanation: 'สายรวม = ผลรวมจำนวนสาย N ที่บันทึกด้วย /for ในปีบัญชี'
-        },
-        {
-          key: 's3',
-          title: titles.s3,
-          explanation: 'คะแนนรวมจาก /pin ที่บันทึกในปีบัญชี'
-        },
-        {
-          key: 's4',
-          title: titles.s4,
-          explanation: 'คะแนนรวมจากคำสั่งในหมวด S4 ที่บันทึกในปีบัญชี'
-        }
-      ].forEach(({ key, title, explanation }) => {
+      [titles.s1, titles.s2, titles.for, titles.s3, titles.s4].forEach((title) => {
         const card = document.createElement('article');
         card.className = 'title-card';
         const name = document.createElement('span');
         name.className = 'title-name';
         name.textContent = title.title;
-        const nameGroup = document.createElement('div');
-        nameGroup.className = 'title-name-group';
-        const help = document.createElement('details');
-        help.className = 'title-help';
-        const helpButton = document.createElement('summary');
-        helpButton.textContent = 'i';
-        helpButton.setAttribute('aria-label', 'ดูวิธีคิดคะแนน');
-        const explanationText = document.createElement('div');
-        explanationText.className = 'title-explanation';
-        explanationText.id = `title-explanation-${key}`;
-        explanationText.textContent = explanation;
-        helpButton.setAttribute('aria-controls', explanationText.id);
-        help.append(helpButton, explanationText);
-        nameGroup.append(name, help);
         const metric = document.createElement('strong');
         metric.className = 'title-metric';
         const value = formatPoints(title.value);
@@ -462,7 +448,7 @@
               ? 'BM'
             : 'คำสั่ง';
         metric.textContent = `${value} ${unit}`;
-        card.append(nameGroup, metric);
+        card.append(name, metric);
         container.appendChild(card);
       });
 
