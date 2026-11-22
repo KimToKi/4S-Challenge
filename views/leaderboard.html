@@ -329,13 +329,17 @@
       }));
       const topFive = rows.slice(0, 5);
       const belowTopFive = rows.slice(5);
+      const topFiveWithFire = topFive
+        .filter((row) => row.fires?.rank === true)
+        .sort((a, b) => Number(b.points) - Number(a.points));
       const displayRows = [
-        ...topFive,
+        ...topFiveWithFire,
+        ...topFive.filter((row) => row.fires?.rank !== true),
         ...belowTopFive.filter((row) => row.fires?.rank === true),
         ...belowTopFive.filter((row) => row.fires?.rank !== true)
       ];
-      displayRows.forEach((r,i)=>{
-        const rank = i+1;
+      displayRows.forEach((r)=>{
+        const rank = r.rank;
         const cls = rank===1? 'rank-1' : rank===2? 'rank-2' : rank===3? 'rank-3' : 'rank-n';
         const label = rank===1? '🥇 1' : rank===2? '🥈 2' : rank===3? '🥉 3' : String(rank);
         const { level, progress: levelProgress } = getLevelProgress(r.points);
