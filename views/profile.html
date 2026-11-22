@@ -655,6 +655,10 @@
         if(!response.ok) throw new Error(payload.error || 'โหลดรายชื่อสมาชิกไม่สำเร็จ');
         if(!monthsResponse.ok) throw new Error(monthsPayload.error || 'โหลดรายการเดือนไม่สำเร็จ');
         const rows = Array.isArray(payload.data) ? payload.data : [];
+        rows.sort((a, b) =>
+          Number(b.fires?.rank === true) - Number(a.fires?.rank === true)
+          || Number(b.points || 0) - Number(a.points || 0)
+        );
         const months = Array.isArray(monthsPayload.months) ? monthsPayload.months : [];
         const fiscalYear = monthsPayload.fiscalYear || { startMonth: '2026-09', label: '69/70' };
         memberSelect.replaceChildren();
@@ -665,7 +669,8 @@
         rows.forEach((row, index) => {
           const option = document.createElement('option');
           option.value = row.user_id;
-          option.textContent = `${row.display_name || 'สมาชิก'} · #${index + 1}`;
+          const fire = row.fires?.rank === true ? ' 🔥' : '';
+          option.textContent = `${row.display_name || 'สมาชิก'}${fire} · #${row.rank ?? index + 1}`;
           memberSelect.appendChild(option);
         });
         memberSelect.disabled = rows.length === 0;
