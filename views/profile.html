@@ -103,7 +103,9 @@
     .command-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .command-group{min-width:0;padding:14px;border:1px solid #3b342a;border-radius:12px;background:#171411}
     .command-group h3{margin:0 0 12px;color:var(--level-accent);font-size:14px}
-    .command-fire-indicator{margin-left:5px;filter:drop-shadow(0 0 5px #ff8b32)}
+    .command-fire-indicator{margin-left:5px}
+    .command-fire-indicator.is-lit{filter:drop-shadow(0 0 5px #ff8b32)}
+    .command-fire-indicator.is-out{opacity:.35;filter:grayscale(1)}
     .command-bars{display:grid;gap:12px}
     .command-row{min-width:0}
     .command-row-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:13px}
@@ -329,11 +331,13 @@
         groupEl.className = 'command-group';
         const heading = document.createElement('h3');
         heading.textContent = group.label || group.category;
-        if(group.category === 's4' && fires?.s4){
+        if(['s1', 's2', 's3', 's4'].includes(group.category)){
           const fire = document.createElement('span');
-          fire.className = 'command-fire-indicator';
+          const lit = Boolean(fires?.[group.category]);
+          fire.className = `command-fire-indicator ${lit ? 'is-lit' : 'is-out'}`;
           fire.textContent = '🔥';
-          fire.setAttribute('aria-label', 'ไฟ S4 ติด');
+          fire.setAttribute('role', 'img');
+          fire.setAttribute('aria-label', `ไฟ ${group.category.toUpperCase()} ${lit ? 'ติด' : 'ดับ'}`);
           heading.appendChild(fire);
         }
         const commandBars = document.createElement('div');
