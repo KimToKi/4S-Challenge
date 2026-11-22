@@ -715,15 +715,27 @@ async function getMonthlyMissionEvents(mk) {
 async function monthlyMissionsHandler(req, res) {
   try {
     res.set('Cache-Control', 'no-store');
+    const scope = req.query?.scope === 'fiscal' ? 'fiscal' : 'month';
     const ym = String(req.query?.ym || '');
     const targetMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(ym) ? ym : monthKey();
-    const events = await getMonthlyMissionEvents(targetMonth);
+    const fiscalYear = getFiscalYearRange();
+    const events = scope === 'fiscal'
+      ? await getEventsSinceMonth(fiscalYear.startMonth, null, fiscalYear.endMonth)
+      : await getMonthlyMissionEvents(targetMonth);
     const productEvents = events.filter((event) => String(event.command || '').trim().toLowerCase() === '/s1');
     const businessEvents = events.filter((event) => {
       const command = String(event.command || '').trim().toLowerCase();
       return command === '/s2' || command === '/opp onsite';
     });
-    const status = monthlyCountdownStatus(events);
+    const annualTarget = 50 * (fiscalYear.startMonth === '2026-09' ? 10 : 12);
+    const status = scope === 'fiscal'
+      ? {
+        productCasesDone: productEvents.length,
+        businessCasesDone: businessEvents.length,
+        productCasesRemaining: Math.max(0, annualTarget - productEvents.length),
+        businessCasesRemaining: Math.max(0, annualTarget - businessEvents.length)
+      }
+      : monthlyCountdownStatus(events);
     const toCase = (event, index) => ({
       number: index + 1,
       display_name: event.display_name || 'สมาชิก',
@@ -736,11 +748,16 @@ async function monthlyMissionsHandler(req, res) {
     });
 
     return res.json({
-      meta: { scope: 'month', ym: targetMonth },
+      meta: {
+        scope,
+        ym: targetMonth,
+        fiscalYearLabel: fiscalYear.label,
+        annualTarget
+      },
       data: {
         countdown: status,
-        treasureCases: productEvents.slice(0, 100).map(toCase),
-        diamondCases: businessEvents.slice(0, 100).map(toCase)
+        treasureCases: (scope === 'fiscal' ? productEvents : productEvents.slice(0, 100)).map(toCase),
+        diamondCases: (scope === 'fiscal' ? businessEvents : businessEvents.slice(0, 100)).map(toCase)
       }
     });
   } catch (err) {

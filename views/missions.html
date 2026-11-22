@@ -22,8 +22,10 @@
     .actions a:hover{background:#291317;color:#fff0ed;border-color:#a45a62}
     .actions a:focus-visible{outline:3px solid #e7a0a5;outline-offset:2px}
     .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:18px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+    .toolbar-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
     .toolbar label{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
-    input[type="month"]{padding:9px 11px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
+    .toolbar select,.toolbar input[type="month"]{min-height:40px;padding:8px 11px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
+    .toolbar select:focus-visible,.toolbar input:focus-visible{outline:3px solid #e7a0a5;outline-offset:2px}
     .month-label{color:var(--gold);font-size:14px;font-weight:700}
     .status{margin:16px 0 0;color:var(--muted);font-size:14px}
     .status.error{color:#ffaaa1}
@@ -56,15 +58,30 @@
     [hidden]{display:none!important}
     @media(max-width:760px){
       .wrap{width:min(100% - 22px,1100px);padding-top:12px}
-      .hero{padding:18px}
+      .hero{padding:14px;border-radius:14px}
+      h1{font-size:21px}
       .actions{width:100%}
       .actions a{flex:1}
       .missions{grid-template-columns:1fr}
+      .mission{border-radius:11px;box-shadow:none}
+      .mission-head{padding:14px}
+      .mission-icon{width:40px;height:40px;border-radius:11px;font-size:22px}
+      .mission h2{font-size:17px}
+      .mission-subtitle{font-size:12px}
+      .progress-info{margin-top:12px}
+      .progress-count{font-size:21px}
+      .case-list{max-height:58vh;gap:7px;padding:9px}
+      .case{grid-template-columns:32px minmax(0,1fr);gap:8px;padding:9px;border-radius:9px}
+      .case-number{width:30px;height:30px;font-size:12px}
+      .case-detail{font-size:12px}
     }
     @media(max-width:420px){
-      .toolbar{align-items:flex-start}
-      .toolbar label{align-items:flex-start;flex-direction:column;gap:6px}
-      input[type="month"]{width:100%}
+      .toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px}
+      .toolbar-controls{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}
+      .toolbar label{display:grid;gap:4px;font-size:12px}
+      .toolbar select,.toolbar input[type="month"]{width:100%;min-width:0;min-height:38px;padding:7px 8px;font-size:13px}
+      .month-label{align-self:end;padding-bottom:10px;font-size:12px;text-align:right}
+      .progress-count{font-size:19px}
       .case-top{align-items:flex-start;flex-direction:column;gap:2px}
       .case-date{text-align:left}
     }
@@ -74,7 +91,7 @@
   <main class="wrap">
     <header class="hero">
       <div>
-        <h1>🗺️ ภารกิจล่าสมบัติประจำเดือน</h1>
+        <h1 id="missions-title">🗺️ ภารกิจล่าสมบัติประจำเดือน</h1>
         <div class="sub">ทุกเคสคืออีกก้าวของทีม มาดูกันว่าเราขุดเจออะไรแล้วบ้าง</div>
       </div>
       <nav class="actions" aria-label="เมนูหลัก">
@@ -83,10 +100,18 @@
       </nav>
     </header>
 
-    <section class="toolbar" aria-label="เลือกเดือน">
-      <label for="month">เลือกเดือนที่ต้องการดู
-        <input id="month" type="month">
-      </label>
+    <section class="toolbar" aria-label="เลือกช่วงภารกิจ">
+      <div class="toolbar-controls">
+        <label for="period-mode">ช่วงเวลา
+          <select id="period-mode">
+            <option value="month">รายเดือน</option>
+            <option value="fiscal">ปีบัญชีปัจจุบัน</option>
+          </select>
+        </label>
+        <label id="month-field" for="month">เดือนที่ต้องการดู
+          <input id="month" type="month">
+        </label>
+      </div>
       <span id="month-label" class="month-label"></span>
     </section>
     <p id="status" class="status" role="status" aria-live="polite">กำลังค้นหาภารกิจ...</p>
@@ -137,6 +162,8 @@
   </main>
   <script>
     const monthInput = document.getElementById('month');
+    const periodMode = document.getElementById('period-mode');
+    const monthField = document.getElementById('month-field');
     const statusEl = document.getElementById('status');
     const missionsEl = document.getElementById('missions');
     const dateFormatter = new Intl.DateTimeFormat('th-TH', {
@@ -151,13 +178,13 @@
       statusEl.hidden = !message;
     }
 
-    function renderCases(containerId, rows, type){
+    function renderCases(containerId, rows, type, periodName){
       const container = document.getElementById(containerId);
       container.replaceChildren();
       if(!rows.length){
         const empty = document.createElement('div');
         empty.className = 'empty';
-        empty.textContent = 'ยังไม่มีเคสที่บันทึกในเดือนนี้ เริ่มขุดสมบัติชิ้นแรกกันเลย!';
+        empty.textContent = `ยังไม่มีเคสที่บันทึกใน${periodName} เริ่มขุดสมบัติชิ้นแรกกันเลย!`;
         container.appendChild(empty);
         return;
       }
@@ -202,22 +229,22 @@
       });
     }
 
-    function renderMissionProgress(prefix, done, phase, remaining){
-      const target = phase === 1 ? 50 : 100;
-      const phaseDone = phase === 1 ? done : done - 50;
-      const progress = Math.max(0, Math.min(100, phaseDone / 50 * 100));
+    function renderMissionProgress(prefix, done, phase, remaining, annualTarget = null){
+      const target = annualTarget || (phase === 1 ? 50 : 100);
+      const phaseDone = annualTarget ? Math.min(done, target) : phase === 1 ? done : done - 50;
+      const progress = Math.max(0, Math.min(100, phaseDone / (annualTarget || 50) * 100));
       document.getElementById(`${prefix}-count`).innerHTML = `${done} <small>/ ${target} เคส</small>`;
-      document.getElementById(`${prefix}-phase`).textContent = phase === 1
-        ? 'เฟส 1 · เป้าหมายหลัก'
-        : 'เฟส 2 · โบนัสถึง 100';
+      document.getElementById(`${prefix}-phase`).textContent = annualTarget
+        ? 'เป้าหมายปีบัญชี'
+        : phase === 1 ? 'เฟส 1 · เป้าหมายหลัก' : 'เฟส 2 · โบนัสถึง 100';
       document.getElementById(`${prefix}-fill`).style.width = `${progress}%`;
       const track = document.querySelector(`[aria-label="ความคืบหน้า${prefix === 'treasure' ? 'ขุดหาสมบัติ' : 'ขุดหาเพชร'}"]`);
-      track.setAttribute('aria-valuemax', '50');
+      track.setAttribute('aria-valuemax', String(annualTarget || 50));
       track.setAttribute('aria-valuenow', String(phaseDone));
       track.setAttribute('aria-valuetext', `${done}/${target} เคส`);
-      document.getElementById(`${prefix}-remaining`).textContent = remaining
-        ? `เหลืออีก ${remaining} เคสในเฟสนี้`
-        : 'ครบเป้าหมาย 100 เคสแล้ว!';
+      document.getElementById(`${prefix}-remaining`).textContent = annualTarget
+        ? remaining ? `เหลืออีก ${remaining} เคสถึงเป้าปีบัญชี` : 'ถึงเป้าปีบัญชีแล้ว!'
+        : remaining ? `เหลืออีก ${remaining} เคสในเฟสนี้` : 'ครบเป้าหมาย 100 เคสแล้ว!';
     }
 
     async function loadMissions(){
@@ -225,7 +252,8 @@
       showStatus('กำลังค้นหาภารกิจ...');
       try {
         const params = new URLSearchParams();
-        if(monthInput.value) params.set('ym', monthInput.value);
+        params.set('scope', periodMode.value);
+        if(periodMode.value === 'month' && monthInput.value) params.set('ym', monthInput.value);
         const response = await fetch(`/missions/data?${params.toString()}`, { cache: 'no-store' });
         const payload = await response.json();
         if(!response.ok) throw new Error(payload.error || 'โหลดภารกิจไม่สำเร็จ');
@@ -234,11 +262,20 @@
           throw new Error('ข้อมูลภารกิจไม่ถูกต้อง');
         }
         monthInput.value = payload.meta?.ym || monthInput.value;
-        document.getElementById('month-label').textContent = `เดือน ${payload.meta?.ym || ''}`;
-        renderMissionProgress('treasure', data.countdown.productCasesDone, data.countdown.productPhase, data.countdown.productCasesRemaining);
-        renderMissionProgress('diamond', data.countdown.businessCasesDone, data.countdown.businessPhase, data.countdown.businessCasesRemaining);
-        renderCases('treasure-cases', data.treasureCases, 'treasure');
-        renderCases('diamond-cases', data.diamondCases, 'diamond');
+        const isFiscal = payload.meta?.scope === 'fiscal';
+        monthField.hidden = isFiscal;
+        const annualTarget = isFiscal ? Number(payload.meta?.annualTarget) : null;
+        const periodName = isFiscal ? 'ปีบัญชีนี้' : 'เดือนนี้';
+        document.getElementById('missions-title').textContent = isFiscal
+          ? '🗺️ ภารกิจล่าสมบัติปีบัญชี'
+          : '🗺️ ภารกิจล่าสมบัติประจำเดือน';
+        document.getElementById('month-label').textContent = isFiscal
+          ? `ปีบัญชี ${payload.meta?.fiscalYearLabel || ''}`
+          : `เดือน ${payload.meta?.ym || ''}`;
+        renderMissionProgress('treasure', data.countdown.productCasesDone, data.countdown.productPhase, data.countdown.productCasesRemaining, annualTarget);
+        renderMissionProgress('diamond', data.countdown.businessCasesDone, data.countdown.businessPhase, data.countdown.businessCasesRemaining, annualTarget);
+        renderCases('treasure-cases', data.treasureCases, 'treasure', periodName);
+        renderCases('diamond-cases', data.diamondCases, 'diamond', periodName);
         missionsEl.hidden = false;
         showStatus('');
       } catch(error) {
@@ -248,6 +285,10 @@
     }
 
     monthInput.addEventListener('change', loadMissions);
+    periodMode.addEventListener('change', () => {
+      monthField.hidden = periodMode.value === 'fiscal';
+      loadMissions();
+    });
     loadMissions();
   </script>
 </body>
