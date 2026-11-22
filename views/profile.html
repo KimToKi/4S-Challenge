@@ -79,6 +79,12 @@
     .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
     .title-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;padding:8px 10px;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
     .title-name{color:#e8ddc8}
+    .title-name-group{display:flex;align-items:center;gap:6px;min-width:0}
+    .title-help{position:relative;flex:none;line-height:1}
+    .title-help summary{display:grid;place-items:center;width:18px;height:18px;border:1px solid #6a5a3d;border-radius:50%;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
+    .title-help summary::-webkit-details-marker{display:none}
+    .title-help summary:focus-visible{outline:2px solid #f1d27a;outline-offset:2px}
+    .title-explanation{position:absolute;z-index:10;top:calc(100% + 6px);left:0;width:min(250px,calc(100vw - 48px));padding:10px 12px;border:1px solid #67542b;border-radius:8px;background:#211b12;box-shadow:0 6px 20px #0008;color:#e8ddc8;font-size:12px;font-weight:400;line-height:1.5}
     .title-metric{color:var(--muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     .business-owner{display:grid;gap:3px;margin-top:5px;color:#77736d}
     .business-owner-title{font-size:11px;font-weight:550}
@@ -278,7 +284,7 @@
       });
     }
 
-    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles){
+    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles, periodLabel, isFiscalYear){
       const container = document.getElementById('command-groups');
       container.replaceChildren();
       const groups = Array.isArray(rows) ? rows : [];
@@ -291,7 +297,7 @@
       const aboAndMemberCount = getCommandCount('/abo') + getCommandCount('/m');
       const followTarget = 10 + Number(titles?.s1?.value || 0)
         + Number(titles?.s2?.value || 0) + aboAndMemberCount ** 2;
-      document.getElementById('command-period').textContent = `ตั้งแต่ ${since || ''}`;
+      document.getElementById('command-period').textContent = periodLabel || `ตั้งแต่ ${since || ''}`;
       const sinceLabel = /^\d{4}-\d{2}$/.test(since || '')
         ? new Intl.DateTimeFormat('th-TH', { month: 'short', year: 'numeric', timeZone: 'UTC' })
           .format(new Date(`${since}-01T00:00:00Z`))
@@ -320,12 +326,14 @@
                 : null;
           const cumulativeTarget = row.command === '/pin' ? 100 : null;
           const dynamicTarget = row.command === '/follow' ? followTarget
-            : row.command === '/hm' && followCount > 0 ? followCount * 0.2
+            : row.command === '/hm' && followCount > 0 ? Math.ceil(followCount * 0.2)
               : null;
-          const dynamicMonthlyTarget = row.command === '/opp online' && forCount > 0 ? forCount * 0.3
-            : row.command === '/opp onsite' && forCount > 0 ? forCount * 0.2
+          const dynamicMonthlyTarget = row.command === '/opp online' && forCount > 0 ? Math.ceil(forCount * 0.3)
+            : row.command === '/opp onsite' && forCount > 0 ? Math.ceil(forCount * 0.2)
               : null;
-          const progressTarget = monthlyTarget ?? dynamicMonthlyTarget ?? cumulativeTarget ?? dynamicTarget;
+          const progressTarget = isFiscalYear
+            ? null
+            : monthlyTarget ?? dynamicMonthlyTarget ?? cumulativeTarget ?? dynamicTarget;
           const barMaximum = progressTarget === null ? maximum : Math.max(progressTarget, 1);
           const percent = barMaximum ? Math.min(count / barMaximum * 100, 100) : 0;
           const item = document.createElement('div');
@@ -357,26 +365,26 @@
           }
           const value = document.createElement('span');
           value.className = 'command-count';
-          value.textContent = monthlyTarget
-            ? `${formatPoints(count)} / ${monthlyTarget} ${achievementMonthLabel}`
-            : dynamicMonthlyTarget !== null
-              ? `${formatPoints(count)} / ${formatPoints(dynamicMonthlyTarget)} ${achievementMonthLabel}`
-            : cumulativeTarget
+          value.textContent = !isFiscalYear && monthlyTarget
+            ? `${formatPoints(count)} / ${monthlyTarget}`
+            : !isFiscalYear && dynamicMonthlyTarget !== null
+              ? `${formatPoints(count)} / ${formatPoints(dynamicMonthlyTarget)}`
+            : !isFiscalYear && cumulativeTarget
               ? `${formatPoints(count)} / ${cumulativeTarget} คะแนนสะสม`
-              : dynamicTarget !== null
+              : !isFiscalYear && dynamicTarget !== null
                 ? `${formatPoints(count)} / ${formatPoints(dynamicTarget)} ครั้งสะสม`
                 : formatPoints(count);
           head.appendChild(value);
           const track = document.createElement('div');
           track.className = 'command-track';
           track.setAttribute('role', 'progressbar');
-          track.setAttribute('aria-label', monthlyTarget
+          track.setAttribute('aria-label', !isFiscalYear && monthlyTarget
             ? `${label.textContent} ความคืบหน้าประจำเดือน`
-            : dynamicMonthlyTarget !== null
+            : !isFiscalYear && dynamicMonthlyTarget !== null
               ? `${label.textContent} ความคืบหน้าประจำเดือน`
-            : cumulativeTarget
+            : !isFiscalYear && cumulativeTarget
               ? `${label.textContent} ความคืบหน้าสะสม`
-              : dynamicTarget !== null
+              : !isFiscalYear && dynamicTarget !== null
                 ? `${label.textContent} ความคืบหน้าสะสม`
                 : `${label.textContent} จำนวนคำสั่ง`);
           track.setAttribute('aria-valuemin', '0');
@@ -398,17 +406,51 @@
       const container = document.getElementById('title-cards');
       container.replaceChildren();
       [
-        titles.s1,
-        titles.s2,
-        titles.for,
-        titles.s3,
-        titles.s4
-      ].forEach((title) => {
+        {
+          key: 's1',
+          title: titles.s1,
+          explanation: 'คะแนน Product = จำนวน /s1 สะสม + 1 คะแนนต่อทุก 1,000 PPV สะสม (นับเฉพาะจำนวนเต็มของพัน)'
+        },
+        {
+          key: 's2',
+          title: titles.s2,
+          explanation: 'BM = จำนวนครั้ง /s2, /opp online และ /opp onsite ที่บันทึกในปีบัญชี'
+        },
+        {
+          key: 'for',
+          title: titles.for,
+          explanation: 'สายรวม = ผลรวมจำนวนสาย N ที่บันทึกด้วย /for ในปีบัญชี'
+        },
+        {
+          key: 's3',
+          title: titles.s3,
+          explanation: 'คะแนนรวมจาก /pin ที่บันทึกในปีบัญชี'
+        },
+        {
+          key: 's4',
+          title: titles.s4,
+          explanation: 'คะแนนรวมจากคำสั่งในหมวด S4 ที่บันทึกในปีบัญชี'
+        }
+      ].forEach(({ key, title, explanation }) => {
         const card = document.createElement('article');
         card.className = 'title-card';
         const name = document.createElement('span');
         name.className = 'title-name';
         name.textContent = title.title;
+        const nameGroup = document.createElement('div');
+        nameGroup.className = 'title-name-group';
+        const help = document.createElement('details');
+        help.className = 'title-help';
+        const helpButton = document.createElement('summary');
+        helpButton.textContent = 'i';
+        helpButton.setAttribute('aria-label', 'ดูวิธีคิดคะแนน');
+        const explanationText = document.createElement('div');
+        explanationText.className = 'title-explanation';
+        explanationText.id = `title-explanation-${key}`;
+        explanationText.textContent = explanation;
+        helpButton.setAttribute('aria-controls', explanationText.id);
+        help.append(helpButton, explanationText);
+        nameGroup.append(name, help);
         const metric = document.createElement('strong');
         metric.className = 'title-metric';
         const value = formatPoints(title.value);
@@ -420,7 +462,7 @@
               ? 'BM'
             : 'คำสั่ง';
         metric.textContent = `${value} ${unit}`;
-        card.append(name, metric);
+        card.append(nameGroup, metric);
         container.appendChild(card);
       });
 
@@ -555,7 +597,8 @@
           document.getElementById(key).textContent = formatPoints(data.scores[key]);
         });
         document.getElementById('total').textContent = formatPoints(data.scores.total);
-        const countSince = payload.meta?.countSince || '2026-11';
+        const countSince = payload.meta?.countSince || '2026-09';
+        const fiscalYearLabel = payload.meta?.fiscalYearLabel || '69/70';
         const currentMonth = payload.meta?.currentMonth || payload.meta?.ym;
         const displayMonth = new Intl.DateTimeFormat('th-TH', {
           month: 'short',
@@ -566,9 +609,9 @@
         const selectedMonthLabel = displayMonth.format(new Date(`${payload.meta?.ym}-01T00:00:00Z`));
         const isCumulative = payload.meta?.scope === 'cumulative';
         const periodLabel = isCumulative
-          ? `สะสมตั้งแต่ ${displayMonth.format(new Date(`${countSince}-01T00:00:00Z`))}`
+          ? `คะแนนปีบัญชี ${fiscalYearLabel}`
           : `คะแนนเดือน ${selectedMonthLabel}`;
-        document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนสะสม`;
+        document.getElementById('level-points').textContent = `${formatPoints(cumulativePoints)} คะแนนปีบัญชี ${fiscalYearLabel}`;
         document.getElementById('period').textContent = periodLabel;
         const ppvMonthLabel = isCumulative ? `เดือนนี้ · ${currentMonthLabel}` : `เดือน ${selectedMonthLabel}`;
         const achievementMonthLabel = isCumulative ? `เดือนนี้ · ${currentMonthLabel}` : `เดือน ${selectedMonthLabel}`;
@@ -577,7 +620,16 @@
           'aria-label',
           `${achievementMonthLabel} · Amway Business Owner`
         );
-        renderCommandCounts(data.commandCounts, countSince, data.monthlyPpv, ppvMonthLabel, achievementMonthLabel, data.titles);
+        renderCommandCounts(
+          data.commandCounts,
+          countSince,
+          data.monthlyPpv,
+          ppvMonthLabel,
+          achievementMonthLabel,
+          data.titles,
+          isCumulative ? `ปีบัญชี ${fiscalYearLabel}` : `เดือน ${selectedMonthLabel}`,
+          isCumulative
+        );
         activityDateSelect.max = payload.meta?.today || '';
         renderEvents(data.activityEvents, payload.meta?.activityDate);
         profileEl.hidden = false;
@@ -600,6 +652,7 @@
         if(!monthsResponse.ok) throw new Error(monthsPayload.error || 'โหลดรายการเดือนไม่สำเร็จ');
         const rows = Array.isArray(payload.data) ? payload.data : [];
         const months = Array.isArray(monthsPayload.months) ? monthsPayload.months : [];
+        const fiscalYear = monthsPayload.fiscalYear || { startMonth: '2026-09', label: '69/70' };
         memberSelect.replaceChildren();
         const placeholder = document.createElement('option');
         placeholder.value = '';
@@ -615,10 +668,10 @@
         periodSelect.replaceChildren();
         const cumulativeOption = document.createElement('option');
         cumulativeOption.value = 'cumulative';
-        cumulativeOption.textContent = 'สะสมตั้งแต่ พ.ย. 2569';
+        cumulativeOption.textContent = `ปีบัญชี ${fiscalYear.label}`;
         periodSelect.appendChild(cumulativeOption);
         months.forEach((month) => {
-          if(!/^\d{4}-\d{2}$/.test(month) || month < '2026-11') return;
+          if(!/^\d{4}-\d{2}$/.test(month) || month < '2026-09') return;
           const option = document.createElement('option');
           option.value = month;
           option.textContent = new Intl.DateTimeFormat('th-TH', {
@@ -628,6 +681,7 @@
           }).format(new Date(`${month}-01T00:00:00Z`));
           periodSelect.appendChild(option);
         });
+        periodSelect.value = monthsPayload.current;
         periodSelect.disabled = false;
         showStatus(rows.length ? 'เลือกชื่อและช่วงคะแนนที่ต้องการดู' : 'ยังไม่มีคะแนนสะสมของสมาชิก');
       } catch(error) {

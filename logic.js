@@ -241,6 +241,19 @@ function monthKey(date = new Date()) {
   return `${parts.year}-${parts.month}`;
 }
 
+function getFiscalYearRange(forMonth = monthKey()) {
+  const [year, month] = forMonth.split('-').map(Number);
+  const startYear = month >= 9 ? year : year - 1;
+  const endYear = startYear + 1;
+  const startBuddhistYear = startYear + 543;
+  const endBuddhistYear = endYear + 543;
+  return {
+    startMonth: `${startYear}-09`,
+    endMonth: `${endYear}-09`,
+    label: `${String(startBuddhistYear).slice(-2)}/${String(endBuddhistYear).slice(-2)}`
+  };
+}
+
 function roundTo(value, precision = 2) {
   const factor = Math.pow(10, precision);
   return Math.round(Number(value || 0) * factor) / factor;
@@ -621,7 +634,7 @@ async function getMonthEvents(mk) {
   }
 }
 
-async function getEventsSinceMonth(startMonth, userId = null) {
+async function getEventsSinceMonth(startMonth, userId = null, endMonth = null) {
   await dbReady;
   const pageSize = 1000;
   const rows = [];
@@ -634,6 +647,7 @@ async function getEventsSinceMonth(startMonth, userId = null) {
       .gte('month_key', startMonth)
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
+    if (endMonth) query = query.lt('month_key', endMonth);
     if (userId) query = query.eq('user_id', userId);
     const { data, error } = await query;
     if (error) throw new Error(error.message || 'Failed to fetch cumulative events');
@@ -1055,8 +1069,9 @@ async function monthsHandler(req, res) {
     res.set('Cache-Control', 'no-store');
     const months = await getDistinctMonths();
     const current = monthKey();
+    const fiscalYear = getFiscalYearRange(current);
     const unique = Array.from(new Set([current, ...months]));
-    res.json({ months: unique, current });
+    res.json({ months: unique, current, fiscalYear });
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Failed to load months' });
   }
@@ -1684,14 +1699,19 @@ async function profileHandler(req, res) {
     }
     const targetMonth = /^\d{4}-\d{2}$/.test(ym) ? ym : monthKey();
     const currentMonth = monthKey();
+    const fiscalYear = getFiscalYearRange(currentMonth);
     const events = await getMonthEvents(targetMonth);
     const userEvents = events.filter((event) => event.user_id === userId);
     const currentEvents = targetMonth === currentMonth
       ? events
       : await getMonthEvents(currentMonth);
     const currentUserEvents = currentEvents.filter((event) => event.user_id === userId);
-    const cumulativeEvents = await getEventsSinceMonth(CUMULATIVE_RANKING_START_MONTH, userId);
-    if (!userEvents.length && !currentUserEvents.length && !cumulativeEvents.length) {
+    const fiscalYearEvents = await getEventsSinceMonth(
+      fiscalYear.startMonth,
+      userId,
+      fiscalYear.endMonth
+    );
+    if (!userEvents.length && !currentUserEvents.length && !fiscalYearEvents.length) {
       return res.status(404).json({ error: 'Profile not found for this month' });
     }
     const activityMonth = activityDate.slice(0, 7);
@@ -1715,33 +1735,35 @@ async function profileHandler(req, res) {
         timestamp: event.timestamp
       }));
 
-    const scoreEvents = scope === 'cumulative' ? cumulativeEvents : userEvents;
+    const scoreEvents = scope === 'cumulative' ? fiscalYearEvents : userEvents;
     const profile = aggregateEventsByUser(scoreEvents)[0] || { points: 0 };
-    const identityEvent = userEvents[0] || currentUserEvents[0] || cumulativeEvents[0];
+    const identityEvent = userEvents[0] || currentUserEvents[0] || fiscalYearEvents[0];
     const categoryPoints = getCategoryPointsByUser(scoreEvents).get(userId)
       || { s1: 0, s2: 0, s3: 0, s4: 0 };
     const cumulativePoints = roundTo(
-      cumulativeEvents.reduce((total, event) => total + Number(event.points || 0), 0),
+      fiscalYearEvents.reduce((total, event) => total + Number(event.points || 0), 0),
       2
     );
-    const commandCounts = getTrackedCommandCounts(cumulativeEvents);
+    const commandCounts = getTrackedCommandCounts(fiscalYearEvents);
     const achievementMonthEvents = scope === 'cumulative' ? currentUserEvents : userEvents;
-    const titles = getProfileTitles(cumulativeEvents, achievementMonthEvents);
-    for (const group of commandCounts) {
-      for (const command of group.commands) {
-        if (command.command === '/s1') command.count = getCommandEventCount(achievementMonthEvents, ['/s1']);
-        if (command.command === '/s2') command.count = getCommandEventCount(achievementMonthEvents, ['/s2']);
-        if (command.command === '/for') command.count = getCommandPoints(achievementMonthEvents, '/for');
-        if (command.command === '/opp online') command.count = getCommandEventCount(achievementMonthEvents, ['/opp online']);
-        if (command.command === '/opp onsite') command.count = getCommandEventCount(achievementMonthEvents, ['/opp onsite']);
-        if (command.command === '/link') command.count = getCommandEventCount(achievementMonthEvents, ['/link']);
-        if (command.command === '/book') command.count = getCommandEventCount(achievementMonthEvents, ['/book']);
-        if (command.command === '/dm') command.count = getCommandEventCount(achievementMonthEvents, ['/dm']);
-        if (command.command === '/product') command.count = getCommandEventCount(achievementMonthEvents, ['/product']);
-        if (command.command === '/ct') command.count = getCommandEventCount(achievementMonthEvents, ['/ct']);
-        if (command.command === '/s4') command.count = getCommandEventCount(achievementMonthEvents, ['/s4']);
-        if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
-        if (command.command === '/m') command.count = titles.businessOwner.monthlyMemberCount;
+    const titles = getProfileTitles(fiscalYearEvents, achievementMonthEvents);
+    if (scope !== 'cumulative') {
+      for (const group of commandCounts) {
+        for (const command of group.commands) {
+          if (command.command === '/s1') command.count = getCommandEventCount(achievementMonthEvents, ['/s1']);
+          if (command.command === '/s2') command.count = getCommandEventCount(achievementMonthEvents, ['/s2']);
+          if (command.command === '/for') command.count = getCommandPoints(achievementMonthEvents, '/for');
+          if (command.command === '/opp online') command.count = getCommandEventCount(achievementMonthEvents, ['/opp online']);
+          if (command.command === '/opp onsite') command.count = getCommandEventCount(achievementMonthEvents, ['/opp onsite']);
+          if (command.command === '/link') command.count = getCommandEventCount(achievementMonthEvents, ['/link']);
+          if (command.command === '/book') command.count = getCommandEventCount(achievementMonthEvents, ['/book']);
+          if (command.command === '/dm') command.count = getCommandEventCount(achievementMonthEvents, ['/dm']);
+          if (command.command === '/product') command.count = getCommandEventCount(achievementMonthEvents, ['/product']);
+          if (command.command === '/ct') command.count = getCommandEventCount(achievementMonthEvents, ['/ct']);
+          if (command.command === '/s4') command.count = getCommandEventCount(achievementMonthEvents, ['/s4']);
+          if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
+          if (command.command === '/m') command.count = titles.businessOwner.monthlyMemberCount;
+        }
       }
     }
     const pictureUrl = await getLineProfilePicture(userId);
@@ -1752,7 +1774,8 @@ async function profileHandler(req, res) {
         currentMonth,
         today: localDateKey(),
         activityDate,
-        countSince: CUMULATIVE_RANKING_START_MONTH
+        countSince: fiscalYear.startMonth,
+        fiscalYearLabel: fiscalYear.label
       },
       data: {
         display_name: profile.display_name || identityEvent?.display_name || 'สมาชิก',
