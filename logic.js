@@ -889,7 +889,7 @@ function getProfileTitles(cumulativeEvents, monthlyEvents) {
         { max: Infinity, title: '🔥 Master of Business Model' }
       ]),
       value: s2Value,
-      unit: 'คำสั่ง'
+      unit: 'BM'
     },
     for: {
       title: selectTitle(forValue, [
@@ -1731,11 +1731,15 @@ async function profileHandler(req, res) {
       for (const command of group.commands) {
         if (command.command === '/s1') command.count = getCommandEventCount(achievementMonthEvents, ['/s1']);
         if (command.command === '/s2') command.count = getCommandEventCount(achievementMonthEvents, ['/s2']);
+        if (command.command === '/for') command.count = getCommandPoints(achievementMonthEvents, '/for');
+        if (command.command === '/opp online') command.count = getCommandEventCount(achievementMonthEvents, ['/opp online']);
+        if (command.command === '/opp onsite') command.count = getCommandEventCount(achievementMonthEvents, ['/opp onsite']);
         if (command.command === '/link') command.count = getCommandEventCount(achievementMonthEvents, ['/link']);
         if (command.command === '/book') command.count = getCommandEventCount(achievementMonthEvents, ['/book']);
         if (command.command === '/dm') command.count = getCommandEventCount(achievementMonthEvents, ['/dm']);
         if (command.command === '/product') command.count = getCommandEventCount(achievementMonthEvents, ['/product']);
         if (command.command === '/ct') command.count = getCommandEventCount(achievementMonthEvents, ['/ct']);
+        if (command.command === '/s4') command.count = getCommandEventCount(achievementMonthEvents, ['/s4']);
         if (command.command === '/abo') command.count = titles.businessOwner.monthlyAboCount;
         if (command.command === '/m') command.count = titles.businessOwner.monthlyMemberCount;
       }

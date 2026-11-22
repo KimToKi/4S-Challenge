@@ -77,9 +77,9 @@
     .total strong{color:#f1d27a;font-size:24px;font-variant-numeric:tabular-nums}
     .title-section{margin-top:12px}
     .title-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
-    .title-card{display:grid;gap:4px;min-width:0;padding:8px 10px;border:1px solid #3b342a;border-bottom:1px solid #3b342a;border-radius:10px;background:#100e0c;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+    .title-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;padding:8px 10px;color:#c5bcae;font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
     .title-name{color:#e8ddc8}
-    .title-metric{color:var(--muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
+    .title-metric{color:var(--muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     .business-owner{display:grid;gap:3px;margin-top:5px;color:#77736d}
     .business-owner-title{font-size:11px;font-weight:550}
     .business-owner.is-unlocked .business-owner-title{color:#dfc778}
@@ -125,10 +125,15 @@
       .scores{grid-template-columns:repeat(2,minmax(0,1fr))}
       .title-cards{grid-template-columns:1fr}
       .command-groups{grid-template-columns:1fr}
-      .event{grid-template-columns:1fr auto;gap:7px 10px}
+      .activity-head{flex-wrap:wrap;gap:8px;margin-bottom:10px}
+      .activity-head h2{font-size:16px}
+      .activity-date-control{gap:5px;font-size:12px}
+      .activity-date-control input{width:128px;min-height:36px;padding:5px 7px;font-size:12px}
+      .events{gap:0}
+      .event{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:10px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent}
       .command{grid-column:1}
-      .event-meta{grid-column:2;grid-row:1}
-      .detail{grid-column:1/-1}
+      .event-meta{grid-column:2;grid-row:1;font-size:11px;white-space:normal}
+      .detail{grid-column:1/-1;font-size:13px;line-height:1.4}
     }
   </style>
 </head>
@@ -199,7 +204,7 @@
             <span id="command-period" class="command-period"></span>
           </div>
           <div id="command-groups" class="command-groups" aria-live="polite"></div>
-          <p class="command-note">แถบ /s1 และ /s2 เต็มที่ 15 คำสั่งต่อเดือน · /for รวมจำนวน N สาย</p>
+          <p class="command-note">แถบ /s1 และ /s2 เต็มที่ 15 คำสั่งต่อเดือน · /pin เต็มที่ 100 คะแนนสะสม · /for รวมจำนวน N สาย</p>
         </section>
       </div>
     </section>
@@ -273,10 +278,19 @@
       });
     }
 
-    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel){
+    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles){
       const container = document.getElementById('command-groups');
       container.replaceChildren();
       const groups = Array.isArray(rows) ? rows : [];
+      const commandRows = groups.flatMap((group) => group.commands || []);
+      const getCommandCount = (command) => Number(
+        commandRows.find((row) => row.command === command)?.count || 0
+      );
+      const followCount = getCommandCount('/follow');
+      const forCount = getCommandCount('/for');
+      const aboAndMemberCount = getCommandCount('/abo') + getCommandCount('/m');
+      const followTarget = 10 + Number(titles?.s1?.value || 0)
+        + Number(titles?.s2?.value || 0) + aboAndMemberCount ** 2;
       document.getElementById('command-period').textContent = `ตั้งแต่ ${since || ''}`;
       const sinceLabel = /^\d{4}-\d{2}$/.test(since || '')
         ? new Intl.DateTimeFormat('th-TH', { month: 'short', year: 'numeric', timeZone: 'UTC' })
@@ -296,13 +310,23 @@
         commands.forEach((row) => {
           const count = Math.max(0, Number(row.count) || 0);
           const monthlyTarget = row.command === '/s1' || row.command === '/s2' ? 15
+            : row.command === '/for' ? 50
             : row.command === '/link' || row.command === '/book'
               || row.command === '/dm' || row.command === '/product' ? 30
             : row.command === '/abo' ? 4
               : row.command === '/ct' ? 4
+                : row.command === '/s4' ? 5
               : row.command === '/m' ? 5
                 : null;
-          const barMaximum = monthlyTarget || maximum;
+          const cumulativeTarget = row.command === '/pin' ? 100 : null;
+          const dynamicTarget = row.command === '/follow' ? followTarget
+            : row.command === '/hm' && followCount > 0 ? followCount * 0.2
+              : null;
+          const dynamicMonthlyTarget = row.command === '/opp online' && forCount > 0 ? forCount * 0.3
+            : row.command === '/opp onsite' && forCount > 0 ? forCount * 0.2
+              : null;
+          const progressTarget = monthlyTarget ?? dynamicMonthlyTarget ?? cumulativeTarget ?? dynamicTarget;
+          const barMaximum = progressTarget === null ? maximum : Math.max(progressTarget, 1);
           const percent = barMaximum ? Math.min(count / barMaximum * 100, 100) : 0;
           const item = document.createElement('div');
           item.className = 'command-row';
@@ -335,14 +359,26 @@
           value.className = 'command-count';
           value.textContent = monthlyTarget
             ? `${formatPoints(count)} / ${monthlyTarget} ${achievementMonthLabel}`
-            : formatPoints(count);
+            : dynamicMonthlyTarget !== null
+              ? `${formatPoints(count)} / ${formatPoints(dynamicMonthlyTarget)} ${achievementMonthLabel}`
+            : cumulativeTarget
+              ? `${formatPoints(count)} / ${cumulativeTarget} คะแนนสะสม`
+              : dynamicTarget !== null
+                ? `${formatPoints(count)} / ${formatPoints(dynamicTarget)} ครั้งสะสม`
+                : formatPoints(count);
           head.appendChild(value);
           const track = document.createElement('div');
           track.className = 'command-track';
           track.setAttribute('role', 'progressbar');
           track.setAttribute('aria-label', monthlyTarget
             ? `${label.textContent} ความคืบหน้าประจำเดือน`
-            : `${label.textContent} จำนวนคำสั่ง`);
+            : dynamicMonthlyTarget !== null
+              ? `${label.textContent} ความคืบหน้าประจำเดือน`
+            : cumulativeTarget
+              ? `${label.textContent} ความคืบหน้าสะสม`
+              : dynamicTarget !== null
+                ? `${label.textContent} ความคืบหน้าสะสม`
+                : `${label.textContent} จำนวนคำสั่ง`);
           track.setAttribute('aria-valuemin', '0');
           track.setAttribute('aria-valuemax', String(barMaximum || 1));
           track.setAttribute('aria-valuenow', String(Math.min(count, barMaximum || count)));
@@ -380,6 +416,8 @@
           ? 'คะแนน'
           : title.unit === 'สาย'
             ? 'สาย'
+            : title.unit === 'BM'
+              ? 'BM'
             : 'คำสั่ง';
         metric.textContent = `${value} ${unit}`;
         card.append(name, metric);
@@ -539,7 +577,7 @@
           'aria-label',
           `${achievementMonthLabel} · Amway Business Owner`
         );
-        renderCommandCounts(data.commandCounts, countSince, data.monthlyPpv, ppvMonthLabel, achievementMonthLabel);
+        renderCommandCounts(data.commandCounts, countSince, data.monthlyPpv, ppvMonthLabel, achievementMonthLabel, data.titles);
         activityDateSelect.max = payload.meta?.today || '';
         renderEvents(data.activityEvents, payload.meta?.activityDate);
         profileEl.hidden = false;
