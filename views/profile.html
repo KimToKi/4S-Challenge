@@ -72,8 +72,6 @@
     .score{padding:16px;border:1px solid #4a3c25;border-radius:12px;background:#100e0c}
     .score.is-burning{border-color:#9c572d;box-shadow:0 0 16px #f0782430}
     .score-label{display:block;color:#e8ddc8;font-size:13px}
-    .fire-indicator{margin-left:5px;font-size:14px;filter:drop-shadow(0 0 5px #ff8b32)}
-    .fire-indicator[hidden]{display:none}
     .score-value{display:block;margin-top:7px;color:#f1d27a;font-size:25px;font-weight:850;font-variant-numeric:tabular-nums}
     .total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:16px;border:1px solid #9a792c;border-radius:12px;background:#211b12}
     .total span{color:#e8ddc8}
@@ -105,6 +103,7 @@
     .command-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .command-group{min-width:0;padding:14px;border:1px solid #3b342a;border-radius:12px;background:#171411}
     .command-group h3{margin:0 0 12px;color:var(--level-accent);font-size:14px}
+    .command-fire-indicator{margin-left:5px;filter:drop-shadow(0 0 5px #ff8b32)}
     .command-bars{display:grid;gap:12px}
     .command-row{min-width:0}
     .command-row-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:13px}
@@ -219,10 +218,10 @@
         </section>
         <p id="period" class="period"></p>
         <div class="scores" aria-label="คะแนนแยกตามหมวด 4S">
-          <article class="score"><span class="score-label">S1 · สินค้า<span id="s1-fire" class="fire-indicator" aria-label="ไฟ S1 ติด" hidden>🔥</span></span><strong id="s1" class="score-value">0</strong></article>
-          <article class="score"><span class="score-label">S2 · คน<span id="s2-fire" class="fire-indicator" aria-label="ไฟ S2 ติด" hidden>🔥</span></span><strong id="s2" class="score-value">0</strong></article>
-          <article class="score"><span class="score-label">S3 · ความสำเร็จ<span id="s3-fire" class="fire-indicator" aria-label="ไฟ S3 ติด" hidden>🔥</span></span><strong id="s3" class="score-value">0</strong></article>
-          <article class="score"><span class="score-label">S4 · พัฒนา<span id="s4-fire" class="fire-indicator" aria-label="ไฟ S4 ติด" hidden>🔥</span></span><strong id="s4" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S1 · สินค้า</span><strong id="s1" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S2 · คน</span><strong id="s2" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S3 · ความสำเร็จ</span><strong id="s3" class="score-value">0</strong></article>
+          <article class="score"><span class="score-label">S4 · พัฒนา</span><strong id="s4" class="score-value">0</strong></article>
         </div>
         <div class="total"><span>คะแนนรวม</span><strong id="total">0</strong></div>
         <section class="title-section" aria-label="ความสำเร็จจากยอดสะสม">
@@ -307,7 +306,7 @@
       });
     }
 
-    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles, periodLabel, isFiscalYear, fiscalMonths){
+    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles, periodLabel, isFiscalYear, fiscalMonths, fires){
       const container = document.getElementById('command-groups');
       container.replaceChildren();
       const groups = Array.isArray(rows) ? rows : [];
@@ -330,6 +329,13 @@
         groupEl.className = 'command-group';
         const heading = document.createElement('h3');
         heading.textContent = group.label || group.category;
+        if(group.category === 's4' && fires?.s4){
+          const fire = document.createElement('span');
+          fire.className = 'command-fire-indicator';
+          fire.textContent = '🔥';
+          fire.setAttribute('aria-label', 'ไฟ S4 ติด');
+          heading.appendChild(fire);
+        }
         const commandBars = document.createElement('div');
         commandBars.className = 'command-bars';
         const commands = Array.isArray(group.commands) ? group.commands : [];
@@ -586,9 +592,7 @@
         }
         ['s1', 's2', 's3', 's4'].forEach((key) => {
           document.getElementById(key).textContent = formatPoints(data.scores[key]);
-          const lit = data.fires[key];
-          document.getElementById(`${key}-fire`).hidden = !lit;
-          document.getElementById(key).closest('.score').classList.toggle('is-burning', lit);
+          document.getElementById(key).closest('.score').classList.toggle('is-burning', Boolean(data.fires[key]));
         });
         document.getElementById('total').textContent = formatPoints(data.scores.total);
         const countSince = payload.meta?.countSince || '2026-09';
@@ -623,7 +627,8 @@
           data.titles,
           isCumulative ? `ปีบัญชี ${fiscalYearLabel}` : `เดือน ${selectedMonthLabel}`,
           isCumulative,
-          Number(payload.meta?.fiscalMonths) || 12
+          Number(payload.meta?.fiscalMonths) || 12,
+          data.fires
         );
         activityDateSelect.max = payload.meta?.today || '';
         renderEvents(data.activityEvents, payload.meta?.activityDate);
