@@ -348,8 +348,8 @@
           const dynamicTarget = row.command === '/follow' ? followTarget
             : row.command === '/hm' && followCount > 0 ? Math.ceil(followCount * 0.2)
               : null;
-          const dynamicMonthlyTarget = row.command === '/opp online' && forCount > 0 ? Math.ceil(forCount * 0.3)
-            : row.command === '/opp onsite' && forCount > 0 ? Math.ceil(forCount * 0.2)
+          const dynamicMonthlyTarget = row.command === '/opp online' && forCount > 0 ? Math.ceil(forCount * 0.2)
+            : row.command === '/opp onsite' && forCount > 0 ? Math.ceil(forCount * 0.1)
               : null;
           const annualTarget = row.command === '/pin' ? 100
             : row.command === '/follow' ? followTarget
