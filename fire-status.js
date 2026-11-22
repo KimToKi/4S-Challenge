@@ -96,4 +96,15 @@ function getFireStatusesByDate(events, { getDateKey }) {
   }));
 }
 
-module.exports = { getFireStatuses, getFireStatusesByDate };
+function selectRankDisplayRows(rankedRows, firesByUser, limit) {
+  const topUsers = new Set(rankedRows.slice(0, limit).map((row) => row.user_id));
+  return rankedRows
+    .map((row) => ({
+      ...row,
+      rankFire: firesByUser.get(row.user_id)?.rank === true
+    }))
+    .filter((row) => topUsers.has(row.user_id) || row.rankFire)
+    .sort((a, b) => Number(b.rankFire) - Number(a.rankFire) || a.rank - b.rank);
+}
+
+module.exports = { getFireStatuses, getFireStatusesByDate, selectRankDisplayRows };

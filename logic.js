@@ -1,6 +1,10 @@
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
-const { getFireStatuses, getFireStatusesByDate } = require('./fire-status');
+const {
+  getFireStatuses,
+  getFireStatusesByDate,
+  selectRankDisplayRows
+} = require('./fire-status');
 require('dotenv').config();
 
 const supabaseUrl = process.env.SUPABASE_URL
@@ -997,6 +1001,17 @@ async function getTop10(mk, limit = 10) {
     .map((r) => ({ ...r, points: roundTo(r.points, 2) }));
 }
 
+async function getTopWithRankFires(mk, limit) {
+  const events = await getMonthEvents(mk);
+  const firesByUser = getFireStatuses(events, {
+    today: localDateKey(),
+    currentMonth: mk,
+    getDateKey: localDateKey
+  });
+  const ranking = rankAndLimit(aggregateEventsByUser(events));
+  return selectRankDisplayRows(ranking, firesByUser, limit);
+}
+
 async function getCumulativeTop10(limit = 10) {
   const startMonth = CUMULATIVE_RANKING_START_MONTH;
   const events = await getEventsSinceMonth(startMonth);
@@ -1109,15 +1124,16 @@ async function monthsHandler(req, res) {
 
 async function buildWeeklySummaryText() {
   const mk = monthKey();
-  const top = await getTop10(mk);
+  const top = await getTopWithRankFires(mk, 10);
   const today = new Date().toISOString().slice(0, 10);
   const lines = [`📣 อัปเดตอันดับรายสัปดาห์ (${today})`];
   if (!top.length) {
     lines.push(`ยังไม่มีคะแนนในเดือน ${mk} — เริ่มกันเลย! ✨`);
   } else {
     lines.push(`🏆 Top 10 เดือน ${mk}`);
-    top.forEach((row, idx) => {
-      lines.push(`${idx + 1}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`);
+    top.forEach((row) => {
+      const fire = row.rankFire ? '🔥 ' : '';
+      lines.push(`${row.rank}. ${fire}${row.display_name} — ${formatPoints(row.points)} คะแนน`);
     });
     lines.push('💪 เก็บโมเมนตัมกันต่อ!');
   }
@@ -1425,14 +1441,17 @@ async function handleEvent(evt) {
   }
 
   if (cmd === '/rank') {
-    const top = await getTop10(mk, 3);
+    const top = await getTopWithRankFires(mk, 3);
     const countdown = await getMonthlyCountdownStatus(mk);
     if (!top.length) {
       await reply(evt.replyToken, `${pickMsg('rank_no_data', { month: mk })}\n\n${formatCountdownStatus(countdown)}`);
       return;
     }
     const lines = [pickMsg('rank_header', { month: mk }) || `🏆 Top 3 เดือน ${mk}`];
-    top.forEach((row) => lines.push(`${row.rank}. ${row.display_name} — ${formatPoints(row.points)} คะแนน`));
+    top.forEach((row) => {
+      const fire = row.rankFire ? '🔥 ' : '';
+      lines.push(`${row.rank}. ${fire}${row.display_name} — ${formatPoints(row.points)} คะแนน`);
+    });
     lines.push('', formatCountdownStatus(countdown), '', `ดูอันดับแบบเรียลไทม์: ${publicBaseUrl()}/`);
     await reply(evt.replyToken, lines.join('\n'));
     return;

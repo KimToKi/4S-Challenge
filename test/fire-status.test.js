@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getFireStatuses, getFireStatusesByDate } = require('../fire-status');
+const {
+  getFireStatuses,
+  getFireStatusesByDate,
+  selectRankDisplayRows
+} = require('../fire-status');
 
 const today = '2026-11-22';
 const currentMonth = today.slice(0, 7);
@@ -12,6 +16,33 @@ const event = (user_id, command, timestamp = `${today}T12:00:00Z`, detail = '', 
   points
 });
 const getDateKey = (date) => date.toISOString().slice(0, 10);
+
+test('rank display adds all rank-fire users and places them before higher-ranked users without fire', () => {
+  const ranking = [
+    { user_id: 'user-1', rank: 1 },
+    { user_id: 'user-2', rank: 2 },
+    { user_id: 'user-3', rank: 3 },
+    { user_id: 'user-4', rank: 4 }
+  ];
+  const fires = new Map([
+    ['user-2', { rank: true }],
+    ['user-4', { rank: true }]
+  ]);
+
+  assert.deepEqual(
+    selectRankDisplayRows(ranking, fires, 3).map(({ user_id, rank, rankFire }) => ({
+      user_id,
+      rank,
+      rankFire
+    })),
+    [
+      { user_id: 'user-2', rank: 2, rankFire: true },
+      { user_id: 'user-4', rank: 4, rankFire: true },
+      { user_id: 'user-1', rank: 1, rankFire: false },
+      { user_id: 'user-3', rank: 3, rankFire: false }
+    ]
+  );
+});
 
 test('lights category fires and the rank fire when all four are active', () => {
   const statuses = getFireStatuses([
