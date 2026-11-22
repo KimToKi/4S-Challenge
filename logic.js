@@ -247,9 +247,11 @@ function getFiscalYearRange(forMonth = monthKey()) {
   const endYear = startYear + 1;
   const startBuddhistYear = startYear + 543;
   const endBuddhistYear = endYear + 543;
+  const startMonth = `${startYear}-09`;
   return {
-    startMonth: `${startYear}-09`,
+    startMonth,
     endMonth: `${endYear}-09`,
+    targetMonths: startMonth === '2026-09' ? 10 : 12,
     label: `${String(startBuddhistYear).slice(-2)}/${String(endBuddhistYear).slice(-2)}`
   };
 }
@@ -727,7 +729,7 @@ async function monthlyMissionsHandler(req, res) {
       const command = String(event.command || '').trim().toLowerCase();
       return command === '/s2' || command === '/opp onsite';
     });
-    const annualTarget = 50 * (fiscalYear.startMonth === '2026-09' ? 10 : 12);
+    const annualTarget = 50 * fiscalYear.targetMonths;
     const status = scope === 'fiscal'
       ? {
         productCasesDone: productEvents.length,
@@ -1792,7 +1794,8 @@ async function profileHandler(req, res) {
         today: localDateKey(),
         activityDate,
         countSince: fiscalYear.startMonth,
-        fiscalYearLabel: fiscalYear.label
+        fiscalYearLabel: fiscalYear.label,
+        fiscalMonths: fiscalYear.targetMonths
       },
       data: {
         display_name: profile.display_name || identityEvent?.display_name || 'สมาชิก',

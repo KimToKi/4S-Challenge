@@ -26,7 +26,6 @@
     .toolbar label{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
     .toolbar select,.toolbar input[type="month"]{min-height:40px;padding:8px 11px;border:1px solid #67542b;border-radius:9px;background:#100e0c;color:var(--ink);font:inherit}
     .toolbar select:focus-visible,.toolbar input:focus-visible{outline:3px solid #e7a0a5;outline-offset:2px}
-    .month-label{color:var(--gold);font-size:14px;font-weight:700}
     .status{margin:16px 0 0;color:var(--muted);font-size:14px}
     .status.error{color:#ffaaa1}
     .missions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
@@ -80,7 +79,6 @@
       .toolbar-controls{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}
       .toolbar label{display:grid;gap:4px;font-size:12px}
       .toolbar select,.toolbar input[type="month"]{width:100%;min-width:0;min-height:38px;padding:7px 8px;font-size:13px}
-      .month-label{align-self:end;padding-bottom:10px;font-size:12px;text-align:right}
       .progress-count{font-size:19px}
       .case-top{align-items:flex-start;flex-direction:column;gap:2px}
       .case-date{text-align:left}
@@ -112,7 +110,6 @@
           <input id="month" type="month">
         </label>
       </div>
-      <span id="month-label" class="month-label"></span>
     </section>
     <p id="status" class="status" role="status" aria-live="polite">กำลังค้นหาภารกิจ...</p>
 
@@ -269,9 +266,6 @@
         document.getElementById('missions-title').textContent = isFiscal
           ? '🗺️ ภารกิจล่าสมบัติปีบัญชี'
           : '🗺️ ภารกิจล่าสมบัติประจำเดือน';
-        document.getElementById('month-label').textContent = isFiscal
-          ? `ปีบัญชี ${payload.meta?.fiscalYearLabel || ''}`
-          : `เดือน ${payload.meta?.ym || ''}`;
         renderMissionProgress('treasure', data.countdown.productCasesDone, data.countdown.productPhase, data.countdown.productCasesRemaining, annualTarget);
         renderMissionProgress('diamond', data.countdown.businessCasesDone, data.countdown.businessPhase, data.countdown.businessCasesRemaining, annualTarget);
         renderCases('treasure-cases', data.treasureCases, 'treasure', periodName);

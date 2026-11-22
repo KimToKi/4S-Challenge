@@ -304,7 +304,7 @@
       });
     }
 
-    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles, periodLabel, isFiscalYear){
+    function renderCommandCounts(rows, since, monthlyPpv, ppvMonthLabel, achievementMonthLabel, titles, periodLabel, isFiscalYear, fiscalMonths){
       const container = document.getElementById('command-groups');
       container.replaceChildren();
       const groups = Array.isArray(rows) ? rows : [];
@@ -352,10 +352,11 @@
             : row.command === '/opp onsite' && forCount > 0 ? Math.ceil(forCount * 0.1)
               : null;
           const annualTarget = row.command === '/pin' ? 100
-            : row.command === '/follow' ? followTarget
-              : row.command === '/hm' ? dynamicTarget
-                : row.command === '/opp online' || row.command === '/opp onsite' ? dynamicMonthlyTarget
-                  : monthlyTarget !== null ? monthlyTarget * 12
+            : row.command === '/follow' ? followTarget * fiscalMonths
+              : row.command === '/hm' ? dynamicTarget === null ? null : dynamicTarget * fiscalMonths
+                : row.command === '/opp online' || row.command === '/opp onsite'
+                  ? dynamicMonthlyTarget === null ? null : dynamicMonthlyTarget * fiscalMonths
+                  : monthlyTarget !== null ? monthlyTarget * fiscalMonths
                     : null;
           const progressTarget = isFiscalYear
             ? annualTarget
@@ -614,7 +615,8 @@
           achievementMonthLabel,
           data.titles,
           isCumulative ? `ปีบัญชี ${fiscalYearLabel}` : `เดือน ${selectedMonthLabel}`,
-          isCumulative
+          isCumulative,
+          Number(payload.meta?.fiscalMonths) || 12
         );
         activityDateSelect.max = payload.meta?.today || '';
         renderEvents(data.activityEvents, payload.meta?.activityDate);
