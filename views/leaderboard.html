@@ -66,6 +66,9 @@
     .rank-n{background:#2b1718;color:#f0b5ac;border:1px solid #71333a}
     .points{font-weight:800;color:#f1d27a;font-variant-numeric:tabular-nums}
     .name{font-weight:600}
+    .member-name-link{color:inherit;text-decoration:none;overflow-wrap:anywhere}
+    .member-name-link:hover{text-decoration:underline}
+    .member-name-link:focus-visible{outline:2px solid #f1d27a;outline-offset:2px;border-radius:2px}
     .member-card{display:flex;align-items:center;gap:10px;min-width:170px}
     .member-avatar{position:relative;display:grid;place-items:center;width:40px;height:40px;flex:none;overflow:hidden;border:1px solid #9a792c;border-radius:50%;background:linear-gradient(145deg,#55151b,#211b12);color:#f1d27a;font-size:17px;font-weight:850}
     .member-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -394,7 +397,9 @@
         avatar.append(avatarFallback, avatarImage);
         const memberCopy = document.createElement('span');
         memberCopy.className = 'member-card-copy';
-        const memberName = document.createElement('strong');
+        const memberName = document.createElement('a');
+        memberName.className = 'member-name-link';
+        memberName.href = `/profile?user_id=${encodeURIComponent(r.user_id)}`;
         memberName.textContent = r.display_name || 'สมาชิก';
         if(r.fires?.rank === true){
           const rankFire = document.createElement('span');

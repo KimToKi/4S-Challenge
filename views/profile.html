@@ -254,6 +254,7 @@
     const memberSelect = document.getElementById('member');
     const periodSelect = document.getElementById('period-select');
     const activityDateSelect = document.getElementById('activity-date-select');
+    const requestedUserId = new URLSearchParams(window.location.search).get('user_id');
     const statusEl = document.getElementById('status');
     const profileEl = document.getElementById('profile');
     const activityEl = document.getElementById('activity');
@@ -692,7 +693,12 @@
         });
         periodSelect.value = monthsPayload.current;
         periodSelect.disabled = false;
-        showStatus(rows.length ? 'เลือกชื่อและช่วงคะแนนที่ต้องการดู' : 'ยังไม่มีคะแนนสะสมของสมาชิก');
+        if(requestedUserId && rows.some((row) => row.user_id === requestedUserId)){
+          memberSelect.value = requestedUserId;
+          await loadProfile();
+        }else{
+          showStatus(rows.length ? 'เลือกชื่อและช่วงคะแนนที่ต้องการดู' : 'ยังไม่มีคะแนนสะสมของสมาชิก');
+        }
       } catch(error) {
         console.error('Profile members load error:', error);
         memberSelect.disabled = true;

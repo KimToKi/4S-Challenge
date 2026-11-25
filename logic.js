@@ -746,6 +746,7 @@ async function monthlyMissionsHandler(req, res) {
     const fireHistory = getFireStatusesByDate(events, { getDateKey: localDateKey });
     const toCase = (event, index) => ({
       number: index + 1,
+      user_id: event.user_id,
       display_name: event.display_name || 'สมาชิก',
       rankFire: event.timestamp
         ? fireHistory.get(localDateKey(new Date(event.timestamp)))?.get(event.user_id)?.rank === true
